@@ -2,7 +2,13 @@
 
 namespace App\Providers;
 
+use App\Enums\Role;
+use App\Models\User;
 use App\Support\CurrentStore;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -21,6 +27,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // User は BelongsToStore を持たないため、{staff} は店舗と役割で明示して絞る。他店舗・owner は 404（06 §9）
+        Route::bind('staff', function (string $value): User {
+            return User::query()
+                ->where('store_id', app(CurrentStore::class)->requireId())
+                ->where('role', Role::Staff)
+                ->findOrFail((int) $value);
+        });
+
+        // 回数制限（06 §1.6）。login は AuthService で RateLimiter を直接使う（失敗だけ数えるため。04 §4.9）
+        RateLimiter::for('api', fn (Request $r) => Limit::perMinute(240)->by('u:'.$r->user()?->id));
+        RateLimiter::for('backup', fn (Request $r) => Limit::perMinute(1)->by('backup:'.$r->user()?->id));
+        RateLimiter::for('import', fn (Request $r) => Limit::perMinute(10)->by('import:'.$r->user()?->id));
     }
 }
