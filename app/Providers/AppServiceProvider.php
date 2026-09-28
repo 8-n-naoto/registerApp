@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Support\CurrentStore;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -27,6 +28,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // 06 の出力は data で包まない（ページングする logs だけは data / meta になる）
+        JsonResource::withoutWrapping();
+
         // User は BelongsToStore を持たないため、{staff} は店舗と役割で明示して絞る。他店舗・owner は 404（06 §9）
         Route::bind('staff', function (string $value): User {
             return User::query()

@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property string $password
  * @property bool $is_active
  * @property Carbon|null $last_login_at
+ * @property string|null $remember_token
  * @property-read Store|null $store
  */
 class User extends Authenticatable
