@@ -2,31 +2,43 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\Role;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
 
+/**
+ * 05 §3.2。BelongsToStore は付けない（ログインで全店舗から検索するため。staff の範囲は明示バインドで絞る）。
+ * role と store_id は $fillable に入れず、作成する処理が明示して設定する
+ *
+ * @property int $id
+ * @property int|null $store_id
+ * @property Role $role
+ * @property string $login_id
+ * @property string $name
+ * @property string $password
+ * @property bool $is_active
+ * @property Carbon|null $last_login_at
+ * @property-read Store|null $store
+ */
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory;
 
     /**
-     * The attributes that are mass assignable.
-     *
      * @var list<string>
      */
     protected $fillable = [
+        'login_id',
         'name',
-        'email',
         'password',
+        'is_active',
     ];
 
     /**
-     * The attributes that should be hidden for serialization.
-     *
      * @var list<string>
      */
     protected $hidden = [
@@ -35,15 +47,21 @@ class User extends Authenticatable
     ];
 
     /**
-     * Get the attributes that should be cast.
-     *
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
+            'role' => Role::class,
+            'is_active' => 'boolean',
+            'last_login_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /** @return BelongsTo<Store, $this> */
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(Store::class);
     }
 }
