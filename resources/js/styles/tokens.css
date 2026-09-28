@@ -1,0 +1,102 @@
+/* デザイントークン（docs/08 §2）。寸法と色は必ずここの変数を使う */
+:root {
+  /* 色（08 §2.1） */
+  --c-bg-top: #6F9BF2;
+  --c-bg-bottom: #2F63DB;
+  --c-wave-1: #5F8CEB;
+  --c-wave-2: #4A78E4;
+  --c-wave-3: #3A69DC;
+  --c-primary: #2F63DB;
+  --c-primary-press: #244FB3;
+  --c-card-bg: rgba(20, 50, 140, 0.30);
+  --c-card-border: rgba(255, 255, 255, 0.65);
+  --c-surface: #FFFFFF;
+  --c-surface-alt: #F3F6FC;
+  --c-text: #111827;
+  --c-text-sub: #4B5563;
+  --c-on-primary: #FFFFFF;
+  --c-money: #0F2E7A;
+  --c-change: #B45309;
+  --c-danger: #DC2626;
+  --c-danger-press: #B91C1C;
+  --c-success: #15803D;
+  --c-soldout: #9CA3AF;
+  --c-border: #D1D5DB;
+  --c-focus: #2563EB;
+
+  /* 商品ボタンのパレット（05 §5.4） */
+  --pc-gray-bg: #E5E7EB;   --pc-gray-fg: #111827;
+  --pc-red-bg: #FECACA;    --pc-red-fg: #7F1D1D;
+  --pc-orange-bg: #FED7AA; --pc-orange-fg: #7C2D12;
+  --pc-yellow-bg: #FEF08A; --pc-yellow-fg: #713F12;
+  --pc-green-bg: #BBF7D0;  --pc-green-fg: #14532D;
+  --pc-teal-bg: #99F6E4;   --pc-teal-fg: #134E4A;
+  --pc-blue-bg: #BFDBFE;   --pc-blue-fg: #1E3A8A;
+  --pc-indigo-bg: #C7D2FE; --pc-indigo-fg: #312E81;
+  --pc-purple-bg: #E9D5FF; --pc-purple-fg: #581C87;
+  --pc-pink-bg: #FBCFE8;   --pc-pink-fg: #831843;
+
+  /* 文字（08 §2.2。スマホの値。タブレットは下のメディアクエリで上書き） */
+  --font-sans: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  --fs-body: 16px;
+  --fs-home-title: 40px;
+  --fs-home-card: 26px;
+  --fs-home-btn: 18px;
+  --fs-heading: 22px;
+  --fs-product: 18px;
+  --fs-product-price: 18px;
+  --fs-order-line: 18px;
+  --fs-total: 40px;
+  --fs-change: 48px;
+  --fs-daily-total: 36px;
+
+  /* 大きさ（08 §2.3） */
+  --tap-min: 48px;
+  --btn-h: 56px;
+  --btn-h-lg: 64px;
+  --btn-h-confirm: 72px;
+  --product-min-h: 104px;
+  --product-gap: 8px;
+  --qty-btn: 48px;
+  --numpad-key: 64px;
+  --tab-h: 48px;
+  --header-h: 56px;
+  --radius: 12px;
+  --radius-card: 16px;
+  --gutter: 16px;
+
+  /* safe-area（04 §8） */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+/* タブレット：幅 768px 以上（08 §2.4。lib/breakpoint.ts と同じ値） */
+@media (min-width: 768px) {
+  :root {
+    --fs-body: 18px;
+    --fs-home-title: 88px;
+    --fs-home-card: 40px;
+    --fs-home-btn: 20px;
+    --fs-heading: 28px;
+    --fs-product: 20px;
+    --fs-product-price: 20px;
+    --fs-order-line: 20px;
+    --fs-total: 56px;
+    --fs-change: 64px;
+    --fs-daily-total: 48px;
+
+    --btn-h: 64px;
+    --btn-h-lg: 64px;
+    --btn-h-confirm: 80px;
+    --product-min-h: 112px;
+    --product-min-w: 140px;
+    --product-gap: 12px;
+    --qty-btn: 56px;
+    --numpad-key: 72px;
+    --tab-h: 56px;
+    --header-h: 64px;
+    --gutter: 32px;
+  }
+}
