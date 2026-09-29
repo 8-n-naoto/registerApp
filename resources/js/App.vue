@@ -7,11 +7,12 @@ import { applyUpdate, needRefresh } from '@/lib/pwa'
 
 const route = useRoute()
 // 会計中に勝手に再読み込みしないよう、S02 では更新のお知らせを出さない（08 §9）
-const showUpdate = computed(() => needRefresh.value && route.name !== 'register')
+// お客さんの画面（C01）は店員向けの帯を出さない（エラーは画面の中で出す）
+const showUpdate = computed(() => needRefresh.value && route.name !== 'register' && !route.meta.customer)
 </script>
 
 <template>
-  <NetworkErrorBar />
+  <NetworkErrorBar v-if="!route.meta.customer" />
   <div
     v-if="showUpdate"
     class="update-bar"

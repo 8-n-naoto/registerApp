@@ -185,6 +185,45 @@ export interface KitchenOrders {
   pending_count: number
 }
 
+/** 12 §4 お客さんの画面（C01）。在庫数・店員・内部 ID を含まない */
+export type NotAcceptingReason = 'disabled' | 'table_closed' | 'session_expired'
+export interface PublicMenuProduct {
+  id: number
+  category_id: number | null
+  name: string
+  memo: string | null
+  price: number
+  color: ProductColor
+  sold_out: boolean
+  options: { id: number; name: string; price: number }[]
+}
+export interface PublicMenu {
+  store_name: string
+  table_name: string
+  price_mode: PriceMode
+  accepting: boolean
+  not_accepting_reason: NotAcceptingReason | null
+  categories: { id: number; name: string }[]
+  products: PublicMenuProduct[]
+  limits: { max_items: number; max_quantity: number; max_orders_per_session: number }
+}
+export interface PublicOrderItem {
+  product_name: string
+  product_memo: string | null
+  quantity: number
+  line_total: number
+  memo: string | null
+  served: boolean
+  options: string[]
+}
+export interface PublicOrder {
+  order_no: number
+  status: OrderStatus
+  created_at: string
+  subtotal: number
+  items: PublicOrderItem[]
+}
+
 /** エラー応答の本文（06 §1.3） */
 export interface ApiErrorBody {
   message: string

@@ -10,6 +10,7 @@ declare module 'vue-router' {
     public?: boolean // ログインの有無に関係なく開ける
     guest?: boolean // 未ログインのときだけ開ける（ログイン済みなら役割のホームへ）
     roles?: Role[] // 開ける役割（省略時はログイン済みなら誰でも）
+    customer?: boolean // お客さんの画面（C01）。ログイン状態を調べない（GET /me を呼ばない）
   }
 }
 
@@ -34,6 +35,8 @@ const routes: RouteRecordRaw[] = [
   { path: '/settings/tables', name: 'settings-tables', component: () => import('@/pages/TablesPage.vue'), meta: { roles: ['owner'] } },
   { path: '/logs', name: 'logs', component: () => import('@/pages/AuditLogPage.vue'), meta: { roles: ['owner', 'admin'] } },
   { path: '/admin/stores', name: 'admin-stores', component: () => import('@/pages/AdminStoresPage.vue'), meta: { roles: ['admin'] } },
+  // 12 §8.9 C01：テーブルの QR から開く。ログイン不要
+  { path: '/t/:token', name: 'table-order', component: () => import('@/pages/TableOrderPage.vue'), meta: { public: true, customer: true } },
 ]
 
 if (import.meta.env.DEV) {
@@ -60,6 +63,7 @@ export const router = createRouter({
 
 // 08 §4：初回に GET /me を 1 回だけ呼ぶ。未ログインは /login?redirect=、役割が合わなければ役割のホームへ
 router.beforeEach(async (to) => {
+  if (to.meta.customer) return true // お客さんの端末ではログインの確認をしない
   const auth = useAuthStore()
   await auth.ensureLoaded()
 
