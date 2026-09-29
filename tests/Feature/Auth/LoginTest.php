@@ -123,6 +123,23 @@ class LoginTest extends TestCase
         }
     }
 
+    public function test_ログインを保持するを選ぶと30日のcookieを出し選ばなければ出さない(): void
+    {
+        $store = Store::factory()->create();
+        User::factory()->owner($store)->create(['login_id' => 'owner1']);
+        $this->travelTo(now()->setTimezone('Asia/Tokyo')->setDateTime(2026, 9, 29, 10, 0));
+
+        $res = $this->fromSpa()->postJson('/api/login', ['login_id' => 'owner1', 'password' => 'password', 'remember' => true])->assertOk();
+        $cookie = collect($res->headers->getCookies())->first(fn ($c) => str_starts_with($c->getName(), 'remember_web_'));
+        $this->assertNotNull($cookie);
+        $this->assertTrue($cookie->isHttpOnly());
+        $this->assertSame(now()->addDays(30)->getTimestamp(), $cookie->getExpiresTime());
+
+        $this->fromSpa()->postJson('/api/logout')->assertNoContent();
+        $res = $this->login('owner1')->assertOk();
+        $this->assertNull(collect($res->headers->getCookies())->first(fn ($c) => str_starts_with($c->getName(), 'remember_web_') && $c->getExpiresTime() > now()->getTimestamp()));
+    }
+
     public function test_停止中のアカウントと店舗はログインできない(): void
     {
         User::factory()->owner()->inactive()->create(['login_id' => 'stopped']);

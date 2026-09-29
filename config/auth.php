@@ -41,6 +41,8 @@ return [
         'web' => [
             'driver' => 'session',
             'provider' => 'users',
+            // 「ログインを保持する」の Cookie の有効期間（分）。02 §9.2 の 30 日（Laravel の既定は 400 日）
+            'remember' => 60 * 24 * 30,
         ],
     ],
 
