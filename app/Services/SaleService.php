@@ -5,9 +5,12 @@ namespace App\Services;
 use App\Enums\AuditAction;
 use App\Enums\DiscountType;
 use App\Enums\ErrorCode;
+use App\Enums\OrderStatus;
 use App\Enums\Role;
 use App\Enums\SaleStatus;
 use App\Exceptions\BusinessException;
+use App\Models\Order;
+use App\Models\OrderTable;
 use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\ProductOption;
@@ -27,6 +30,7 @@ use Illuminate\Support\Facades\DB;
  * 06 §4.2 会計の確定（07 §4 冪等・§5 在庫）。手順 1〜8 を 1 トランザクションで行う。
  * 会計の作成は操作ログに記録しない（06 §1.8。会計そのものが記録）。
  * 06 §4.4 会計の取消（07 §5.2 在庫の戻し）
+ * 12 §5.15・§5.16：注文から会計（order_ids）と、会計の取消での注文の紐づけの解除
  *
  * @phpstan-type SaleInput array{
  *     client_uuid: string,
@@ -39,6 +43,7 @@ use Illuminate\Support\Facades\DB;
  *     memo: string|null,
  *     device_name: string|null,
  *     expected_total: int,
+ *     order_ids: list<int>,
  * }
  */
 final class SaleService
@@ -100,6 +105,9 @@ final class SaleService
 
         // 手順 2
         [$taxType, $paymentMethod, $products, $options] = $this->loadMasters($store, $input);
+
+        // 手順 2b（12 §5.15）
+        $orders = $this->loadOrders($store, $input['order_ids']);
 
         // 手順 2a・3
         $pricingItems = [];
@@ -196,6 +204,11 @@ final class SaleService
                     'price' => $option->price,
                 ]);
             }
+        }
+
+        // 手順 6a・6b（12 §5.15）
+        if ($orders !== []) {
+            $this->linkOrders($store, $sale, $orders);
         }
 
         // 手順 7
@@ -336,6 +349,12 @@ final class SaleService
                 $this->restoreStock($store, $sale);
             }
 
+            // 12 §5.16：紐づく注文を未会計に戻す（テーブルは空席のまま）
+            $unlinked = Order::query()->where('store_id', $store->id)->where('sale_id', $sale->id)->update(['sale_id' => null]);
+            if ($unlinked > 0) {
+                Store::bumpOrderRev($store->id);
+            }
+
             // 手順 3
             $this->markClosingChanged($store, $sale->business_date);
 
@@ -350,6 +369,78 @@ final class SaleService
         });
 
         return $sale->load(Sale::WITH_ALL);
+    }
+
+    /**
+     * 12 §5.15 手順 2b：自店舗の範囲で取得。無い（他店舗を含む）→ 422、受付済み以外 → 409 ORDER_STATE_CONFLICT、
+     * 会計済み → 409 ORDER_ALREADY_PAID
+     *
+     * @param  list<int>  $orderIds
+     * @return list<Order>
+     */
+    private function loadOrders(Store $store, array $orderIds): array
+    {
+        if ($orderIds === []) {
+            return [];
+        }
+
+        $orders = Order::query()->where('store_id', $store->id)->whereKey($orderIds)->orderBy('id')->get();
+        $missing = array_values(array_diff($orderIds, $orders->modelKeys()));
+        if ($missing !== []) {
+            throw new BusinessException(
+                ErrorCode::ItemUnavailable,
+                '見つからない注文があります。画面を更新してください',
+                422,
+                details: ['order_ids' => $missing],
+            );
+        }
+        $notActive = $orders->first(fn (Order $o): bool => $o->status !== OrderStatus::Active);
+        if ($notActive !== null) {
+            throw new BusinessException(
+                ErrorCode::OrderStateConflict,
+                '取り消された注文か、確認待ちの注文が含まれています。画面を更新してください',
+                409,
+                details: ['status' => $notActive->status->value, 'order_ids' => [$notActive->id]],
+            );
+        }
+        $paid = $orders->filter(fn (Order $o): bool => $o->sale_id !== null)->modelKeys();
+        if ($paid !== []) {
+            throw new BusinessException(ErrorCode::OrderAlreadyPaid, '会計済みの注文が含まれています。画面を更新してください', 409, details: ['order_ids' => array_values($paid)]);
+        }
+
+        return array_values($orders->all());
+    }
+
+    /**
+     * 12 §5.15 手順 6a・6b：条件付き UPDATE で会計済みにし（同時に会計されたら 409 でロールバック）、
+     * 未会計の注文が残っていないテーブルを空席にする
+     *
+     * @param  list<Order>  $orders
+     */
+    private function linkOrders(Store $store, Sale $sale, array $orders): void
+    {
+        $ids = array_map(fn (Order $o): int => $o->id, $orders);
+        $updated = Order::query()
+            ->where('store_id', $store->id)
+            ->whereKey($ids)
+            ->where('status', OrderStatus::Active)
+            ->whereNull('sale_id')
+            ->update(['sale_id' => $sale->id]);
+        if ($updated !== count($ids)) {
+            throw new BusinessException(ErrorCode::OrderAlreadyPaid, '会計済みの注文が含まれています。画面を更新してください', 409, details: ['order_ids' => $ids]);
+        }
+
+        $tableIds = array_values(array_unique(array_filter(array_map(fn (Order $o): ?int => $o->order_table_id, $orders))));
+        if ($tableIds !== []) {
+            OrderTable::query()
+                ->where('store_id', $store->id)
+                ->whereKey($tableIds)
+                ->whereNotNull('opened_at')
+                ->whereDoesntHave('unpaidOrders')
+                ->update(['opened_at' => null]);
+        }
+
+        Store::bumpOrderRev($store->id);
     }
 
     /** 07 §5.2：明細の数量を商品ごとに合算し、現時点で在庫管理 ON かつ未削除の商品だけ戻す（上限なし） */

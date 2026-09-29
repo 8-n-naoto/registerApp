@@ -40,6 +40,9 @@ class SaleRequest extends FormRequest
             'memo' => ['nullable', 'string', 'max:200'],
             'device_name' => ['nullable', 'string', 'max:30'],
             'expected_total' => ['required', 'integer'],
+            // 12 §5.15：会計する注文。存在・状態は SaleService の手順 2b で見る
+            'order_ids' => ['nullable', 'array', 'max:20'],
+            'order_ids.*' => ['integer', 'distinct'],
         ];
     }
 
@@ -62,6 +65,8 @@ class SaleRequest extends FormRequest
             'memo' => 'メモ',
             'device_name' => '端末名',
             'expected_total' => '合計',
+            'order_ids' => '注文',
+            'order_ids.*' => '注文',
         ];
     }
 
@@ -79,6 +84,7 @@ class SaleRequest extends FormRequest
      *     memo: string|null,
      *     device_name: string|null,
      *     expected_total: int,
+     *     order_ids: list<int>,
      * }
      */
     public function saleInput(): array
@@ -111,6 +117,7 @@ class SaleRequest extends FormRequest
             'memo' => $this->filled('memo') ? $this->string('memo')->toString() : null,
             'device_name' => $this->filled('device_name') ? $this->string('device_name')->toString() : null,
             'expected_total' => $this->integer('expected_total'),
+            'order_ids' => array_map(intval(...), array_values((array) ($this->validated('order_ids') ?? []))),
         ];
     }
 }
