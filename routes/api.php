@@ -69,5 +69,11 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
         Route::post('/payment-methods', [Api\PaymentMethodController::class, 'store']);             // #35
         Route::put('/payment-methods/order', [Api\PaymentMethodController::class, 'reorder']);      // #37
         Route::put('/payment-methods/{paymentMethod}', [Api\PaymentMethodController::class, 'update'])->whereNumber('paymentMethod'); // #36
+
+        // スタッフ
+        Route::get('/staff', [Api\StaffController::class, 'index']);                                // #38
+        Route::post('/staff', [Api\StaffController::class, 'store']);                               // #39
+        Route::put('/staff/{staff}', [Api\StaffController::class, 'update'])->whereNumber('staff');               // #40
+        Route::put('/staff/{staff}/password', [Api\StaffController::class, 'updatePassword'])->whereNumber('staff'); // #41
     });
 });
