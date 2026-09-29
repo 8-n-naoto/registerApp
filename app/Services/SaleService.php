@@ -136,8 +136,10 @@ final class SaleService
             throw new BusinessException(ErrorCode::Validation, $e->getMessage(), 422, errors: ['received' => [$e->getMessage()]]);
         }
 
-        // 手順 5
-        $this->decrementStock($store, $input['items'], $products);
+        // 手順 5（店舗の在庫管理が ON のときだけ。12 §6.6）
+        if ($store->stock_enabled) {
+            $this->decrementStock($store, $input['items'], $products);
+        }
 
         // 手順 6
         $soldAt = CarbonImmutable::now(BusinessDate::TIMEZONE);
@@ -168,6 +170,7 @@ final class SaleService
             'status' => SaleStatus::Completed,
             'user_id' => $user->id,
             'device_name' => $input['device_name'],
+            'stock_applied' => $store->stock_enabled,
         ]);
         $sale->store_id = $store->id;
         $sale->save();
@@ -328,8 +331,10 @@ final class SaleService
             $sale->cancelled_by = $user->id;
             $sale->save();
 
-            // 手順 2
-            $this->restoreStock($store, $sale);
+            // 手順 2（確定時に在庫を減らした会計だけ。店舗の現在の設定ではなく会計の写しで決める。12 §6.6）
+            if ($sale->stock_applied) {
+                $this->restoreStock($store, $sale);
+            }
 
             // 手順 3
             $this->markClosingChanged($store, $sale->business_date);

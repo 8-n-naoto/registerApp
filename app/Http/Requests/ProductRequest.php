@@ -47,6 +47,8 @@ class ProductRequest extends FormRequest
             'color' => [$required, Rule::enum(ProductColor::class)],
             'is_active' => [$required, 'boolean'],
             'track_stock' => [$required, 'boolean'],
+            // 12 §3.7。導入前の画面との互換のため省略可（POST は表示、PUT は現在の値のまま）
+            'customer_visible' => ['sometimes', 'boolean'],
         ];
         if ($isCreate) {
             $rules['stock_qty'] = ['sometimes', 'integer', 'min:0', 'max:'.StockService::MAX_QTY];
@@ -67,6 +69,7 @@ class ProductRequest extends FormRequest
             'color' => '色',
             'is_active' => '販売中',
             'track_stock' => '在庫管理',
+            'customer_visible' => 'お客さんのメニューに出す',
             'stock_qty' => '在庫数',
         ];
     }
@@ -79,10 +82,10 @@ class ProductRequest extends FormRequest
         ];
     }
 
-    /** @return array{code: string, name: string, memo: string|null, price: int, category_id: int|null, color: string, is_active: bool, track_stock: bool} */
+    /** @return array{code: string, name: string, memo: string|null, price: int, category_id: int|null, color: string, is_active: bool, track_stock: bool, customer_visible?: bool} */
     public function productData(): array
     {
-        return [
+        $data = [
             'code' => $this->filled('code') ? $this->string('code')->toString() : '',
             'name' => $this->string('name')->toString(),
             'memo' => $this->filled('memo') ? $this->string('memo')->toString() : null,
@@ -92,6 +95,11 @@ class ProductRequest extends FormRequest
             'is_active' => $this->boolean('is_active', true),
             'track_stock' => $this->boolean('track_stock'),
         ];
+        if ($this->has('customer_visible')) {
+            $data['customer_visible'] = $this->boolean('customer_visible');
+        }
+
+        return $data;
     }
 
     public function stockQty(): int

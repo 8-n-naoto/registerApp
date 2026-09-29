@@ -49,6 +49,7 @@ class MeTest extends TestCase
                     'price_mode' => $store->price_mode->value,
                     'rounding' => $store->rounding->value,
                     'day_cutoff_time' => '04:00',
+                    'stock_enabled' => true,
                 ],
                 'current_business_date' => '2026-09-30',
             ]);

@@ -29,7 +29,7 @@ class StoreSettingsApiTest extends TestCase
      */
     private function payload(array $override = []): array
     {
-        return ['name' => '新しい店名', 'price_mode' => 'tax_excluded', 'rounding' => 'round', 'day_cutoff_time' => '05:30', ...$override];
+        return ['name' => '新しい店名', 'price_mode' => 'tax_excluded', 'rounding' => 'round', 'day_cutoff_time' => '05:30', 'stock_enabled' => false, ...$override];
     }
 
     public function test_取得は自店舗の設定と停止中を含む全件を並び順で返す(): void
@@ -47,7 +47,7 @@ class StoreSettingsApiTest extends TestCase
         $res->assertExactJson([
             'store' => [
                 'id' => $this->store->id, 'name' => 'テスト店', 'price_mode' => $this->store->price_mode->value,
-                'rounding' => $this->store->rounding->value, 'day_cutoff_time' => '00:00',
+                'rounding' => $this->store->rounding->value, 'day_cutoff_time' => '00:00', 'stock_enabled' => true,
             ],
             'tax_types' => [
                 ['id' => $res->json('tax_types.0.id'), 'name' => '店内', 'rate_permille' => 100, 'sort_order' => 1, 'is_default' => true, 'is_active' => true],
@@ -66,7 +66,7 @@ class StoreSettingsApiTest extends TestCase
             ->putJson('/api/settings/store', $this->payload(['store_id' => 999]))->assertOk()
             ->assertExactJson([
                 'id' => $this->store->id, 'name' => '新しい店名', 'price_mode' => 'tax_excluded',
-                'rounding' => 'round', 'day_cutoff_time' => '05:30',
+                'rounding' => 'round', 'day_cutoff_time' => '05:30', 'stock_enabled' => false,
             ]);
 
         $log = AuditLog::query()->withoutGlobalScopes()->where('action', 'store_settings_updated')->firstOrFail();
@@ -74,6 +74,8 @@ class StoreSettingsApiTest extends TestCase
         $this->assertSame('新しい店名', $log->after['name'] ?? null);
         $this->assertSame('05:30', $log->after['day_cutoff_time'] ?? null);
         $this->assertSame('テスト店', $log->before['name'] ?? null);
+        $this->assertTrue($log->before['stock_enabled'] ?? null);
+        $this->assertFalse($log->after['stock_enabled'] ?? null);
 
         $this->putJson('/api/settings/store', $this->payload())->assertOk();
         $this->assertSame(1, AuditLog::query()->withoutGlobalScopes()->where('action', 'store_settings_updated')->count());
@@ -84,7 +86,9 @@ class StoreSettingsApiTest extends TestCase
         $this->actingAs(User::factory()->owner($this->store)->create());
 
         $this->putJson('/api/settings/store', [])->assertUnprocessable()
-            ->assertJsonValidationErrors(['name', 'price_mode', 'rounding', 'day_cutoff_time']);
+            ->assertJsonValidationErrors(['name', 'price_mode', 'rounding', 'day_cutoff_time', 'stock_enabled']);
+        $this->putJson('/api/settings/store', $this->payload(['stock_enabled' => 'yes']))
+            ->assertUnprocessable()->assertJsonValidationErrors(['stock_enabled']);
         $this->putJson('/api/settings/store', $this->payload([
             'name' => str_repeat('あ', 101), 'price_mode' => 'x', 'rounding' => 'half',
         ]))->assertUnprocessable()->assertJsonValidationErrors(['name', 'price_mode', 'rounding']);

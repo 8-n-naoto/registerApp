@@ -21,7 +21,7 @@ vi.mock('@/api/settings', () => api)
 
 function bundle(): StoreSettingsBundle {
   return {
-    store: { id: 1, name: 'テスト店 A', price_mode: 'tax_included', rounding: 'floor', day_cutoff_time: '04:30' },
+    store: { id: 1, name: 'テスト店 A', price_mode: 'tax_included', rounding: 'floor', day_cutoff_time: '04:30', stock_enabled: true },
     tax_types: [
       { id: 1, name: '店内', rate_permille: 100, sort_order: 1, is_default: true, is_active: true },
       { id: 2, name: 'テイクアウト', rate_permille: 80, sort_order: 2, is_default: false, is_active: true },
@@ -70,10 +70,22 @@ describe('S09 店舗設定（08 §5.10）', () => {
     await w.find('form').trigger('submit')
     await flushPromises()
 
-    expect(api.updateStoreSettings).toHaveBeenCalledWith({ name: '新店名', price_mode: 'tax_excluded', rounding: 'floor', day_cutoff_time: '02:05' })
+    expect(api.updateStoreSettings).toHaveBeenCalledWith({ name: '新店名', price_mode: 'tax_excluded', rounding: 'floor', day_cutoff_time: '02:05', stock_enabled: true })
     expect(useAuthStore().me?.store?.name).toBe('新店名')
     expect(w.text()).toContain('保存しました')
     expect(w.text()).toContain('会計のときに消費税を足します')
+  })
+
+  it('AC-S09-5：在庫管理のスイッチを OFF にして保存する', async () => {
+    const w = await mountPage()
+    const box = w.findAll('input[type="checkbox"]').find((c) => c.element.parentElement?.textContent?.includes('在庫管理を使う'))
+    expect((box?.element as HTMLInputElement).checked).toBe(true)
+    api.updateStoreSettings.mockResolvedValue({ ...bundle().store, stock_enabled: false })
+    await box?.setValue(false)
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(api.updateStoreSettings).toHaveBeenCalledWith(expect.objectContaining({ stock_enabled: false }))
+    expect(useAuthStore().me?.store?.stock_enabled).toBe(false)
   })
 
   it('AC-S09-3：最後の有効な税区分は停止できず「1 つ以上必要です」', async () => {

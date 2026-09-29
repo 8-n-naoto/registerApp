@@ -67,6 +67,10 @@ export const AUDIT_ACTIONS = [
   'option_created', 'option_updated', 'option_deleted',
   'sale_cancelled', 'closing_saved', 'staff_created', 'staff_updated', 'staff_password_reset',
   'store_suspended', 'store_resumed', 'backup_downloaded',
+  // 12 §5.19（注文）
+  'order_created', 'order_accepted', 'order_cancelled',
+  'order_table_created', 'order_table_updated', 'order_table_deleted', 'order_table_token_regenerated',
+  'order_table_opened', 'order_table_closed', 'order_settings_updated',
 ] as const
 
 export type AuditActionCode = (typeof AUDIT_ACTIONS)[number]

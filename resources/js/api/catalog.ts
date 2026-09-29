@@ -12,6 +12,7 @@ export interface ProductInput {
   color: ProductColor
   is_active: boolean
   track_stock: boolean
+  customer_visible: boolean
 }
 
 export interface ProductCreateInput extends ProductInput {

@@ -2,7 +2,7 @@
 
 namespace App\Enums;
 
-/** 06 §2.6 の操作コード。表示名は action_label として返す */
+/** 06 §2.6・12 §5.19 の操作コード。表示名は action_label として返す */
 enum AuditAction: string
 {
     case LoginSucceeded = 'login_succeeded';
@@ -33,6 +33,18 @@ enum AuditAction: string
     case StoreSuspended = 'store_suspended';
     case StoreResumed = 'store_resumed';
     case BackupDownloaded = 'backup_downloaded';
+
+    // 12 §5.19（注文）
+    case OrderCreated = 'order_created';
+    case OrderAccepted = 'order_accepted';
+    case OrderCancelled = 'order_cancelled';
+    case OrderTableCreated = 'order_table_created';
+    case OrderTableUpdated = 'order_table_updated';
+    case OrderTableDeleted = 'order_table_deleted';
+    case OrderTableTokenRegenerated = 'order_table_token_regenerated';
+    case OrderTableOpened = 'order_table_opened';
+    case OrderTableClosed = 'order_table_closed';
+    case OrderSettingsUpdated = 'order_settings_updated';
 
     public function label(): string
     {
@@ -65,6 +77,16 @@ enum AuditAction: string
             self::StoreSuspended => '店舗の停止',
             self::StoreResumed => '店舗の再開',
             self::BackupDownloaded => 'バックアップ取得',
+            self::OrderCreated => 'お客さんの注文',
+            self::OrderAccepted => '注文の受付',
+            self::OrderCancelled => '注文の取消',
+            self::OrderTableCreated => 'テーブルの追加',
+            self::OrderTableUpdated => 'テーブルの変更',
+            self::OrderTableDeleted => 'テーブルの削除',
+            self::OrderTableTokenRegenerated => 'QR の作り直し',
+            self::OrderTableOpened => 'テーブルの利用開始',
+            self::OrderTableClosed => 'テーブルの利用終了',
+            self::OrderSettingsUpdated => '注文の設定の変更',
         };
     }
 }

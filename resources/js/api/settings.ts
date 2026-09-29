@@ -8,6 +8,7 @@ export interface StoreSettingsInput {
   price_mode: PriceMode
   rounding: Rounding
   day_cutoff_time: string
+  stock_enabled: boolean
 }
 
 export interface TaxTypeInput {

@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property bool $is_active
  * @property bool $track_stock
  * @property int $stock_qty
+ * @property bool $customer_visible
  */
 class Product extends Model
 {
@@ -42,6 +43,11 @@ class Product extends Model
     /** 商品コードに使える文字（正規化後。20 文字以内は検証側で見る） */
     public const CODE_PATTERN = '/^[A-Z0-9_-]+$/';
 
+    /** DB の既定値（12 §3.7） */
+    protected $attributes = [
+        'customer_visible' => true,
+    ];
+
     protected $fillable = [
         'category_id',
         'code',
@@ -53,6 +59,7 @@ class Product extends Model
         'is_active',
         'track_stock',
         'stock_qty',
+        'customer_visible',
     ];
 
     protected function casts(): array
@@ -64,6 +71,7 @@ class Product extends Model
             'is_active' => 'boolean',
             'track_stock' => 'boolean',
             'stock_qty' => 'integer',
+            'customer_visible' => 'boolean',
         ];
     }
 

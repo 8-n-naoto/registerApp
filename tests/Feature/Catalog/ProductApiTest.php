@@ -72,7 +72,7 @@ class ProductApiTest extends TestCase
             ->assertJsonPath('products.1.options.0.name', '大盛り')
             ->assertJsonPath('products.1.options.0.product_id', $b->id);
         $this->assertSame(
-            ['id', 'category_id', 'code', 'name', 'memo', 'price', 'color', 'sort_order', 'is_active', 'track_stock', 'stock_qty', 'options'],
+            ['id', 'category_id', 'code', 'name', 'memo', 'price', 'color', 'sort_order', 'is_active', 'track_stock', 'stock_qty', 'customer_visible', 'options'],
             array_keys($res->json('products.0')),
         );
     }
@@ -240,6 +240,29 @@ class ProductApiTest extends TestCase
         $log = $this->audit('product_updated');
         $this->assertSame(['name' => '旧'], $log->before);
         $this->assertSame(['name' => '新'], $log->after);
+    }
+
+    public function test_お客さんのメニューに出すかは省略すると登録は表示で更新は現在の値のまま(): void
+    {
+        $this->actingAs($this->owner);
+        $id = (int) $this->postJson('/api/products', $this->payload())->assertCreated()
+            ->assertJsonPath('customer_visible', true)->json('id');
+        $code = (string) Product::query()->whereKey($id)->value('code');
+
+        $this->putJson("/api/products/{$id}", $this->payload(['code' => $code, 'customer_visible' => false]))
+            ->assertOk()->assertJsonPath('customer_visible', false);
+        $log = $this->audit('product_updated');
+        $this->assertSame(['customer_visible' => true], $log->before);
+        $this->assertSame(['customer_visible' => false], $log->after);
+
+        $this->putJson("/api/products/{$id}", $this->payload(['code' => $code, 'name' => '紅茶']))
+            ->assertOk()->assertJsonPath('customer_visible', false);
+        $this->putJson("/api/products/{$id}", $this->payload(['code' => $code, 'customer_visible' => 'x']))
+            ->assertUnprocessable()->assertJsonValidationErrors(['customer_visible']);
+
+        $hidden = (int) $this->postJson('/api/products', $this->payload(['customer_visible' => false]))->assertCreated()
+            ->assertJsonPath('customer_visible', false)->json('id');
+        $this->assertFalse(Product::query()->findOrFail($hidden)->customer_visible);
     }
 
     public function test_カテゴリを変えると移動先の末尾に並ぶ(): void

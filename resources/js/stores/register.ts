@@ -180,7 +180,8 @@ export const useRegisterStore = defineStore('register', () => {
     try {
       const previous = products.value
       const data = await fetchBootstrap()
-      bootstrap.value = data
+      // 店舗の在庫管理が OFF（12 §6.6）：どの商品も在庫管理 OFF として扱い、売切・残数・在庫による数量の制限を出さない
+      bootstrap.value = data.store.stock_enabled ? data : { ...data, products: data.products.map((p) => ({ ...p, track_stock: false })) }
       if (restoredFor !== data.store.id) {
         // 別の店舗でログインし直した：前の店舗の注文を持ち越さない
         taxTypeId.value = null

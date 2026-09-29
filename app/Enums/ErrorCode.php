@@ -2,7 +2,7 @@
 
 namespace App\Enums;
 
-/** 06 §1.3 のエラーの code */
+/** 06 §1.3・12 §5.18 のエラーの code */
 enum ErrorCode: string
 {
     case Validation = 'VALIDATION';
@@ -16,4 +16,11 @@ enum ErrorCode: string
     case CancelNotAllowed = 'CANCEL_NOT_ALLOWED';
     case ImportInvalid = 'IMPORT_INVALID';
     case TooManyAttempts = 'TOO_MANY_ATTEMPTS';
+
+    // 12 §5.18（注文）
+    case OrderNotAccepting = 'ORDER_NOT_ACCEPTING';
+    case OrderStateConflict = 'ORDER_STATE_CONFLICT';
+    case OrderAlreadyPaid = 'ORDER_ALREADY_PAID';
+    case TableHasUnpaidOrders = 'TABLE_HAS_UNPAID_ORDERS';
+    case OrderLimitExceeded = 'ORDER_LIMIT_EXCEEDED';
 }

@@ -24,7 +24,7 @@ final class ProductService
     public function __construct(private readonly AuditLogger $audit) {}
 
     /**
-     * @param  array{code: string, name: string, memo: string|null, price: int, category_id: int|null, color: string, is_active: bool, track_stock: bool, stock_qty: int}  $data
+     * @param  array{code: string, name: string, memo: string|null, price: int, category_id: int|null, color: string, is_active: bool, track_stock: bool, customer_visible?: bool, stock_qty: int}  $data
      */
     public function create(array $data): Product
     {
@@ -46,7 +46,7 @@ final class ProductService
     /**
      * 全項目の置き換え（在庫数を除く）。カテゴリを変えた場合は移動先の末尾に並べる
      *
-     * @param  array{code: string, name: string, memo: string|null, price: int, category_id: int|null, color: string, is_active: bool, track_stock: bool}  $data
+     * @param  array{code: string, name: string, memo: string|null, price: int, category_id: int|null, color: string, is_active: bool, track_stock: bool, customer_visible?: bool}  $data
      */
     public function update(Product $product, array $data): Product
     {
@@ -157,6 +157,7 @@ final class ProductService
             'color' => $product->color->value,
             'is_active' => $product->is_active,
             'track_stock' => $product->track_stock,
+            'customer_visible' => $product->customer_visible,
             'stock_qty' => $product->stock_qty,
         ];
     }

@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * 06 §2.1 StoreSettings
+ * 06 §2.1 StoreSettings（stock_enabled は 12 §4）
  *
  * @mixin Store
  */
@@ -22,6 +22,7 @@ class StoreSettingsResource extends JsonResource
             'price_mode' => $this->price_mode->value,
             'rounding' => $this->rounding->value,
             'day_cutoff_time' => substr($this->day_cutoff_time, 0, 5),
+            'stock_enabled' => $this->stock_enabled,
         ];
     }
 }

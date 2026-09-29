@@ -14,7 +14,7 @@ final class StoreSettingsService
     /**
      * 締め時刻の変更は過去の会計の営業日に影響しない（会計に business_date を持つため。07 §3）
      *
-     * @param  array{name: string, price_mode: string, rounding: string, day_cutoff_time: string}  $data
+     * @param  array{name: string, price_mode: string, rounding: string, day_cutoff_time: string, stock_enabled: bool}  $data
      */
     public function update(Store $store, array $data): Store
     {

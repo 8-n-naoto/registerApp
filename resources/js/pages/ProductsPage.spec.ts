@@ -31,7 +31,7 @@ vi.mock('@/api/catalog', () => api)
 function product(id: number, name: string, categoryId: number | null, extra: Partial<Product> = {}): Product {
   return {
     id, code: `P000${id}`, name, memo: null, category_id: categoryId, price: 400, color: 'gray', sort_order: id,
-    is_active: true, track_stock: false, stock_qty: 0, options: [], ...extra,
+    is_active: true, track_stock: false, stock_qty: 0, customer_visible: true, options: [], ...extra,
   }
 }
 
@@ -148,6 +148,29 @@ describe('S08 商品管理（08 §5.9）', () => {
     expect(document.querySelector('#stock-value')).toBeNull()
   })
 
+  it('店舗の在庫管理が OFF なら、在庫管理 ON の商品の編集に「会計で在庫は減りません」を出す', async () => {
+    await mountPage()
+    const me = useAuthStore().me
+    if (me?.store) useAuthStore().me = { ...me, store: { ...me.store, stock_enabled: false } }
+    ;[...document.querySelectorAll<HTMLElement>('.items__btn')][1]?.click() // 紅茶（在庫管理 ON）
+    await flushPromises()
+    expect(document.body.textContent).toContain('店舗設定で在庫管理が OFF のため、会計で在庫は減りません')
+    expect(document.querySelector('#stock-value')).not.toBeNull()
+  })
+
+  it('お客さんのメニューに出すかを編集して送る', async () => {
+    await mountPage()
+    ;[...document.querySelectorAll<HTMLElement>('.items__btn')][1]?.click()
+    await flushPromises()
+    expect(document.body.textContent).not.toContain('会計で在庫は減りません')
+    const check = [...document.querySelectorAll<HTMLLabelElement>('.adm-check')].find((l) => l.textContent?.includes('お客さんのメニューに出す'))
+    check?.querySelector('input')?.click()
+    api.updateProduct.mockImplementation((_id: number, input: object) => Promise.resolve(product(2, '紅茶', 10, { track_stock: true, stock_qty: 5, ...input })))
+    check?.querySelector('input')?.form?.dispatchEvent(new Event('submit'))
+    await flushPromises()
+    expect(api.updateProduct).toHaveBeenCalledWith(2, expect.objectContaining({ customer_visible: false }))
+  })
+
   it('在庫の入荷は add で送り、表示を更新する', async () => {
     await mountPage()
     ;[...document.querySelectorAll<HTMLElement>('.items__btn')][1]?.click()
@@ -182,7 +205,7 @@ describe('S08 商品管理（08 §5.9）', () => {
     await flushPromises()
 
     expect(api.createProduct).toHaveBeenCalledWith({
-      code: '', name: 'パン', memo: null, price: 1200, category_id: 20, color: 'gray', is_active: true, track_stock: false, stock_qty: 0,
+      code: '', name: 'パン', memo: null, price: 1200, category_id: 20, color: 'gray', is_active: true, track_stock: false, customer_visible: true, stock_qty: 0,
     })
     expect(names()).toContain('パン')
   })

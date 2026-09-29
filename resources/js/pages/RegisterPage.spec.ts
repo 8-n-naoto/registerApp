@@ -108,6 +108,20 @@ describe('S02 会計（08 §5.3）', () => {
     expect(tile(1).disabled).toBe(false)
   })
 
+  it('AC-S02-18：在庫管理 OFF の店舗では売切・残数を出さず、在庫 0 の商品も足せる', async () => {
+    const base = makeBootstrap()
+    api.fetchBootstrap.mockResolvedValue(makeBootstrap({
+      store: { ...base.store, stock_enabled: false },
+      products: [makeProduct(2, 'ケーキ', { price: 380, track_stock: true, stock_qty: 0 })],
+    }))
+    await mountPage()
+    expect(tile(2).textContent).not.toContain('売切')
+    expect(tile(2).textContent).not.toContain('残')
+    for (let i = 0; i < 3; i++) await click(tile(2))
+    expect(lines()).toEqual([['ケーキ', '3']])
+    expect(tile(2).disabled).toBe(false)
+  })
+
   it('AC-S02-5・6：現金 ¥1,000・合計 ¥780 でお釣り ¥220、［確定］の連打でも 1 件', async () => {
     await mountPage()
     await click(tile(1))

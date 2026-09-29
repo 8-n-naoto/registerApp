@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\OrderTable;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\User;
@@ -26,7 +27,8 @@ class SchemaTest extends TestCase
 
         $this->assertSame([
             'audit_logs', 'cache', 'cache_locks', 'categories', 'failed_jobs', 'job_batches', 'jobs',
-            'migrations', 'payment_methods', 'product_options', 'products', 'register_closings',
+            'migrations', 'order_item_options', 'order_items', 'order_tables', 'orders',
+            'payment_methods', 'product_options', 'products', 'register_closings',
             'sale_item_options', 'sale_items', 'sales', 'sessions', 'stores', 'tax_types', 'users',
         ], $tables);
     }
@@ -44,6 +46,9 @@ class SchemaTest extends TestCase
                 ['price_mode', false, 'tax_included'], ['rounding', false, 'floor'],
                 ['day_cutoff_time', false, '00:00'], ['initialized_at', true, null],
                 ['created_at', true, null], ['updated_at', true, null],
+                ['stock_enabled', false, '1'], ['customer_order_enabled', false, '0'],
+                ['customer_order_approval', false, '0'], ['customer_session_minutes', false, '180'],
+                ['polling_mode', false, 'always'], ['polling_windows', true, null], ['order_rev', false, '0'],
             ]],
             'users' => ['users', [
                 ['id', false, null], ['store_id', true, null], ['role', false, null], ['login_id', false, null],
@@ -70,7 +75,7 @@ class SchemaTest extends TestCase
                 ['price', false, null], ['color', false, 'gray'], ['sort_order', false, '0'],
                 ['is_active', false, '1'], ['track_stock', false, '0'], ['stock_qty', false, '0'],
                 ['created_at', true, null], ['updated_at', true, null], ['deleted_at', true, null],
-                ['code', false, ''], ['memo', true, null],
+                ['code', false, ''], ['memo', true, null], ['customer_visible', false, '1'],
             ]],
             'product_options' => ['product_options', [
                 ['id', false, null], ['store_id', false, null], ['product_id', false, null], ['name', false, null],
@@ -88,6 +93,7 @@ class SchemaTest extends TestCase
                 ['customer_count', true, null], ['memo', true, null], ['status', false, 'completed'],
                 ['cancelled_at', true, null], ['cancelled_by', true, null], ['user_id', false, null],
                 ['device_name', true, null], ['created_at', true, null], ['updated_at', true, null],
+                ['stock_applied', false, '1'],
             ]],
             'sale_items' => ['sale_items', [
                 ['id', false, null], ['sale_id', false, null], ['product_id', false, null],
@@ -105,6 +111,33 @@ class SchemaTest extends TestCase
                 ['counted_cash', false, null], ['difference', false, null], ['memo', true, null],
                 ['changed_after_close', false, '0'], ['user_id', false, null],
                 ['created_at', true, null], ['updated_at', true, null],
+            ]],
+            // 12 §3.3〜§3.6（docs/sql/0002_orders.sql）
+            'order_tables' => ['order_tables', [
+                ['id', false, null], ['store_id', false, null], ['name', false, null], ['sort_order', false, '0'],
+                ['is_active', false, '1'], ['token_hash', false, null], ['token_encrypted', false, null],
+                ['token_rotated_at', false, null], ['opened_at', true, null],
+                ['created_at', true, null], ['updated_at', true, null], ['deleted_at', true, null],
+            ]],
+            'orders' => ['orders', [
+                ['id', false, null], ['store_id', false, null], ['client_uuid', false, null],
+                ['business_date', false, null], ['order_no', false, null], ['source', false, null],
+                ['order_table_id', true, null], ['table_name', true, null], ['label', true, null],
+                ['status', false, null], ['note', true, null], ['subtotal', false, null], ['served_at', true, null],
+                ['sale_id', true, null], ['user_id', true, null], ['accepted_at', true, null], ['accepted_by', true, null],
+                ['cancelled_at', true, null], ['cancelled_by', true, null], ['device_name', true, null],
+                ['created_at', true, null], ['updated_at', true, null],
+            ]],
+            'order_items' => ['order_items', [
+                ['id', false, null], ['order_id', false, null], ['product_id', false, null],
+                ['product_code', false, null], ['product_name', false, null], ['product_memo', true, null],
+                ['unit_price', false, null], ['options_price', false, '0'], ['quantity', false, null],
+                ['line_total', false, null], ['memo', true, null], ['served_at', true, null], ['served_by', true, null],
+                ['sort_order', false, '0'], ['created_at', true, null], ['updated_at', true, null],
+            ]],
+            'order_item_options' => ['order_item_options', [
+                ['id', false, null], ['order_item_id', false, null], ['product_option_id', false, null],
+                ['option_name', false, null], ['price', false, null],
             ]],
             'audit_logs' => ['audit_logs', [
                 ['id', false, null], ['store_id', true, null], ['user_id', true, null], ['action', false, null],
@@ -157,6 +190,17 @@ class SchemaTest extends TestCase
             'sale_item_options_sale_item_id_index',
             'register_closings_store_id_business_date_unique',
             'audit_logs_store_id_created_at_index',
+            'order_tables_token_hash_unique',
+            'order_tables_store_id_sort_order_index',
+            'order_tables_store_id_name_unique',
+            'orders_store_id_client_uuid_unique',
+            'orders_store_id_business_date_order_no_unique',
+            'orders_store_id_status_served_at_index',
+            'orders_store_id_sale_id_index',
+            'orders_order_table_id_created_at_index',
+            'order_items_order_id_index',
+            'order_items_product_id_index',
+            'order_item_options_order_item_id_index',
         ] as $name) {
             $this->assertContains($name, $indexes);
         }
@@ -222,5 +266,43 @@ class SchemaTest extends TestCase
 
         $this->expectException(QueryException::class);
         DB::table('sales')->insert($row);
+    }
+
+    public function test_注文の設定の_check_が効く(): void
+    {
+        $store = Store::factory()->create();
+
+        $this->expectException(QueryException::class);
+        DB::table('stores')->where('id', $store->id)->update(['polling_mode' => 'hourly']);
+    }
+
+    public function test_受付時間は_30_から_720_分(): void
+    {
+        $store = Store::factory()->create();
+
+        $this->expectException(QueryException::class);
+        DB::table('stores')->where('id', $store->id)->update(['customer_session_minutes' => 29]);
+    }
+
+    public function test_同じ店舗の削除されていないテーブル名は一意(): void
+    {
+        $store = Store::factory()->create();
+        $first = OrderTable::factory()->for($store)->create(['name' => '1 番']);
+        $first->delete();
+        OrderTable::factory()->for($store)->create(['name' => '1 番']); // 削除済みとは重ねてよい
+
+        $this->expectException(QueryException::class);
+        OrderTable::factory()->for($store)->create(['name' => '1 番']);
+    }
+
+    public function test_注文の状態は_3_種類(): void
+    {
+        $store = Store::factory()->create();
+
+        $this->expectException(QueryException::class);
+        DB::table('orders')->insert([
+            'store_id' => $store->id, 'client_uuid' => '11111111-1111-4111-8111-111111111111',
+            'business_date' => '2026-09-30', 'order_no' => 1, 'source' => 'staff', 'status' => 'done', 'subtotal' => 0,
+        ]);
     }
 }

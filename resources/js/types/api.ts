@@ -21,6 +21,7 @@ export interface StoreSettings {
   price_mode: PriceMode
   rounding: Rounding
   day_cutoff_time: string      // 'HH:MM'
+  stock_enabled: boolean       // 12 §6.6：false なら会計で在庫を減らさず、売切・残数を出さない
 }
 
 export interface Me {
@@ -45,6 +46,7 @@ export interface Product {
   is_active: boolean
   track_stock: boolean
   stock_qty: number
+  customer_visible: boolean    // 12 §3.7：お客さんのメニュー（C01）に出すか
   options: ProductOption[]
 }
 

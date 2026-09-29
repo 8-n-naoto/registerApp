@@ -9,11 +9,15 @@ import { fmt, ja } from '@/i18n/ja'
 import { errorBody, errorStatus, fieldErrors, isNetworkError } from '@/lib/apiError'
 import { parseNonNegativeInt } from '@/lib/numberInput'
 import { PRODUCT_COLORS } from '@/lib/productColors'
+import { useAuthStore } from '@/stores/auth'
 import type { Category, Product, ProductColor, ProductOption } from '@/types/api'
 
 const PRICE_MAX = 9_999_999
 const STOCK_MAX = 999_999
 const t = ja.products
+const auth = useAuthStore()
+/** 店舗の在庫管理（12 §6.6）。OFF でも在庫の欄は編集できるが、会計で減らないことを知らせる */
+const stockEnabled = computed(() => auth.me?.store?.stock_enabled ?? true)
 
 const props = defineProps<{
   product: Product | null // null は新規
@@ -34,6 +38,7 @@ const categoryId = ref<number | null>(props.product ? props.product.category_id 
 const color = ref<ProductColor>(props.product?.color ?? 'gray')
 const isActive = ref(props.product?.is_active ?? true)
 const trackStock = ref(props.product?.track_stock ?? false)
+const customerVisible = ref(props.product?.customer_visible ?? true)
 const initialStock = ref('0')
 const options = ref<ProductOption[]>(props.product ? [...props.product.options] : [])
 
@@ -78,6 +83,7 @@ async function save(): Promise<void> {
       color: color.value,
       is_active: isActive.value,
       track_stock: trackStock.value,
+      customer_visible: customerVisible.value,
     }
     const saved = current.value
       ? await updateProduct(current.value.id, input)
@@ -351,6 +357,27 @@ async function confirmDelete(): Promise<void> {
               class="adm-help"
             >
               {{ t.trackStockHelp }}
+            </p>
+            <p
+              v-if="trackStock && !stockEnabled"
+              class="adm-help"
+              role="note"
+            >
+              {{ t.stockDisabledNotice }}
+            </p>
+          </div>
+
+          <div class="adm-field">
+            <label class="adm-check"><input
+              v-model="customerVisible"
+              type="checkbox"
+              aria-describedby="customer-visible-help"
+            >{{ t.customerVisible }}</label>
+            <p
+              id="customer-visible-help"
+              class="adm-help"
+            >
+              {{ t.customerVisibleHelp }}
             </p>
           </div>
 

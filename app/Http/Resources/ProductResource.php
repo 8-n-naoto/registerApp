@@ -28,6 +28,7 @@ class ProductResource extends JsonResource
             'is_active' => $this->is_active,
             'track_stock' => $this->track_stock,
             'stock_qty' => $this->stock_qty,
+            'customer_visible' => $this->customer_visible,
             'options' => ProductOptionResource::collection($this->whenLoaded('options', fn () => $this->options, [])),
         ];
     }

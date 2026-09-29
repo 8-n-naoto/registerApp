@@ -44,6 +44,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $cancelled_by
  * @property int $user_id
  * @property string|null $device_name
+ * @property bool $stock_applied 在庫の減算を行ったか（確定時点の stores.stock_enabled の写し。12 §6.6）
  */
 class Sale extends Model
 {
@@ -79,6 +80,7 @@ class Sale extends Model
         'cancelled_by',
         'user_id',
         'device_name',
+        'stock_applied',
     ];
 
     protected function casts(): array
@@ -100,6 +102,7 @@ class Sale extends Model
             'customer_count' => 'integer',
             'status' => SaleStatus::class,
             'cancelled_at' => 'datetime',
+            'stock_applied' => 'boolean',
         ];
     }
 

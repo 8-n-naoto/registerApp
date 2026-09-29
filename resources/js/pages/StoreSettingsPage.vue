@@ -37,6 +37,7 @@ const priceMode = ref<PriceMode>('tax_included')
 const rounding = ref<Rounding>('floor')
 const cutoffHour = ref('00')
 const cutoffMinute = ref('00')
+const stockEnabled = ref(true)
 const taxTypes = ref<TaxType[]>([])
 const paymentMethods = ref<PaymentMethod[]>([])
 
@@ -56,6 +57,7 @@ async function load(): Promise<void> {
     const [h = '00', m = '00'] = data.store.day_cutoff_time.split(':')
     cutoffHour.value = h
     cutoffMinute.value = m
+    stockEnabled.value = data.store.stock_enabled
     taxTypes.value = data.tax_types
     paymentMethods.value = data.payment_methods
   } catch (err) {
@@ -77,6 +79,7 @@ async function saveStore(): Promise<void> {
       price_mode: priceMode.value,
       rounding: rounding.value,
       day_cutoff_time: `${cutoffHour.value}:${cutoffMinute.value}`,
+      stock_enabled: stockEnabled.value,
     })
     name.value = store.name
     if (auth.me) auth.me = { ...auth.me, store }
@@ -225,6 +228,26 @@ onMounted(load)
                 {{ errors.day_cutoff_time }}
               </p>
             </fieldset>
+
+            <div class="adm-field">
+              <label class="adm-check"><input
+                v-model="stockEnabled"
+                type="checkbox"
+                aria-describedby="stock-enabled-help"
+              >{{ t.stockEnabled }}</label>
+              <p
+                id="stock-enabled-help"
+                class="adm-help"
+              >
+                {{ t.stockEnabledHelp }}
+              </p>
+              <p
+                v-if="errors.stock_enabled"
+                class="adm-error"
+              >
+                {{ errors.stock_enabled }}
+              </p>
+            </div>
 
             <p
               v-if="saved"
