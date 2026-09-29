@@ -10,6 +10,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
@@ -31,6 +32,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'account.active' => EnsureAccountActive::class, // 06 §1.5
             'role' => EnsureRole::class,                    // role:owner,staff
         ]);
+
+        // 07 §11.1：停止中・役割の判定をルートモデルバインディングより先に行う
+        // （役割が合わない利用者には、他店舗の ID でも 404 ではなく 403 を返す）
+        $middleware->prependToPriorityList(SubstituteBindings::class, EnsureAccountActive::class);
+        $middleware->prependToPriorityList(SubstituteBindings::class, EnsureRole::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $isApi = fn (Request $request): bool => $request->is('api/*') || $request->expectsJson();

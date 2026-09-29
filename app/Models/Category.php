@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $store_id
  * @property string $name
  * @property int $sort_order
+ * @property int|null $products_count withCount('products') の結果
  */
 class Category extends Model
 {

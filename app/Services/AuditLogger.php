@@ -65,4 +65,16 @@ final class AuditLogger
 
         return [Arr::only($original, $keys), Arr::only($changes, $keys)];
     }
+
+    /**
+     * 保存後のモデルから、変更のあった項目の前後を型変換（真偽値・列挙型など）後の値で取り出す。
+     * 保存の前に $model->attributesToArray() を控えておき、$before として渡す。
+     *
+     * @param  array<string, mixed>  $before
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>}
+     */
+    public static function diffModel(array $before, Model $model): array
+    {
+        return self::diff($before, Arr::only($model->attributesToArray(), array_keys($model->getChanges())));
+    }
 }
