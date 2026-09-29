@@ -24,17 +24,17 @@ function mountAs(role: Role) {
 }
 
 describe('S00 ホーム（08 §5.2）', () => {
-  it('owner はカード 4 枚とボタン 10 個', () => {
+  it('owner はカード 5 枚とボタン 13 個', () => {
     const w = mountAs('owner')
-    expect(w.findAll('.home-card__title').map((e) => e.text())).toEqual(['レジ操作', '商品管理', '売上管理', '設定'])
-    expect(w.findAll('.home-card__btn')).toHaveLength(10)
+    expect(w.findAll('.home-card__title').map((e) => e.text())).toEqual(['レジ操作', '注文', '商品管理', '売上管理', '設定'])
+    expect(w.findAll('.home-card__btn')).toHaveLength(13)
   })
 
-  it('AC-S00-2：staff はレジ操作・売上管理の 2 枚で、売上管理は売上確認・レジ締めのみ', () => {
+  it('AC-S00-2：staff はレジ操作・注文・売上管理の 3 枚で、売上管理は売上確認・レジ締めのみ', () => {
     const w = mountAs('staff')
     const cards = w.findAll('.home-card')
-    expect(cards.map((c) => c.find('.home-card__title').text())).toEqual(['レジ操作', '売上管理'])
-    expect(cards[1]?.findAll('.home-card__btn').map((b) => b.text())).toEqual(['売上確認', 'レジ締め'])
+    expect(cards.map((c) => c.find('.home-card__title').text())).toEqual(['レジ操作', '注文', '売上管理'])
+    expect(cards[2]?.findAll('.home-card__btn').map((b) => b.text())).toEqual(['売上確認', 'レジ締め'])
   })
 
   it('AC-S00-6：店舗名と営業日を出す', () => {

@@ -19,6 +19,15 @@ const BOTH: Role[] = ['owner', 'staff']
 const allCards: HomeCard[] = [
   { key: 'register', title: ja.home.card.register, links: [{ label: ja.home.btn.checkout, to: '/register', roles: BOTH }] },
   {
+    key: 'orders',
+    title: ja.home.card.orders,
+    links: [
+      { label: ja.home.btn.orderNew, to: '/orders/new', roles: BOTH },
+      { label: ja.home.btn.kitchen, to: '/kitchen', roles: BOTH },
+      { label: ja.home.btn.orders, to: '/orders', roles: BOTH },
+    ],
+  },
+  {
     key: 'products',
     title: ja.home.card.products,
     links: [
@@ -49,7 +58,7 @@ const allCards: HomeCard[] = [
 
 const auth = useAuthStore()
 
-// ボタンが 1 つも残らないカードは出さない（staff は 2 枚：AC-S00-2）
+// ボタンが 1 つも残らないカードは出さない（staff は 3 枚：AC-S00-2 に注文のカードを足した。12 §8.1）
 const cards = computed(() => {
   const role = auth.role
   if (!role) return []
