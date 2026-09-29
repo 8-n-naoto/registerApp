@@ -18,6 +18,8 @@ const routes: RouteRecordRaw[] = [
   // S00 は初回のバンドルに含める（08 §4）
   { path: '/', name: 'home', component: HomePage, meta: { roles: ['owner', 'staff'] } },
   { path: '/account', name: 'account', component: () => import('@/pages/AccountPage.vue') },
+  { path: '/products', name: 'products', component: () => import('@/pages/ProductsPage.vue'), meta: { roles: ['owner'] } },
+  { path: '/settings/store', name: 'settings-store', component: () => import('@/pages/StoreSettingsPage.vue'), meta: { roles: ['owner'] } },
   { path: '/admin/stores', name: 'admin-stores', component: () => import('@/pages/AdminStoresPage.vue'), meta: { roles: ['admin'] } },
 ]
 

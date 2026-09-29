@@ -1,0 +1,132 @@
+import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
+import type { StoreSettingsBundle } from '@/api/settings'
+import StoreSettingsPage from '@/pages/StoreSettingsPage.vue'
+import { useAuthStore } from '@/stores/auth'
+import { apiError, makeMe } from '@/test/helpers'
+
+const api = vi.hoisted(() => ({
+  fetchStoreSettings: vi.fn(),
+  updateStoreSettings: vi.fn(),
+  createTaxType: vi.fn(),
+  updateTaxType: vi.fn(),
+  reorderTaxTypes: vi.fn(),
+  createPaymentMethod: vi.fn(),
+  updatePaymentMethod: vi.fn(),
+  reorderPaymentMethods: vi.fn(),
+}))
+vi.mock('@/api/settings', () => api)
+
+function bundle(): StoreSettingsBundle {
+  return {
+    store: { id: 1, name: 'テスト店 A', price_mode: 'tax_included', rounding: 'floor', day_cutoff_time: '04:30' },
+    tax_types: [
+      { id: 1, name: '店内', rate_permille: 100, sort_order: 1, is_default: true, is_active: true },
+      { id: 2, name: 'テイクアウト', rate_permille: 80, sort_order: 2, is_default: false, is_active: true },
+    ],
+    payment_methods: [{ id: 1, name: '現金', is_cash: true, sort_order: 1, is_active: true }],
+  }
+}
+
+async function mountPage() {
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  useAuthStore().me = makeMe('owner')
+  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/', name: 'home', component: StoreSettingsPage }] })
+  const w = mount(StoreSettingsPage, { global: { plugins: [pinia, router] }, attachTo: document.body })
+  await flushPromises()
+  return w
+}
+
+describe('S09 店舗設定（08 §5.10）', () => {
+  beforeEach(() => {
+    for (const fn of Object.values(api)) fn.mockReset()
+    api.fetchStoreSettings.mockResolvedValue(bundle())
+  })
+
+  it('設定を読み込み、税率は % で、既定・現金扱いの印を出す', async () => {
+    const w = await mountPage()
+    expect((w.find('#store-name').element as HTMLInputElement).value).toBe('テスト店 A')
+    const selects = w.findAll('select')
+    expect((selects[0]?.element as HTMLSelectElement).value).toBe('04')
+    expect((selects[1]?.element as HTMLSelectElement).value).toBe('30')
+    const text = w.text()
+    expect(text).toContain('10%')
+    expect(text).toContain('8%')
+    expect(text).toContain('既定')
+    expect(text).toContain('現金扱い')
+  })
+
+  it('保存は締め時刻を HH:MM にして送り、ホームの店舗名も変える', async () => {
+    const w = await mountPage()
+    api.updateStoreSettings.mockResolvedValue({ ...bundle().store, name: '新店名', price_mode: 'tax_excluded', day_cutoff_time: '02:05' })
+    await w.find('#store-name').setValue(' 新店名 ')
+    await w.findAll('[role="radio"]').find((b) => b.text() === '税抜で登録')?.trigger('click')
+    const selects = w.findAll('select')
+    await selects[0]?.setValue('02')
+    await selects[1]?.setValue('05')
+    await w.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(api.updateStoreSettings).toHaveBeenCalledWith({ name: '新店名', price_mode: 'tax_excluded', rounding: 'floor', day_cutoff_time: '02:05' })
+    expect(useAuthStore().me?.store?.name).toBe('新店名')
+    expect(w.text()).toContain('保存しました')
+    expect(w.text()).toContain('会計のときに消費税を足します')
+  })
+
+  it('AC-S09-3：最後の有効な税区分は停止できず「1 つ以上必要です」', async () => {
+    const data = bundle()
+    data.tax_types[1] = { ...data.tax_types[1]!, is_active: false }
+    api.fetchStoreSettings.mockResolvedValue(data)
+    const w = await mountPage()
+
+    await w.find('[aria-label="店内 を編集"]').trigger('click')
+    const active = w.findAll('.adm-check').find((c) => c.text() === '有効')
+    await active?.find('input').setValue(false)
+    await w.find<HTMLInputElement>('#tax-name-1').element.form?.dispatchEvent(new Event('submit'))
+    await flushPromises()
+
+    expect(api.updateTaxType).not.toHaveBeenCalled()
+    expect(w.text()).toContain('有効な税区分は 1 つ以上必要です')
+  })
+
+  it('税区分の追加は % を千分率にして送り、一覧を取り直す', async () => {
+    const w = await mountPage()
+    api.createTaxType.mockResolvedValue({})
+    const next = bundle()
+    next.tax_types.push({ id: 3, name: 'イートイン', rate_permille: 100, sort_order: 3, is_default: false, is_active: true })
+    api.fetchStoreSettings.mockResolvedValue(next)
+
+    await w.findAll('button').find((b) => b.text() === '＋税区分を追加')?.trigger('click')
+    await w.find('#tax-name-new').setValue('イートイン')
+    await w.find('#tax-rate-new').setValue('10')
+    await w.find<HTMLInputElement>('#tax-name-new').element.form?.dispatchEvent(new Event('submit'))
+    await flushPromises()
+
+    expect(api.createTaxType).toHaveBeenCalledWith({ name: 'イートイン', rate_permille: 100, is_default: false })
+    expect(w.text()).toContain('イートイン')
+  })
+
+  it('税率が不正なら送らない', async () => {
+    const w = await mountPage()
+    await w.findAll('button').find((b) => b.text() === '＋税区分を追加')?.trigger('click')
+    await w.find('#tax-name-new').setValue('x')
+    await w.find('#tax-rate-new').setValue('8.25')
+    await w.find<HTMLInputElement>('#tax-name-new').element.form?.dispatchEvent(new Event('submit'))
+    await flushPromises()
+    expect(api.createTaxType).not.toHaveBeenCalled()
+    expect(w.text()).toContain('小数は 1 桁まで')
+  })
+
+  it('支払方法の 422 は項目の下に出す', async () => {
+    const w = await mountPage()
+    api.createPaymentMethod.mockRejectedValue(apiError(422, { message: 'x', errors: { name: ['同じ名前の支払方法があります'] } }))
+    await w.findAll('button').find((b) => b.text() === '＋支払方法を追加')?.trigger('click')
+    await w.find('#pay-name-new').setValue('現金')
+    await w.find<HTMLInputElement>('#pay-name-new').element.form?.dispatchEvent(new Event('submit'))
+    await flushPromises()
+    expect(w.text()).toContain('同じ名前の支払方法があります')
+  })
+})

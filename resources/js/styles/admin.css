@@ -1,0 +1,116 @@
+/* 管理系画面（S08〜S10）の共通の見た目（08 §3.3）。各画面が import する。名前は adm- で始める */
+.adm-page { min-height: 100dvh; background: var(--c-surface-alt); }
+
+.adm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px calc(var(--gutter) + var(--safe-right)) calc(32px + var(--safe-bottom)) calc(var(--gutter) + var(--safe-left));
+}
+
+.adm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-card);
+  background: var(--c-surface);
+}
+
+.adm-panel__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.adm-panel__title { font-size: var(--fs-heading); }
+
+.adm-form { display: flex; flex-direction: column; gap: 16px; }
+.adm-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.adm-field__label { font-weight: 700; }
+
+.adm-input,
+.adm-select {
+  min-height: var(--btn-h);
+  width: 100%;
+  padding: 0 14px;
+  border: 2px solid var(--c-border);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  font-size: 18px;
+}
+
+.adm-select { width: auto; min-width: 96px; }
+.adm-input:focus,
+.adm-select:focus { border-color: var(--c-focus); outline: none; }
+.adm-input[aria-invalid='true'] { border-color: var(--c-danger); }
+
+.adm-help { color: var(--c-text-sub); font-size: 16px; }
+.adm-error { color: var(--c-danger); font-weight: 700; }
+.adm-ok { color: var(--c-success); font-weight: 700; }
+.adm-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+
+/* 48px のタップ領域を持つチェックボックス */
+.adm-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--tap-min);
+  padding: 0 4px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.adm-check input { width: 24px; height: 24px; margin: 0; accent-color: var(--c-primary); }
+
+/* 小さめの補助ボタン（高さは 48px 以上） */
+.adm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  padding: 0 16px;
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  color: var(--c-primary);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.adm-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.adm-btn--danger { border-color: var(--c-danger); color: var(--c-danger); }
+.adm-btn--on { background: var(--c-primary); color: var(--c-on-primary); }
+
+.adm-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--c-surface-alt);
+  border: 1px solid var(--c-border);
+  color: var(--c-text-sub);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.adm-badge--primary { background: var(--c-primary); border-color: var(--c-primary); color: var(--c-on-primary); }
+
+.adm-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: var(--tap-min);
+  padding: 8px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+}
+
+.adm-row--off { background: var(--c-surface-alt); color: var(--c-text-sub); }
+.adm-row__main { flex: 1 1 160px; min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
+.adm-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+
+@media (min-width: 768px) {
+  .adm-body { padding-top: 32px; padding-left: 32px; padding-right: 32px; }
+}
