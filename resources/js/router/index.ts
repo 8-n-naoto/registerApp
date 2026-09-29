@@ -22,10 +22,13 @@ const routes: RouteRecordRaw[] = [
   { path: '/register', name: 'register', component: RegisterPage, meta: { roles: ['owner', 'staff'] } },
   { path: '/sales/:id(\\d+)/receipt', name: 'receipt', component: () => import('@/pages/ReceiptPage.vue'), meta: { roles: ['owner', 'staff', 'admin'] } },
   { path: '/sales/daily', name: 'sales-daily', component: () => import('@/pages/DailySalesPage.vue'), meta: { roles: ['owner', 'staff', 'admin'] } },
+  { path: '/sales/summary', name: 'sales-summary', component: () => import('@/pages/SalesSummaryPage.vue'), meta: { roles: ['owner', 'admin'] } },
   { path: '/closing', name: 'closing', component: () => import('@/pages/ClosingPage.vue'), meta: { roles: ['owner', 'staff'] } },
   { path: '/account', name: 'account', component: () => import('@/pages/AccountPage.vue') },
   { path: '/products', name: 'products', component: () => import('@/pages/ProductsPage.vue'), meta: { roles: ['owner'] } },
   { path: '/settings/store', name: 'settings-store', component: () => import('@/pages/StoreSettingsPage.vue'), meta: { roles: ['owner'] } },
+  { path: '/settings/staff', name: 'settings-staff', component: () => import('@/pages/StaffPage.vue'), meta: { roles: ['owner'] } },
+  { path: '/logs', name: 'logs', component: () => import('@/pages/AuditLogPage.vue'), meta: { roles: ['owner', 'admin'] } },
   { path: '/admin/stores', name: 'admin-stores', component: () => import('@/pages/AdminStoresPage.vue'), meta: { roles: ['admin'] } },
 ]
 

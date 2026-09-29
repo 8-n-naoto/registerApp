@@ -36,7 +36,7 @@ class StaffRequest extends FormRequest
     {
         return [
             'login_id.regex' => 'ログイン ID は半角英数字と _ . - で入力してください',
-            'login_id.unique' => 'このログイン ID は使われています',
+            'login_id.unique' => 'このログイン ID は使用できません',
         ];
     }
 }

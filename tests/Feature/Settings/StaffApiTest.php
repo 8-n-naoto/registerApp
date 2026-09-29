@@ -66,7 +66,7 @@ class StaffApiTest extends TestCase
 
         $this->postJson('/api/staff', [])->assertUnprocessable()->assertJsonValidationErrors(['login_id', 'name', 'password']);
         $this->postJson('/api/staff', ['login_id' => 'taken', 'name' => 'x', 'password' => 'password1'])->assertUnprocessable()
-            ->assertJsonValidationErrors(['login_id' => 'このログイン ID は使われています']);
+            ->assertJsonValidationErrors(['login_id' => 'このログイン ID は使用できません']);
         $this->postJson('/api/staff', ['login_id' => 'owner1', 'name' => 'x', 'password' => 'password1'])->assertUnprocessable()
             ->assertJsonValidationErrors('login_id');
         foreach (['ab', str_repeat('a', 51), 'たろう', 'a b', 'a@b'] as $bad) {

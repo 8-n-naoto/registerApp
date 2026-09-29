@@ -1,7 +1,7 @@
-import { http } from '@/api/client'
-import type { ByPaymentRow, ByProductRow, ByTaxRow, Closing, SaleSummaryRow, SalesTotals } from '@/types/api'
+import { apiBaseUrl, http } from '@/api/client'
+import type { ByDateRow, ByHourRow, ByPaymentRow, ByProductRow, ByTaxRow, Closing, SaleSummaryRow, SalesTotals } from '@/types/api'
 
-// 06 §5.1 日次売上・§6 レジ締め
+// 06 §5 売上・集計・§6 レジ締め
 
 export interface DailyReport {
   date: string
@@ -35,6 +35,31 @@ function storeParams(storeId: number | null): Record<string, number> {
 export async function fetchDailyReport(date: string | null, storeId: number | null = null): Promise<DailyReport> {
   const params = { ...storeParams(storeId), ...(date === null ? {} : { date }) }
   return (await http.get<DailyReport>('/reports/daily', { params })).data
+}
+
+export interface SummaryReport {
+  from: string
+  to: string
+  totals: SalesTotals
+  by_date: ByDateRow[]
+  by_hour: ByHourRow[]
+  by_tax: ByTaxRow[]
+  by_payment: ByPaymentRow[]
+  ranking: ByProductRow[]
+}
+
+export type ExportType = 'daily' | 'sales' | 'items' | 'tax'
+
+/** #10 */
+export async function fetchSummary(from: string, to: string, storeId: number | null = null): Promise<SummaryReport> {
+  return (await http.get<SummaryReport>('/reports/summary', { params: { ...storeParams(storeId), from, to } })).data
+}
+
+/** #11 は CSV のダウンロード。Cookie のセッションで通るため、リンクで開く */
+export function exportUrl(type: ExportType, from: string, to: string, storeId: number | null = null): string {
+  const query = new URLSearchParams({ type, from, to })
+  if (storeId !== null) query.set('store_id', String(storeId))
+  return `${apiBaseUrl}/reports/export?${query.toString()}`
 }
 
 /** #12 */

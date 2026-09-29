@@ -15,6 +15,7 @@ import { formatBusinessDate, formatTime, shiftDate } from '@/lib/date'
 import { formatYen } from '@/lib/money'
 import { permilleToPercent } from '@/lib/percent'
 import { applyCancel, closingState } from '@/lib/report'
+import { useAdminStore } from '@/stores/admin'
 import { useAuthStore } from '@/stores/auth'
 import type { Sale } from '@/types/api'
 import '@/styles/admin.css'
@@ -23,6 +24,7 @@ const t = ja.daily
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const admin = useAdminStore()
 
 const report = ref<DailyReport | null>(null)
 const loading = ref(true)
@@ -85,7 +87,7 @@ function onCancelled(sale: Sale): void {
   <div class="adm-page">
     <AppHeader
       :title="t.title"
-      :viewing-store-name="readOnly ? t.viewOnly : null"
+      :viewing-store-name="readOnly ? (storeId === null ? ja.viewing.unnamed : admin.viewingLabel(storeId)) : null"
     />
     <main class="adm-body">
       <div
