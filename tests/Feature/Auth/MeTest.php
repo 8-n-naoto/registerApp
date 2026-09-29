@@ -19,6 +19,12 @@ class MeTest extends TestCase
         $this->fromSpa()->getJson('/api/me')->assertUnauthorized();
     }
 
+    public function test_accept_json_が無い未ログインの要求も500ではなく401(): void
+    {
+        // Laravel の既定はログイン画面の名前付きルート（login）へ誘導しようとして 500 になる（SPA は常に JSON を送るため curl 等でのみ起こる）
+        $this->get('/api/me')->assertUnauthorized()->assertJsonPath('message', 'Unauthenticated.');
+    }
+
     public function test_meは店舗の締め時刻で営業日を返す(): void
     {
         $store = Store::factory()->create(['day_cutoff_time' => '04:00']);

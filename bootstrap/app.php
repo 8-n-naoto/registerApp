@@ -28,6 +28,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // SPA（同一オリジン）からの /api 要求をセッション + CSRF で認証する
         $middleware->statefulApi();
 
+        // 未ログインの API 要求は誘導先を持たせず 401 の JSON にする（ログイン画面は SPA 側のルートで、名前付きルート login は無い）
+        $middleware->redirectGuestsTo(fn (Request $request): ?string => $request->is('api/*') ? null : url('/login'));
+
         $middleware->alias([
             'account.active' => EnsureAccountActive::class, // 06 §1.5
             'role' => EnsureRole::class,                    // role:owner,staff
