@@ -1,5 +1,6 @@
 // S02 の注文（08 §7.2 lines）の操作。金額は lib/pricing.ts で計算し、ここでは明細の組み立てと在庫の上限だけを扱う
 import type { PricingItem } from '@/lib/pricing'
+import { nameWithMemo } from '@/lib/productLabel'
 import type { Product } from '@/types/api'
 
 export interface CartLine {
@@ -64,7 +65,8 @@ export function reconcile(
     if (ok) {
       kept.push(line)
     } else {
-      const name = (product ?? previous.get(line.product_id))?.name
+      const source = product ?? previous.get(line.product_id)
+      const name = source === undefined ? undefined : nameWithMemo(source.name, source.memo)
       if (name !== undefined && !removed.includes(name)) removed.push(name)
     }
   }

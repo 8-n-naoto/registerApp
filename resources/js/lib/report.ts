@@ -39,7 +39,8 @@ export function applyCancel(report: DailyReport, sale: Sale): DailyReport {
 
   let byProduct = report.by_product.map((r) => ({ ...r }))
   for (const item of sale.items) {
-    const target = byProduct.find((r) => r.product_id === item.product_id && r.product_name === item.product_name)
+    const target = byProduct.find((r) => r.product_id === item.product_id && r.product_name === item.product_name
+      && r.product_code === item.product_code && r.product_memo === item.product_memo)
     if (target) {
       target.quantity -= item.quantity
       target.amount -= item.line_total
@@ -47,7 +48,8 @@ export function applyCancel(report: DailyReport, sale: Sale): DailyReport {
   }
   byProduct = byProduct
     .filter((r) => r.quantity > 0)
-    .sort((a, b) => b.amount - a.amount || a.product_id - b.product_id || a.product_name.localeCompare(b.product_name))
+    .sort((a, b) => b.amount - a.amount || a.product_id - b.product_id || a.product_name.localeCompare(b.product_name)
+      || a.product_code.localeCompare(b.product_code) || (a.product_memo ?? '').localeCompare(b.product_memo ?? ''))
 
   return {
     ...report,

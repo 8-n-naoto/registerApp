@@ -4,6 +4,7 @@ import { computed, ref } from 'vue'
 import BottomSheet from '@/components/BottomSheet.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { fmt, ja } from '@/i18n/ja'
+import { nameWithMemo } from '@/lib/productLabel'
 import { useRegisterStore } from '@/stores/register'
 
 defineProps<{ open: boolean }>()
@@ -19,7 +20,7 @@ function timeOf(iso: string): string {
 
 const rows = computed(() =>
   register.held.map((order) => {
-    const names = [...new Set(order.lines.map((l) => register.products.get(l.product_id)?.name).filter((n) => n !== undefined))]
+    const names = [...new Set(order.lines.map((l) => register.products.get(l.product_id)).filter((p) => p !== undefined).map((p) => nameWithMemo(p.name, p.memo)))]
     return {
       time: fmt(t.heldAt, { time: timeOf(order.held_at) }),
       summary: fmt(t.heldSummary, { names: names.slice(0, 3).join('・'), n: order.lines.reduce((s, l) => s + l.quantity, 0) }),

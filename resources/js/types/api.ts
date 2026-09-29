@@ -56,6 +56,8 @@ export interface SaleItem {
   id: number
   product_id: number
   product_name: string
+  product_code: string
+  product_memo: string | null
   unit_price: number
   options_price: number
   quantity: number
@@ -98,7 +100,7 @@ export interface SaleSummaryRow {       // 一覧用（明細なし）
 export interface SalesTotals { total: number; count: number; customers: number; average: number; discount_total: number; cancelled_count: number }
 export interface ByTaxRow { tax_type_name: string; rate_permille: number; total: number; tax_amount: number; taxable_amount: number }
 export interface ByPaymentRow { payment_method_name: string; is_cash: boolean; total: number; count: number }
-export interface ByProductRow { product_id: number; product_name: string; quantity: number; amount: number }
+export interface ByProductRow { product_id: number; product_name: string; product_code: string; product_memo: string | null; quantity: number; amount: number }
 export interface ByHourRow { hour: number; total: number; count: number }   // hour: 0〜23
 export interface ByDateRow { date: string; total: number; count: number; customers: number }
 export interface Closing {

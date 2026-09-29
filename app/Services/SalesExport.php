@@ -24,7 +24,7 @@ final class SalesExport
     private const HEADERS = [
         'daily' => ['営業日', '売上合計', '会計件数', '客数', '値引き合計', '取消件数'],
         'sales' => ['会計ID', '営業日', '日時', '状態', '税区分', '税率(%)', '小計', '値引き', '合計', '消費税', '支払方法', '預かり', 'お釣り', '客数', '担当者', '端末', 'メモ'],
-        'items' => ['会計ID', '営業日', '日時', '状態', '商品名', 'オプション', '単価', 'オプション額', '数量', '明細額'],
+        'items' => ['会計ID', '営業日', '日時', '状態', '商品コード', '商品名', '商品メモ', 'オプション', '単価', 'オプション額', '数量', '明細額'],
         'tax' => ['営業日', '税区分', '税率(%)', '対象額(税込)', '消費税額', '対象額(税抜)'],
     ];
 
@@ -111,7 +111,9 @@ final class SalesExport
                     $sale->business_date,
                     self::dateTime($sale),
                     self::status($sale),
+                    $item->product_code,
                     $item->product_name,
+                    $item->product_memo,
                     $options === '' ? null : $options,
                     $item->unit_price,
                     $item->options_price,

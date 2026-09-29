@@ -27,7 +27,7 @@ function makeSummary(from: string, to: string): SummaryReport {
     by_hour: [{ hour: 12, total: 12000, count: 10 }],
     by_tax: [{ tax_type_name: '標準', rate_permille: 100, total: 12000, tax_amount: 1090, taxable_amount: 10910 }],
     by_payment: [{ payment_method_name: '現金', is_cash: true, total: 12000, count: 10 }],
-    ranking: [{ product_id: 1, product_name: 'コーヒー', quantity: 20, amount: 8000 }],
+    ranking: [{ product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: null, quantity: 20, amount: 8000 }],
   }
 }
 
@@ -72,6 +72,7 @@ describe('SalesSummaryPage（S06）', () => {
     expect(w.text()).toContain('¥12,000')
     expect(w.find('[data-test="by-date"] tbody').findAll('tr')).toHaveLength(2)
     expect(w.find('[data-test="ranking"]').text()).toContain('コーヒー')
+    expect(w.find('[data-test="ranking"] .product-cell__sub').text()).toBe('P0001')
     expect(button('今月').getAttribute('aria-pressed')).toBe('true')
     w.unmount()
   })

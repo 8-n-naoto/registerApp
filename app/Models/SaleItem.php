@@ -13,6 +13,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $sale_id
  * @property int $product_id
  * @property string $product_name
+ * @property string $product_code
+ * @property string|null $product_memo
  * @property int $unit_price
  * @property int $options_price
  * @property int $quantity
@@ -26,6 +28,8 @@ class SaleItem extends Model
     protected $fillable = [
         'product_id',
         'product_name',
+        'product_code',
+        'product_memo',
         'unit_price',
         'options_price',
         'quantity',

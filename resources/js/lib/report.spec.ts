@@ -18,9 +18,9 @@ function makeReport(): DailyReport {
       { payment_method_name: 'QR', is_cash: false, total: 1000, count: 1 },
     ],
     by_product: [
-      { product_id: 2, product_name: 'ケーキ', quantity: 5, amount: 2500 },
-      { product_id: 1, product_name: 'コーヒー', quantity: 3, amount: 1300 },
-      { product_id: 1, product_name: 'ブレンド', quantity: 1, amount: 400 },
+      { product_id: 2, product_name: 'ケーキ', product_code: 'P0002', product_memo: null, quantity: 5, amount: 2500 },
+      { product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: null, quantity: 3, amount: 1300 },
+      { product_id: 1, product_name: 'ブレンド', product_code: 'P0001', product_memo: null, quantity: 1, amount: 400 },
     ],
     sales: [
       { id: 4, sold_at: '2026-09-30T01:30:00+09:00', total: 1000, payment_method_name: 'QR', tax_type_name: '店内', user_name: '店長', status: 'completed', item_count: 2 },
@@ -35,8 +35,8 @@ function makeReport(): DailyReport {
 const s1 = makeSale({
   id: 1, tax_type_name: '店内', tax_rate_permille: 100, total: 1300, tax_amount: 118, customer_count: 2, status: 'cancelled',
   items: [
-    { id: 11, product_id: 1, product_name: 'コーヒー', unit_price: 400, options_price: 0, quantity: 2, line_total: 800, options: [] },
-    { id: 12, product_id: 2, product_name: 'ケーキ', unit_price: 500, options_price: 0, quantity: 1, line_total: 500, options: [] },
+    { id: 11, product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: null, unit_price: 400, options_price: 0, quantity: 2, line_total: 800, options: [] },
+    { id: 12, product_id: 2, product_name: 'ケーキ', product_code: 'P0002', product_memo: null, unit_price: 500, options_price: 0, quantity: 1, line_total: 500, options: [] },
   ],
 })
 
@@ -51,9 +51,9 @@ describe('applyCancel（08 AC-S05-1）', () => {
       { payment_method_name: '現金', is_cash: true, total: 400, count: 1 },
     ])
     expect(r.by_product).toEqual([
-      { product_id: 2, product_name: 'ケーキ', quantity: 4, amount: 2000 },
-      { product_id: 1, product_name: 'コーヒー', quantity: 1, amount: 500 },
-      { product_id: 1, product_name: 'ブレンド', quantity: 1, amount: 400 },
+      { product_id: 2, product_name: 'ケーキ', product_code: 'P0002', product_memo: null, quantity: 4, amount: 2000 },
+      { product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: null, quantity: 1, amount: 500 },
+      { product_id: 1, product_name: 'ブレンド', product_code: 'P0001', product_memo: null, quantity: 1, amount: 400 },
     ])
     expect(r.sales.map((s) => s.status)).toEqual(['completed', 'cancelled'])
   })
@@ -65,8 +65,8 @@ describe('applyCancel（08 AC-S05-1）', () => {
       by_tax: [{ tax_type_name: '店内', rate_permille: 100, total: 1300, tax_amount: 118, taxable_amount: 1182 }],
       by_payment: [{ payment_method_name: '現金', is_cash: true, total: 1300, count: 1 }],
       by_product: [
-        { product_id: 1, product_name: 'コーヒー', quantity: 2, amount: 800 },
-        { product_id: 2, product_name: 'ケーキ', quantity: 1, amount: 500 },
+        { product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: null, quantity: 2, amount: 800 },
+        { product_id: 2, product_name: 'ケーキ', product_code: 'P0002', product_memo: null, quantity: 1, amount: 500 },
       ],
       closing: {
         business_date: '2026-09-29', float_amount: 10000, cash_sales: 1300, expected_cash: 11300, counted_cash: 11300,
@@ -80,6 +80,20 @@ describe('applyCancel（08 AC-S05-1）', () => {
     expect(r.by_product).toEqual([])
     expect(r.closing?.changed_after_close).toBe(true)
     expect(closingState(r)).toBe('changed')
+  })
+
+  it('同じ商品でもメモ・商品コードの写しが違う行は別に扱う', () => {
+    const report: DailyReport = {
+      ...makeReport(),
+      by_product: [
+        { product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: 'アイス', quantity: 2, amount: 800 },
+        { product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: null, quantity: 3, amount: 1300 },
+      ],
+    }
+    const sale = { ...s1, items: [{ ...s1.items[0]!, product_memo: 'アイス' }] }
+    expect(applyCancel(report, sale).by_product).toEqual([
+      { product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: null, quantity: 3, amount: 1300 },
+    ])
   })
 
   it('一覧に無い会計・取消済みの会計では変えない', () => {

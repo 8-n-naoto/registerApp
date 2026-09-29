@@ -84,13 +84,14 @@ class ExportApiTest extends TestCase
             new SaleItemOption(['product_option_id' => $option->id, 'option_name' => '=cmd', 'price' => 0]),
         ]);
         $item->update(['product_name' => 'コーヒー, "特製"']);
+        $this->saleModel('S1')->items()->orderBy('sort_order')->skip(1)->firstOrFail()->update(['product_memo' => 'チョコ']);
 
         $lines = $this->lines($this->export('items', '2026-09-29', '2026-09-29')->assertOk());
 
-        $this->assertSame('会計ID,営業日,日時,状態,商品名,オプション,単価,オプション額,数量,明細額', $lines[0]);
+        $this->assertSame('会計ID,営業日,日時,状態,商品コード,商品名,商品メモ,オプション,単価,オプション額,数量,明細額', $lines[0]);
         $s1 = $this->ids['S1'];
-        $this->assertSame("{$s1},2026-09-29,2026-09-29 10:15:00,完了,\"コーヒー, \"\"特製\"\"\",大盛り、=cmd,400,0,2,800", $lines[1]);
-        $this->assertSame("{$s1},2026-09-29,2026-09-29 10:15:00,完了,ケーキ,,500,0,1,500", $lines[2]);
+        $this->assertSame("{$s1},2026-09-29,2026-09-29 10:15:00,完了,{$this->coffee->code},\"コーヒー, \"\"特製\"\"\",,大盛り、=cmd,400,0,2,800", $lines[1]);
+        $this->assertSame("{$s1},2026-09-29,2026-09-29 10:15:00,完了,{$this->cake->code},ケーキ,チョコ,,500,0,1,500", $lines[2]);
         // S1(2) S2(2) S3(1) S6(1) S7(1) S4(1) の明細 8 行 + 見出し
         $this->assertCount(9, $lines);
     }
@@ -100,7 +101,7 @@ class ExportApiTest extends TestCase
         $this->saleModel('S5')->items()->firstOrFail()->update(['product_name' => '=HYPERLINK("x")']);
 
         $lines = $this->lines($this->export('items', '2026-09-30', '2026-09-30')->assertOk());
-        $this->assertSame("{$this->ids['S5']},2026-09-30,2026-09-30 05:00:00,完了,\"'=HYPERLINK(\"\"x\"\")\",,400,0,1,400", $lines[1]);
+        $this->assertSame("{$this->ids['S5']},2026-09-30,2026-09-30 05:00:00,完了,{$this->coffee->code},\"'=HYPERLINK(\"\"x\"\")\",,,400,0,1,400", $lines[1]);
     }
 
     public function test_tax_は営業日・税率の降順(): void
@@ -115,7 +116,7 @@ class ExportApiTest extends TestCase
 
     public function test_会計の無い期間は見出しだけ(): void
     {
-        $this->assertSame(['会計ID,営業日,日時,状態,商品名,オプション,単価,オプション額,数量,明細額'], $this->lines($this->export('items', '2026-01-01', '2026-01-31')->assertOk()));
+        $this->assertSame(['会計ID,営業日,日時,状態,商品コード,商品名,商品メモ,オプション,単価,オプション額,数量,明細額'], $this->lines($this->export('items', '2026-01-01', '2026-01-31')->assertOk()));
     }
 
     public function test_検証(): void

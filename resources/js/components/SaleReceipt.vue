@@ -43,7 +43,10 @@ const discountLabel = computed(() =>
         class="receipt__item"
       >
         <div class="receipt__item-main">
-          <span class="receipt__name">{{ item.product_name }}</span>
+          <span class="receipt__name">{{ item.product_name }}<span
+            v-if="item.product_memo"
+            class="receipt__memo"
+          >（{{ item.product_memo }}）</span></span>
           <MoneyText :amount="item.line_total" />
         </div>
         <div class="receipt__item-sub tabular">
@@ -124,6 +127,7 @@ const discountLabel = computed(() =>
 .receipt__item { padding: 4px 0; }
 .receipt__item-main { display: flex; justify-content: space-between; gap: 8px; font-weight: 700; }
 .receipt__name { overflow-wrap: anywhere; }
+.receipt__memo { font-weight: 400; }
 .receipt__item-sub { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; color: #4b5563; }
 .receipt__qty { margin-left: auto; white-space: nowrap; }
 

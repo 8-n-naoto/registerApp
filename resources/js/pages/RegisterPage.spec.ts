@@ -295,6 +295,17 @@ describe('S02 商品 500 件（WP 6-2・08 §10）', () => {
     expect(document.body.textContent).not.toContain('HOT-1')
   })
 
+  it('注文の明細も商品名の下にメモを出し、同じ名前の商品を見分けられる', async () => {
+    api.fetchBootstrap.mockResolvedValue(makeBootstrap({
+      categories: [],
+      products: [makeProduct(1, 'コーヒー', { memo: 'ホット' }), makeProduct(2, 'コーヒー', { memo: 'アイス' })],
+    }))
+    await mountPage()
+    await click(tile(1))
+    await click(tile(2))
+    expect([...document.querySelectorAll('.line__memo')].map((e) => e.textContent)).toEqual(['ホット', 'アイス'])
+  })
+
   it('500 件を並べ、商品タップ → 合計の反映が遅くならない（jsdom の中央値で後退を検出）', async () => {
     const products = Array.from({ length: 500 }, (_, i) => makeProduct(i + 1, `商品 ${i + 1}`, { price: 100 + (i % 10) * 10 }))
     api.fetchBootstrap.mockResolvedValue(makeBootstrap({ categories: [], products }))

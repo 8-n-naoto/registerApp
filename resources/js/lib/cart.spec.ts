@@ -78,10 +78,10 @@ describe('lib/cart（S02 の注文）', () => {
       [1, product(1)],
       [3, { ...withOptions, options: withOptions.options.filter((o) => o.id !== 12) }],
     ])
-    const previous = new Map<number, Product>([[9, product(9, { name: '限定品' })]])
+    const previous = new Map<number, Product>([[9, product(9, { name: '限定品', memo: '春' })]])
     const result = reconcile(lines, now, previous)
     expect(result.lines.map((l) => l.key)).toEqual(['1:'])
-    expect(result.removed).toEqual(['商品3', '限定品'])
+    expect(result.removed).toEqual(['商品3', '限定品（春）'])
   })
 
   it('toPricingItems はマスタの価格とオプションの価格を渡す', () => {

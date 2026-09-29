@@ -14,6 +14,7 @@ import { errorBody, isNetworkError } from '@/lib/apiError'
 import { formatBusinessDate, formatTime, shiftDate } from '@/lib/date'
 import { formatYen } from '@/lib/money'
 import { permilleToPercent } from '@/lib/percent'
+import { productSub } from '@/lib/productLabel'
 import { applyCancel, closingState } from '@/lib/report'
 import { useAdminStore } from '@/stores/admin'
 import { useAuthStore } from '@/stores/auth'
@@ -382,9 +383,15 @@ function onCancelled(sale: Sale): void {
               <tbody>
                 <tr
                   v-for="r in report.by_product"
-                  :key="`${r.product_id}-${r.product_name}`"
+                  :key="`${r.product_id}-${r.product_name}-${r.product_code}-${r.product_memo ?? ''}`"
                 >
-                  <td>{{ r.product_name }}</td>
+                  <td class="product-cell">
+                    <span>{{ r.product_name }}</span>
+                    <span
+                      v-if="productSub(r) !== ''"
+                      class="product-cell__sub"
+                    >{{ productSub(r) }}</span>
+                  </td>
                   <td class="num">
                     {{ r.quantity }}
                   </td>
@@ -459,6 +466,8 @@ function onCancelled(sale: Sale): void {
 .daily-table td { padding: 10px 8px; border-bottom: 1px solid var(--c-border); text-align: left; white-space: nowrap; }
 .daily-table th { color: var(--c-text-sub); font-size: 16px; }
 .daily-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.daily-table .product-cell { min-width: 8em; white-space: normal; overflow-wrap: anywhere; }
+.product-cell__sub { display: block; color: var(--c-text-sub); font-size: 14px; }
 
 @media (min-width: 768px) {
   .daily-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }

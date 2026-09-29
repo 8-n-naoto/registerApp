@@ -124,6 +124,8 @@ trait SalesDataset
             $sale->items()->save(new SaleItem([
                 'product_id' => $product->id,
                 'product_name' => $name,
+                'product_code' => $product->code,
+                'product_memo' => $product->memo,
                 'unit_price' => $unit,
                 'options_price' => $options,
                 'quantity' => $qty,

@@ -55,7 +55,7 @@ class SaleStoreApiTest extends TestCase
         $this->tax = TaxType::factory()->for($this->store)->create(['name' => '店内', 'rate_permille' => 100]);
         $this->cash = PaymentMethod::factory()->for($this->store)->create(['name' => '現金', 'is_cash' => true]);
         $this->card = PaymentMethod::factory()->for($this->store)->create(['name' => 'カード', 'is_cash' => false]);
-        $this->a = Product::factory()->for($this->store)->tracked(5)->create(['name' => 'A', 'price' => 400]);
+        $this->a = Product::factory()->for($this->store)->tracked(5)->create(['name' => 'A', 'price' => 400, 'memo' => 'ホット']);
         $this->b = Product::factory()->for($this->store)->create(['name' => 'B', 'price' => 500]);
         $this->c = Product::factory()->for($this->store)->tracked(2)->create(['name' => 'C', 'price' => 300]);
         $this->d = Product::factory()->for($this->store)->tracked(3)->create(['name' => 'D', 'price' => 200]);
@@ -139,6 +139,8 @@ class SaleStoreApiTest extends TestCase
             ->assertJsonPath('device_name', 'iPad 1')
             ->assertJsonPath('store_name', 'A 店')
             ->assertJsonPath('items.0.product_name', 'A')
+            ->assertJsonPath('items.0.product_code', $this->a->code)
+            ->assertJsonPath('items.0.product_memo', 'ホット')
             ->assertJsonPath('items.0.unit_price', 400)
             ->assertJsonPath('items.0.options_price', 50)
             ->assertJsonPath('items.0.quantity', 2)
@@ -157,8 +159,9 @@ class SaleStoreApiTest extends TestCase
     public function test_写しは確定後にマスタを変えても変わらない(): void
     {
         $id = $this->sell($this->payload([[$this->a, 1, [$this->large->id]]], 450))->assertCreated()->json('id');
+        $code = $this->a->code;
 
-        $this->a->update(['name' => 'A 改', 'price' => 999]);
+        $this->a->update(['name' => 'A 改', 'price' => 999, 'code' => 'A-NEW', 'memo' => '改']);
         $this->large->update(['name' => '特盛', 'price' => 100]);
         $this->tax->update(['name' => '改', 'rate_permille' => 80]);
 
@@ -166,6 +169,8 @@ class SaleStoreApiTest extends TestCase
         $this->assertSame('店内', $sale->tax_type_name);
         $item = $sale->items->firstOrFail();
         $this->assertSame('A', $item->product_name);
+        $this->assertSame($code, $item->product_code);
+        $this->assertSame('ホット', $item->product_memo);
         $this->assertSame(400, $item->unit_price);
         $this->assertSame('大盛り', $item->options->firstOrFail()->option_name);
         $this->assertSame(100, $sale->tax_rate_permille);

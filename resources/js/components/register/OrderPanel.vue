@@ -21,6 +21,7 @@ const rows = computed(() =>
     return {
       line,
       name: product?.name ?? '',
+      memo: product?.memo ?? null,
       options: line.option_ids.map((id) => product?.options.find((o) => o.id === id)?.name ?? '').filter((n) => n !== ''),
       amount: register.amounts?.line_totals[i] ?? null,
       canIncrease: product !== undefined && canAddOne(register.lines, product, line.key),
@@ -120,6 +121,10 @@ function clear(): void {
       >
         <div class="line__name">
           <span>{{ row.name }}</span>
+          <span
+            v-if="row.memo"
+            class="line__memo"
+          >{{ row.memo }}</span>
           <span
             v-if="row.options.length > 0"
             class="line__options"
@@ -303,6 +308,7 @@ function clear(): void {
 }
 
 .line__name { display: flex; flex-direction: column; min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
+.line__memo,
 .line__options { color: var(--c-text-sub); font-size: 14px; font-weight: 400; }
 .line__qty { display: flex; align-items: center; gap: 4px; }
 .line__count { min-width: 2.5em; text-align: center; font-weight: 700; }

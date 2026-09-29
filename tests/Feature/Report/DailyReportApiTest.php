@@ -28,6 +28,22 @@ class DailyReportApiTest extends TestCase
         $this->actingAs($this->owner);
     }
 
+    public function test_商品別は商品コードとメモの写しで同じ名前の商品を分ける(): void
+    {
+        $hot = Product::factory()->for($this->store)->create(['name' => 'ラテ', 'price' => 500, 'memo' => 'ホット']);
+        $ice = Product::factory()->for($this->store)->create(['name' => 'ラテ', 'price' => 500, 'memo' => 'アイス']);
+        $this->sale('X1', '2026-10-05 10:00', '2026-10-05', $this->inStore, $this->cash, [[$hot, 'ラテ', 500, 0, 2], [$ice, 'ラテ', 500, 0, 1]], 0, 1500, 136, null);
+        // 売った後にメモを変えても、売った時点の写しで数える（名前の変更と同じく別の行）
+        $hot->update(['memo' => 'ホット（大）']);
+        $this->sale('X2', '2026-10-05 11:00', '2026-10-05', $this->inStore, $this->cash, [[$hot, 'ラテ', 500, 0, 1]], 0, 500, 45, null);
+
+        $this->getJson('/api/reports/daily?date=2026-10-05')->assertOk()->assertJsonPath('by_product', [
+            ['product_id' => $hot->id, 'product_name' => 'ラテ', 'product_code' => $hot->code, 'product_memo' => 'ホット', 'quantity' => 2, 'amount' => 1000],
+            ['product_id' => $hot->id, 'product_name' => 'ラテ', 'product_code' => $hot->code, 'product_memo' => 'ホット（大）', 'quantity' => 1, 'amount' => 500],
+            ['product_id' => $ice->id, 'product_name' => 'ラテ', 'product_code' => $ice->code, 'product_memo' => 'アイス', 'quantity' => 1, 'amount' => 500],
+        ]);
+    }
+
     public function test_a01からa05_営業日0929の集計と一覧(): void
     {
         $res = $this->getJson('/api/reports/daily?date=2026-09-29')->assertOk();
@@ -48,9 +64,9 @@ class DailyReportApiTest extends TestCase
         ]);
         // A04：値引き前の明細額。改名した商品は名前ごとに別の行
         $res->assertJsonPath('by_product', [
-            ['product_id' => $this->cake->id, 'product_name' => 'ケーキ', 'quantity' => 5, 'amount' => 2500],
-            ['product_id' => $this->coffee->id, 'product_name' => 'コーヒー', 'quantity' => 3, 'amount' => 1300],
-            ['product_id' => $this->coffee->id, 'product_name' => 'ブレンド', 'quantity' => 1, 'amount' => 400],
+            ['product_id' => $this->cake->id, 'product_name' => 'ケーキ', 'product_code' => $this->cake->code, 'product_memo' => null, 'quantity' => 5, 'amount' => 2500],
+            ['product_id' => $this->coffee->id, 'product_name' => 'コーヒー', 'product_code' => $this->coffee->code, 'product_memo' => null, 'quantity' => 3, 'amount' => 1300],
+            ['product_id' => $this->coffee->id, 'product_name' => 'ブレンド', 'product_code' => $this->coffee->code, 'product_memo' => null, 'quantity' => 1, 'amount' => 400],
         ]);
         // A05：取消も含め sold_at の降順
         $this->assertSame(

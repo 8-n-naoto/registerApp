@@ -177,6 +177,8 @@ final class SaleService
             $saleItem = $sale->items()->create([
                 'product_id' => $product->id,
                 'product_name' => $product->name,
+                'product_code' => $product->code,
+                'product_memo' => $product->memo,
                 'unit_price' => $product->price,
                 'options_price' => array_sum($pricingItems[$i]['option_prices']),
                 'quantity' => $item['quantity'],

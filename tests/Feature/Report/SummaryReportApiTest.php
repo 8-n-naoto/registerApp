@@ -49,9 +49,9 @@ class SummaryReportApiTest extends TestCase
         $res->assertJsonPath('by_hour', array_map(fn (int $h): array => ['hour' => $h, ...$hours[$h]], range(0, 23)));
         // A11：期間全体の商品別（09-30 の S5 を足してコーヒー 4 / 1700）
         $res->assertJsonPath('ranking', [
-            ['product_id' => $this->cake->id, 'product_name' => 'ケーキ', 'quantity' => 5, 'amount' => 2500],
-            ['product_id' => $this->coffee->id, 'product_name' => 'コーヒー', 'quantity' => 4, 'amount' => 1700],
-            ['product_id' => $this->coffee->id, 'product_name' => 'ブレンド', 'quantity' => 1, 'amount' => 400],
+            ['product_id' => $this->cake->id, 'product_name' => 'ケーキ', 'product_code' => $this->cake->code, 'product_memo' => null, 'quantity' => 5, 'amount' => 2500],
+            ['product_id' => $this->coffee->id, 'product_name' => 'コーヒー', 'product_code' => $this->coffee->code, 'product_memo' => null, 'quantity' => 4, 'amount' => 1700],
+            ['product_id' => $this->coffee->id, 'product_name' => 'ブレンド', 'product_code' => $this->coffee->code, 'product_memo' => null, 'quantity' => 1, 'amount' => 400],
         ]);
         $res->assertJsonPath('by_tax', [
             ['tax_type_name' => '店内', 'rate_permille' => 100, 'total' => 3650, 'tax_amount' => 330, 'taxable_amount' => 3320],

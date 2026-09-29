@@ -69,8 +69,8 @@ export function makeSale(extra: Partial<Sale> = {}): Sale {
     device_name: null,
     store_name: 'テスト店 A',
     items: [
-      { id: 1, product_id: 1, product_name: 'コーヒー', unit_price: 400, options_price: 0, quantity: 1, line_total: 400, options: [] },
-      { id: 2, product_id: 2, product_name: 'ケーキ', unit_price: 380, options_price: 0, quantity: 1, line_total: 380, options: [] },
+      { id: 1, product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: null, unit_price: 400, options_price: 0, quantity: 1, line_total: 400, options: [] },
+      { id: 2, product_id: 2, product_name: 'ケーキ', product_code: 'P0002', product_memo: null, unit_price: 380, options_price: 0, quantity: 1, line_total: 380, options: [] },
     ],
     ...extra,
   }

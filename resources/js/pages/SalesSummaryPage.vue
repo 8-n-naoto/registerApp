@@ -14,6 +14,7 @@ import { errorBody, isNetworkError } from '@/lib/apiError'
 import { formatBusinessDate } from '@/lib/date'
 import { formatYen } from '@/lib/money'
 import { permilleToPercent } from '@/lib/percent'
+import { productSub } from '@/lib/productLabel'
 import { isYmd, matchPreset, periodDays, periodError, presetPeriod, tokyoToday, type Period, type PeriodPreset } from '@/lib/period'
 import { useAdminStore } from '@/stores/admin'
 import { useAuthStore } from '@/stores/auth'
@@ -428,12 +429,18 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
                 <tbody>
                   <tr
                     v-for="(r, i) in report.ranking"
-                    :key="`${r.product_id}-${r.product_name}`"
+                    :key="`${r.product_id}-${r.product_name}-${r.product_code}-${r.product_memo ?? ''}`"
                   >
                     <td class="num">
                       {{ i + 1 }}
                     </td>
-                    <td>{{ r.product_name }}</td>
+                    <td class="product-cell">
+                      <span>{{ r.product_name }}</span>
+                      <span
+                        v-if="productSub(r) !== ''"
+                        class="product-cell__sub"
+                      >{{ productSub(r) }}</span>
+                    </td>
                     <td class="num">
                       {{ r.quantity }}
                     </td>
@@ -610,6 +617,8 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
 .summary-table td { padding: 10px 8px; border-bottom: 1px solid var(--c-border); text-align: left; white-space: nowrap; }
 .summary-table th { color: var(--c-text-sub); font-size: 16px; }
 .summary-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.summary-table .product-cell { min-width: 8em; white-space: normal; overflow-wrap: anywhere; }
+.product-cell__sub { display: block; color: var(--c-text-sub); font-size: 14px; }
 
 @media (min-width: 768px) {
   .summary-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }

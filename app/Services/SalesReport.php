@@ -17,7 +17,7 @@ use Illuminate\Database\Query\JoinClause;
  * @phpstan-type Totals array{total: int, count: int, customers: int, average: int, discount_total: int, cancelled_count: int}
  * @phpstan-type TaxRow array{tax_type_name: string, rate_permille: int, total: int, tax_amount: int, taxable_amount: int}
  * @phpstan-type PaymentRow array{payment_method_name: string, is_cash: bool, total: int, count: int}
- * @phpstan-type ProductRow array{product_id: int, product_name: string, quantity: int, amount: int}
+ * @phpstan-type ProductRow array{product_id: int, product_name: string, product_code: string, product_memo: string|null, quantity: int, amount: int}
  * @phpstan-type DateRow array{date: string, total: int, count: int, customers: int}
  * @phpstan-type DayRow array{date: string, total: int, count: int, customers: int, discount_total: int, cancelled_count: int}
  * @phpstan-type HourRow array{hour: int, total: int, count: int}
@@ -101,8 +101,8 @@ final class SalesReport
     }
 
     /**
-     * 明細を（商品 ID, 写しの商品名）でまとめる。金額は値引き前・オプション込みの明細額。
-     * 並びは金額の降順、同額は商品 ID・商品名の昇順
+     * 明細を（商品 ID, 写しの商品名・商品コード・メモ）でまとめる。金額は値引き前・オプション込みの明細額。
+     * 並びは金額の降順、同額は商品 ID・商品名・商品コード・メモの昇順
      *
      * @return list<ProductRow>
      */
@@ -111,12 +111,14 @@ final class SalesReport
         $query = $this->completed($storeId, $from, $to)
             ->toBase()
             ->join('sale_items', fn (JoinClause $join) => $join->on('sale_items.sale_id', '=', 'sales.id'))
-            ->select(['sale_items.product_id', 'sale_items.product_name'])
+            ->select(['sale_items.product_id', 'sale_items.product_name', 'sale_items.product_code', 'sale_items.product_memo'])
             ->selectRaw('SUM(sale_items.quantity) AS quantity, SUM(sale_items.line_total) AS amount')
-            ->groupBy('sale_items.product_id', 'sale_items.product_name')
+            ->groupBy('sale_items.product_id', 'sale_items.product_name', 'sale_items.product_code', 'sale_items.product_memo')
             ->orderByDesc('amount')
             ->orderBy('sale_items.product_id')
-            ->orderBy('sale_items.product_name');
+            ->orderBy('sale_items.product_name')
+            ->orderBy('sale_items.product_code')
+            ->orderBy('sale_items.product_memo');
         if ($limit !== null) {
             $query->limit($limit);
         }
@@ -125,6 +127,8 @@ final class SalesReport
             ->map(fn (object $r): array => [
                 'product_id' => (int) $r->product_id,
                 'product_name' => (string) $r->product_name,
+                'product_code' => (string) $r->product_code,
+                'product_memo' => $r->product_memo === null ? null : (string) $r->product_memo,
                 'quantity' => (int) $r->quantity,
                 'amount' => (int) $r->amount,
             ])

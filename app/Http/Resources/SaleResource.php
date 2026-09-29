@@ -48,6 +48,8 @@ class SaleResource extends JsonResource
                 'id' => $item->id,
                 'product_id' => $item->product_id,
                 'product_name' => $item->product_name,
+                'product_code' => $item->product_code,
+                'product_memo' => $item->product_memo,
                 'unit_price' => $item->unit_price,
                 'options_price' => $item->options_price,
                 'quantity' => $item->quantity,

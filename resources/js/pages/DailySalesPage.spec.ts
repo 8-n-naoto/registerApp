@@ -33,7 +33,7 @@ function makeReport(extra: Partial<DailyReport> = {}): DailyReport {
       { payment_method_name: 'カード', is_cash: false, total: 1000, count: 1 },
       { payment_method_name: '現金', is_cash: true, total: 780, count: 1 },
     ],
-    by_product: [{ product_id: 1, product_name: 'コーヒー', quantity: 4, amount: 1600 }],
+    by_product: [{ product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: null, quantity: 4, amount: 1600 }],
     sales: [
       { id: 502, sold_at: '2026-09-29T14:10:00+09:00', total: 1000, payment_method_name: 'カード', tax_type_name: '標準', user_name: '山田', status: 'completed', item_count: 1 },
       { id: 501, sold_at: '2026-09-29T13:05:12+09:00', total: 780, payment_method_name: '現金', tax_type_name: '標準', user_name: '山田', status: 'completed', item_count: 2 },
@@ -101,6 +101,18 @@ describe('S04 日次売上（08 §5.5）', () => {
       expect(text).toContain(s)
     }
     expect(w.find('[data-test="closing-state"]').text()).toBe('未')
+  })
+
+  it('商品別の行にメモと商品コードを出し、同じ名前の商品を見分けられる', async () => {
+    reports.fetchDailyReport.mockResolvedValue(makeReport({
+      by_product: [
+        { product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: 'ホット', quantity: 4, amount: 1600 },
+        { product_id: 11, product_name: 'コーヒー', product_code: 'P0011', product_memo: 'アイス', quantity: 2, amount: 900 },
+      ],
+    }))
+    const { w } = await mountPage('/sales/daily')
+    const subs = w.findAll('.product-cell__sub').map((e) => e.text())
+    expect(subs).toEqual(['ホット・P0001', 'アイス・P0011'])
   })
 
   it('取消済みの会計は灰色の行に「取消」を付ける（AC-S04-2）', async () => {

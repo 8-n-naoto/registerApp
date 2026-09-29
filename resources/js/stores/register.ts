@@ -5,6 +5,7 @@ import { fmt, ja } from '@/i18n/ja'
 import { errorBody, errorStatus, isNetworkError } from '@/lib/apiError'
 import { addOne, canAddOne, isCartLines, lineKey, MAX_LINES, reconcile, removeOne, toPricingItems, type CartLine } from '@/lib/cart'
 import { loadDeviceName } from '@/lib/deviceName'
+import { nameWithMemo } from '@/lib/productLabel'
 import { calculateAmounts, PricingError, type PricingAmounts } from '@/lib/pricing'
 import { uuidV4 } from '@/lib/uuid'
 import type { DiscountType, Product, Sale } from '@/types/api'
@@ -360,7 +361,7 @@ export const useRegisterStore = defineStore('register', () => {
     if (status === 409 && body?.code === 'OUT_OF_STOCK') {
       // AC-S02-8：不足の内容を出し、在庫表示を取り直す
       const shortages = (body.details?.shortages ?? []) as StockShortage[]
-      const items = shortages.map((s) => fmt(ja.register.outOfStockItem, { name: s.product_name, n: s.stock_qty })).join('、')
+      const items = shortages.map((s) => fmt(ja.register.outOfStockItem, { name: nameWithMemo(s.product_name, products.value.get(s.product_id)?.memo), n: s.stock_qty })).join('、')
       await load({ quiet: true })
       return { ok: false, message: fmt(ja.register.outOfStock, { items }), closeDialog: true }
     }
