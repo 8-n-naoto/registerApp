@@ -25,6 +25,7 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
     // owner / staff / admin（admin は ?store_id 必須）
     Route::middleware('role:owner,staff,admin')->group(function () {
         Route::get('/sales/{sale}', [Api\SaleController::class, 'show'])->whereNumber('sale');      // #7
+        Route::get('/reports/daily', [Api\ReportController::class, 'daily']);                      // #9
     });
 
     // owner のみ。/order は /{id} より先に登録し、ID は数値に限る（04 §4.9）
