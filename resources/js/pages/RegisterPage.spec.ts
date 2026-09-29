@@ -1,13 +1,14 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import type { SaleInput } from '@/api/register'
 import RegisterPage from '@/pages/RegisterPage.vue'
 import { useAuthStore } from '@/stores/auth'
 import { makeMe } from '@/test/helpers'
 import { stubMatchMedia } from '@/test/matchMedia'
-import { makeBootstrap, makeSale } from '@/test/register'
+import { makeBootstrap, makeProduct, makeSale } from '@/test/register'
 
 const api = vi.hoisted(() => ({
   fetchBootstrap: vi.fn(),
@@ -271,5 +272,35 @@ describe('S02 会計（08 §5.3）', () => {
     expect(document.querySelector('.register__message')?.textContent).toContain('エラー')
     await click(button('再読み込み'))
     expect(document.querySelector('[data-product="1"]')).not.toBeNull()
+  })
+})
+
+describe('S02 商品 500 件（WP 6-2・08 §10）', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+    localStorage.clear()
+    stubMatchMedia(true)
+    for (const fn of Object.values(api)) fn.mockReset()
+  })
+
+  it('500 件を並べ、商品タップ → 合計の反映が遅くならない（jsdom の中央値で後退を検出）', async () => {
+    const products = Array.from({ length: 500 }, (_, i) => makeProduct(i + 1, `商品 ${i + 1}`, { price: 100 + (i % 10) * 10 }))
+    api.fetchBootstrap.mockResolvedValue(makeBootstrap({ categories: [], products }))
+    await mountPage()
+    expect(document.querySelectorAll('[data-product]')).toHaveLength(500)
+
+    const taps: number[] = []
+    for (let i = 0; i < 20; i++) {
+      const started = performance.now()
+      tile(500 - i).click()
+      await nextTick()
+      taps.push(performance.now() - started)
+    }
+    expect(lines()).toHaveLength(20)
+    taps.sort((a, b) => a - b)
+    const median = taps[10] ?? 0
+    // 目標（100ms）は実機で判定する。jsdom は実ブラウザより DOM の処理が遅く、並列実行でも揺れるため、
+    // ここでは大きな後退だけを検出する（2026-09-29 の jsdom 実測：単独実行で中央値約 40ms。v-memo を付ける前は約 69ms）
+    expect(median).toBeLessThan(250)
   })
 })

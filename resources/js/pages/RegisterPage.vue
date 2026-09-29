@@ -55,6 +55,9 @@ function canPress(product: Product): boolean {
   return canAddOne(register.lines, product)
 }
 
+/** 在庫の上限まで注文に入っていて押せない商品。商品 500 件でもタップ時に全ボタンを描き直さないよう v-memo の鍵に使う（08 §10） */
+const blocked = computed(() => new Set(visibleProducts.value.filter((p) => !canPress(p)).map((p) => p.id)))
+
 const picking = ref<Product | null>(null)
 
 function press(product: Product): void {
@@ -246,9 +249,10 @@ async function undo(): Promise<void> {
           <button
             v-for="product in visibleProducts"
             :key="product.id"
+            v-memo="[product, blocked.has(product.id)]"
             type="button"
             class="grid__item"
-            :disabled="!canPress(product)"
+            :disabled="blocked.has(product.id)"
             :data-product="product.id"
             @click="press(product)"
           >
