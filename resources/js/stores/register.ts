@@ -3,16 +3,27 @@ import { computed, ref, watch } from 'vue'
 import { cancelSale, createSale, fetchBootstrap, type RegisterBootstrap, type StockShortage } from '@/api/register'
 import { fmt, ja } from '@/i18n/ja'
 import { errorBody, errorStatus, isNetworkError } from '@/lib/apiError'
-import { addOne, canAddOne, isCartLines, lineKey, MAX_LINES, reconcile, removeOne, toPricingItems, type CartLine } from '@/lib/cart'
+import { addOne, canAddOne, isCartLines, lineKey, MAX_LINES, MAX_QUANTITY, reconcile, removeOne, toPricingItems, type CartLine } from '@/lib/cart'
 import { loadDeviceName } from '@/lib/deviceName'
 import { nameWithMemo } from '@/lib/productLabel'
 import { calculateAmounts, PricingError, type PricingAmounts } from '@/lib/pricing'
 import { uuidV4 } from '@/lib/uuid'
-import type { DiscountType, Product, Sale } from '@/types/api'
+import type { DiscountType, Order, Product, Sale } from '@/types/api'
 
 export interface Discount {
   type: DiscountType
   value: number
+}
+
+/**
+ * カートに入れた注文（12 §8.6）。確定で order_ids として送る。
+ * 外すときにカートから引けるよう、入れたときの品目（商品・オプション・数量）も持つ
+ */
+export interface LinkedOrder {
+  id: number
+  order_no: number
+  place: string // テーブル名か呼び名（どちらも無ければ空）
+  lines: CartLine[]
 }
 
 /** 保留中の注文（08 §5.3 A 案。端末の localStorage に最大 10 件） */
@@ -21,20 +32,25 @@ export interface HeldOrder {
   lines: CartLine[]
   discount: Discount | null
   held_at: string // ISO 8601
+  orders?: LinkedOrder[] // 12 §8.6（WP 7-10 より前に保留したものには無い）
 }
 
 export const HELD_MAX = 10
+export const ORDER_IDS_MAX = 20 // 12 §5.15 order_ids は 20 件まで
 
 /** 会計の確定の結果。失敗時の closeDialog は「ダイアログを閉じて注文を直してもらう」エラーか */
 export type ConfirmOutcome =
   | { ok: true; sale: Sale }
-  | { ok: false; message: string; closeDialog: boolean }
+  | { ok: false; message: string; closeDialog: boolean; staleOrders?: StaleOrders }
 
 export interface ConfirmExtra {
   received: number | null
   customer_count: number | null
   memo: string | null
 }
+
+/** 会計の確定の失敗のうち、カートに入れた注文が会計できなくなっていたもの（12 §8.6） */
+export interface StaleOrders { ids: number[]; message: string }
 
 type Notice = { kind: 'error' | 'info'; text: string }
 
@@ -44,6 +60,14 @@ function isDiscount(v: unknown): v is Discount {
   return (r.type === 'amount' || r.type === 'percent') && Number.isSafeInteger(r.value) && (r.value as number) > 0
 }
 
+function isLinkedOrders(v: unknown): v is LinkedOrder[] {
+  return Array.isArray(v) && v.length <= ORDER_IDS_MAX && v.every((o: unknown) => {
+    if (typeof o !== 'object' || o === null) return false
+    const r = o as Record<string, unknown>
+    return Number.isSafeInteger(r.id) && Number.isSafeInteger(r.order_no) && typeof r.place === 'string' && isCartLines(r.lines)
+  })
+}
+
 function isHeldOrder(v: unknown): v is HeldOrder {
   if (typeof v !== 'object' || v === null) return false
   const r = v as Record<string, unknown>
@@ -51,6 +75,20 @@ function isHeldOrder(v: unknown): v is HeldOrder {
     && isCartLines(r.lines)
     && (r.discount === null || isDiscount(r.discount))
     && typeof r.held_at === 'string'
+    && (r.orders === undefined || isLinkedOrders(r.orders))
+}
+
+/** 注文の品目をカートの行にする（同じ商品・オプションは 1 行。品目のメモは会計に持ち込まない） */
+function orderLines(order: Order): CartLine[] {
+  const result: CartLine[] = []
+  for (const item of order.items) {
+    const optionIds = item.options.map((o) => o.product_option_id).sort((a, b) => a - b)
+    const key = lineKey(item.product_id, optionIds)
+    const existing = result.find((l) => l.key === key)
+    if (existing) existing.quantity += item.quantity
+    else result.push({ key, product_id: item.product_id, option_ids: optionIds, quantity: item.quantity })
+  }
+  return result
 }
 
 /** S02 会計の状態（08 §7.2）。金額は lib/pricing.ts で計算し、画面では計算しない */
@@ -66,6 +104,8 @@ export const useRegisterStore = defineStore('register', () => {
   /** お会計ダイアログを開いたときに作った client_uuid。確定するか注文を変えたら破棄する */
   const pendingUuid = ref<string | null>(null)
   const held = ref<HeldOrder[]>([])
+  /** カートに入れた注文（12 §8.6）。注文を変えても残す（金額が変わるので pendingUuid は破棄する） */
+  const linkedOrders = ref<LinkedOrder[]>([])
   /** 直前に確定した会計（5 秒間の取消用） */
   const lastSale = ref<Sale | null>(null)
   const submitting = ref(false)
@@ -79,6 +119,7 @@ export const useRegisterStore = defineStore('register', () => {
   const taxType = computed(() => bootstrap.value?.tax_types.find((t) => t.id === taxTypeId.value) ?? null)
   const paymentMethod = computed(() => bootstrap.value?.payment_methods.find((m) => m.id === paymentMethodId.value) ?? null)
   const itemCount = computed(() => lines.value.reduce((sum, l) => sum + l.quantity, 0))
+  const orderIds = computed(() => linkedOrders.value.map((o) => o.id))
 
   const pricing = computed<{ amounts: PricingAmounts | null; error: boolean }>(() => {
     const b = bootstrap.value
@@ -120,6 +161,7 @@ export const useRegisterStore = defineStore('register', () => {
         lines: lines.value,
         discount: discount.value,
         held: held.value,
+        orders: linkedOrders.value,
       }))
       storageOk.value = true
     } catch {
@@ -143,9 +185,10 @@ export const useRegisterStore = defineStore('register', () => {
     if (isCartLines(r.lines)) lines.value = r.lines
     if (r.discount === null || isDiscount(r.discount)) discount.value = r.discount
     if (Array.isArray(r.held)) held.value = r.held.filter(isHeldOrder).slice(0, HELD_MAX)
+    if (isLinkedOrders(r.orders)) linkedOrders.value = r.orders
   }
 
-  watch([taxTypeId, lines, discount, held], persist, { deep: true })
+  watch([taxTypeId, lines, discount, held, linkedOrders], persist, { deep: true })
 
   // ─── マスタ ───
 
@@ -188,6 +231,7 @@ export const useRegisterStore = defineStore('register', () => {
         lines.value = []
         discount.value = null
         held.value = []
+        linkedOrders.value = []
         pendingUuid.value = null
         lastSale.value = null
         restore()
@@ -241,6 +285,65 @@ export const useRegisterStore = defineStore('register', () => {
   function clearOrder(): void {
     lines.value = []
     discount.value = null
+    linkedOrders.value = []
+    orderChanged()
+  }
+
+  // ─── 注文から会計（12 §8.6） ───
+
+  /**
+   * 注文の品目をカートに足し、注文を会計の対象にする。入っている注文は飛ばす。
+   * 販売を終えた商品・オプションの品目は足さず（会計の明細は注文と一致しなくてよい、12 §5.15）、名前を知らせる
+   */
+  function addOrders(orders: readonly Order[]): boolean {
+    const fresh = orders.filter((o) => !orderIds.value.includes(o.id))
+    if (fresh.length === 0) return false
+    if (linkedOrders.value.length + fresh.length > ORDER_IDS_MAX) {
+      notice.value = { kind: 'error', text: fmt(ja.register.ordersTooMany, { n: ORDER_IDS_MAX }) }
+      return false
+    }
+    let next = [...lines.value]
+    const skipped: string[] = []
+    const linked: LinkedOrder[] = []
+    for (const order of fresh) {
+      const added: CartLine[] = []
+      for (const line of orderLines(order)) {
+        const product = products.value.get(line.product_id)
+        const usable = product !== undefined && line.option_ids.every((id) => product.options.some((o) => o.id === id))
+        const existing = next.find((l) => l.key === line.key)
+        if (!usable || (!existing && next.length >= MAX_LINES)) {
+          skipped.push(order.items.find((i) => i.product_id === line.product_id)?.product_name ?? '')
+          continue
+        }
+        next = existing
+          ? next.map((l) => (l.key === line.key ? { ...l, quantity: Math.min(l.quantity + line.quantity, MAX_QUANTITY) } : l))
+          : [...next, { ...line }]
+        added.push(line)
+      }
+      linked.push({ id: order.id, order_no: order.order_no, place: order.table_name ?? order.label ?? '', lines: added })
+    }
+    lines.value = next
+    linkedOrders.value = [...linkedOrders.value, ...linked]
+    orderChanged()
+    const names = [...new Set(skipped.filter((n) => n !== ''))]
+    notice.value = names.length > 0
+      ? { kind: 'error', text: fmt(ja.register.orderItemsSkipped, { names: names.join('、') }) }
+      : { kind: 'info', text: fmt(ja.register.ordersAdded, { n: linked.length }) }
+    return true
+  }
+
+  /** 注文を会計の対象から外し、その注文で足した数量をカートから引く */
+  function removeOrders(ids: readonly number[]): void {
+    const target = linkedOrders.value.filter((o) => ids.includes(o.id))
+    if (target.length === 0) return
+    let next = [...lines.value]
+    for (const order of target) {
+      for (const line of order.lines) {
+        next = next.map((l) => (l.key === line.key ? { ...l, quantity: l.quantity - line.quantity } : l)).filter((l) => l.quantity > 0)
+      }
+    }
+    lines.value = next
+    linkedOrders.value = linkedOrders.value.filter((o) => !ids.includes(o.id))
     orderChanged()
   }
 
@@ -273,6 +376,7 @@ export const useRegisterStore = defineStore('register', () => {
       lines: lines.value,
       discount: discount.value,
       held_at: new Date().toISOString(),
+      orders: linkedOrders.value,
     }]
     clearOrder()
     notice.value = { kind: 'info', text: ja.register.heldSaved }
@@ -287,6 +391,7 @@ export const useRegisterStore = defineStore('register', () => {
     const result = reconcile(order.lines, products.value)
     lines.value = result.lines
     discount.value = order.discount
+    linkedOrders.value = order.orders ?? []
     if (bootstrap.value?.tax_types.some((t) => t.id === order.tax_type_id)) taxTypeId.value = order.tax_type_id
     orderChanged()
     notice.value = result.removed.length > 0
@@ -337,11 +442,13 @@ export const useRegisterStore = defineStore('register', () => {
         memo: extra.memo,
         device_name: loadDeviceName() || null,
         expected_total: total,
+        order_ids: orderIds.value,
       })
       deductStock(sold)
       lastSale.value = sale
       lines.value = []
       discount.value = null
+      linkedOrders.value = []
       pendingUuid.value = null
       paymentMethodId.value = defaultPaymentMethodId()
       notice.value = null
@@ -359,6 +466,16 @@ export const useRegisterStore = defineStore('register', () => {
 
     const body = errorBody(err)
     const status = errorStatus(err)
+    // 12 §8.6：カートに入れた注文が会計済み・取消・見つからない。どの注文かを返し、外すかを画面で選んでもらう
+    const staleIds = body?.details?.order_ids
+    if ((status === 409 || status === 422) && Array.isArray(staleIds)) {
+      const ids = staleIds.filter((id): id is number => typeof id === 'number' && orderIds.value.includes(id))
+      if (ids.length > 0) {
+        pendingUuid.value = null
+        const message = body?.code === 'ORDER_ALREADY_PAID' ? ja.register.orderAlreadyPaid : (body?.message ?? ja.error.unexpected)
+        return { ok: false, message, closeDialog: true, staleOrders: { ids, message } }
+      }
+    }
     if (status === 409 && body?.code === 'OUT_OF_STOCK') {
       // AC-S02-8：不足の内容を出し、在庫表示を取り直す
       const shortages = (body.details?.shortages ?? []) as StockShortage[]
@@ -403,9 +520,9 @@ export const useRegisterStore = defineStore('register', () => {
   }
 
   return {
-    bootstrap, loading, loadError, taxTypeId, lines, discount, paymentMethodId, pendingUuid, held, lastSale, submitting,
-    notice, storageOk, products, taxType, paymentMethod, itemCount, amounts, pricingError, canCheckout,
-    load, add, increment, decrement, removeLine, clearOrder, setDiscount, setTaxType, setPaymentMethod,
+    bootstrap, loading, loadError, taxTypeId, lines, discount, paymentMethodId, pendingUuid, held, linkedOrders, lastSale, submitting,
+    notice, storageOk, products, taxType, paymentMethod, itemCount, orderIds, amounts, pricingError, canCheckout,
+    load, add, increment, decrement, removeLine, clearOrder, addOrders, removeOrders, setDiscount, setTaxType, setPaymentMethod,
     hold, recall, deleteHeld, startCheckout, confirm, undoLastSale, forgetLastSale,
   }
 })

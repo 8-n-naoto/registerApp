@@ -10,7 +10,9 @@ import { canAddOne, type CartLine } from '@/lib/cart'
 import { formatYen } from '@/lib/money'
 import { useRegisterStore } from '@/stores/register'
 
-const emit = defineEmits<{ checkout: []; discount: []; held: [] }>()
+// unpaidCount：未会計の注文の件数（12 §8.6。取れていなければ null）
+defineProps<{ unpaidCount: number | null }>()
+const emit = defineEmits<{ checkout: []; discount: []; held: []; orders: [] }>()
 
 const t = ja.register
 const register = useRegisterStore()
@@ -27,6 +29,12 @@ const rows = computed(() =>
       canIncrease: product !== undefined && canAddOne(register.lines, product, line.key),
     }
   }),
+)
+
+const linkedText = computed(() =>
+  register.linkedOrders
+    .map((o) => (o.place === '' ? fmt(t.linkedOrder, { no: o.order_no }) : fmt(t.linkedOrderAt, { no: o.order_no, place: o.place })))
+    .join('、'),
 )
 
 const taxText = computed(() => {
@@ -72,6 +80,14 @@ function clear(): void {
 
 <template>
   <div class="order">
+    <button
+      type="button"
+      class="order__from"
+      data-from-orders
+      @click="emit('orders')"
+    >
+      {{ unpaidCount === null ? t.fromOrdersUnknown : fmt(t.fromOrders, { n: unpaidCount }) }}
+    </button>
     <div class="order__tools">
       <button
         type="button"
@@ -97,6 +113,14 @@ function clear(): void {
         {{ t.clear }}
       </button>
     </div>
+
+    <p
+      v-if="linkedText !== ''"
+      class="order__linked"
+      data-linked-orders
+    >
+      {{ fmt(t.linkedOrders, { orders: linkedText }) }}
+    </p>
 
     <p
       v-if="register.lines.length === 0"
@@ -264,6 +288,19 @@ function clear(): void {
   min-height: 0;
   height: 100%;
 }
+
+.order__from {
+  flex-shrink: 0;
+  min-height: 56px;
+  padding: 0 16px;
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  color: var(--c-primary);
+  font-size: 18px;
+  font-weight: 800;
+}
+.order__linked { margin: 0; color: var(--c-primary); font-weight: 700; overflow-wrap: anywhere; }
 
 .order__tools { display: flex; gap: 8px; flex-wrap: wrap; }
 .order__tool {

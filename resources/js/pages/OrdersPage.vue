@@ -311,6 +311,14 @@ async function runConfirm(): Promise<void> {
               >
                 {{ t.addOrder }}
               </RouterLink>
+              <RouterLink
+                v-if="table.unpaid_order_count > 0"
+                class="adm-btn adm-btn--on"
+                :data-to-register="table.id"
+                :to="{ name: 'register', query: { table: table.id } }"
+              >
+                {{ t.toRegister }}
+              </RouterLink>
             </div>
           </li>
         </ul>

@@ -6,8 +6,9 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import type { SaleInput } from '@/api/register'
 import RegisterPage from '@/pages/RegisterPage.vue'
 import { useAuthStore } from '@/stores/auth'
-import { makeMe } from '@/test/helpers'
+import { apiError, makeMe } from '@/test/helpers'
 import { stubMatchMedia } from '@/test/matchMedia'
+import { makeOrder, makeOrderItem } from '@/test/orders'
 import { makeBootstrap, makeProduct, makeSale } from '@/test/register'
 
 const api = vi.hoisted(() => ({
@@ -17,8 +18,10 @@ const api = vi.hoisted(() => ({
   cancelSale: vi.fn(),
 }))
 vi.mock('@/api/register', () => api)
+const ordersApi = vi.hoisted(() => ({ fetchOrders: vi.fn() }))
+vi.mock('@/api/orders', () => ordersApi)
 
-async function mountPage() {
+async function mountPage(path = '/register') {
   const pinia = createPinia()
   setActivePinia(pinia)
   useAuthStore().me = makeMe('staff')
@@ -30,7 +33,7 @@ async function mountPage() {
       { path: '/sales/:id/receipt', name: 'receipt', component: { template: '<p>receipt</p>' } },
     ],
   })
-  await router.push('/register')
+  await router.push(path)
   const w = mount(RegisterPage, { global: { plugins: [pinia, router] }, attachTo: document.body })
   await flushPromises()
   return { w, router }
@@ -66,6 +69,8 @@ describe('S02 会計（08 §5.3）', () => {
     stubMatchMedia(true)
     for (const fn of Object.values(api)) fn.mockReset()
     api.fetchBootstrap.mockImplementation(() => Promise.resolve(makeBootstrap()))
+    ordersApi.fetchOrders.mockReset()
+    ordersApi.fetchOrders.mockResolvedValue([])
   })
 
   afterEach(() => {
@@ -295,6 +300,8 @@ describe('S02 商品 500 件（WP 6-2・08 §10）', () => {
     localStorage.clear()
     stubMatchMedia(true)
     for (const fn of Object.values(api)) fn.mockReset()
+    ordersApi.fetchOrders.mockReset()
+    ordersApi.fetchOrders.mockResolvedValue([])
   })
 
   it('商品ボタンはメモを小さく出し、商品コードは出さない', async () => {
@@ -339,5 +346,125 @@ describe('S02 商品 500 件（WP 6-2・08 §10）', () => {
     // 目標（100ms）は実機で判定する。jsdom は実ブラウザより DOM の処理が遅く、並列実行でも揺れるため、
     // ここでは大きな後退だけを検出する（2026-09-29 の jsdom 実測：単独実行で中央値約 40ms。v-memo を付ける前は約 69ms）
     expect(median).toBeLessThan(250)
+  })
+})
+
+describe('S02 注文から会計（12 §8.6）', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+    localStorage.clear()
+    stubMatchMedia(true)
+    for (const fn of Object.values(api)) fn.mockReset()
+    api.fetchBootstrap.mockImplementation(() => Promise.resolve(makeBootstrap()))
+    ordersApi.fetchOrders.mockReset()
+  })
+
+  const O1 = makeOrder({ id: 101, order_no: 1, subtotal: 800, items: [makeOrderItem({ product_id: 1, quantity: 2, line_total: 800 })] })
+  const O2 = makeOrder({ id: 102, order_no: 2, subtotal: 380, items: [makeOrderItem({ id: 1002, product_id: 2, product_name: 'ケーキ', quantity: 1, line_total: 380 })] })
+  const O3 = makeOrder({ id: 103, order_no: 3, order_table_id: 2, table_name: 'T2', subtotal: 400 })
+  const O4 = makeOrder({ id: 104, order_no: 4, order_table_id: null, table_name: null, label: '田中さま', subtotal: 400 })
+
+  async function checkoutByCard(): Promise<void> {
+    await click(button('カード'))
+    await click(button('お会計へ'))
+    await click(button('確定', document.querySelector<HTMLElement>('.checkout') ?? document))
+  }
+
+  function checkbox(selector: string): HTMLButtonElement {
+    const el = document.querySelector<HTMLButtonElement>(selector)
+    if (!el) throw new Error(`${selector} not found`)
+    return el
+  }
+
+  it('件数を出し、テーブルを選ぶとその注文をすべて選ぶ。注文ごとに外せる', async () => {
+    ordersApi.fetchOrders.mockResolvedValue([O1, O2, O3, O4])
+    await mountPage()
+    expect(ordersApi.fetchOrders).toHaveBeenCalledWith('unpaid')
+    const from = checkbox('[data-from-orders]')
+    expect(from.textContent?.trim()).toBe('注文から会計（4）')
+    await click(from)
+    expect(ordersApi.fetchOrders).toHaveBeenCalledTimes(2)
+    expect(document.querySelector('[data-group="t1"]')?.textContent).toContain('T1（2 件・¥1,180）')
+    expect(document.querySelector('[data-group="o104"]')?.textContent).toContain('田中さま')
+
+    await click(checkbox('[data-group="t1"] [role="checkbox"]'))
+    expect(checkbox('[data-order="101"]').getAttribute('aria-checked')).toBe('true')
+    expect(checkbox('[data-order="102"]').getAttribute('aria-checked')).toBe('true')
+    expect(checkbox('[data-order="103"]').getAttribute('aria-checked')).toBe('false')
+    await click(checkbox('[data-order="102"]'))
+    expect(checkbox('[data-group="t1"] [role="checkbox"]').getAttribute('aria-checked')).toBe('mixed')
+    await click(checkbox('[data-order="102"]'))
+
+    await click(checkbox('[data-pick-submit]'))
+    expect(lines()).toEqual([['コーヒー', '2'], ['ケーキ', '1']])
+    expect(document.querySelector('[data-linked-orders]')?.textContent).toContain('会計する注文：#1（T1）、#2（T1）')
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+
+    api.createSale.mockResolvedValue(makeSale())
+    await checkoutByCard()
+    expect((api.createSale.mock.calls[0]?.[0] as SaleInput).order_ids).toEqual([101, 102])
+  })
+
+  it('カートが空でなければ「今の注文に追加しますか？」。［やめる］では足さない', async () => {
+    ordersApi.fetchOrders.mockResolvedValue([O1])
+    await mountPage()
+    await click(tile(1))
+    await click(checkbox('[data-from-orders]'))
+    await click(checkbox('[data-order="101"]'))
+    await click(checkbox('[data-pick-submit]'))
+    const confirm = document.querySelector('[role="alertdialog"]')
+    expect(confirm?.textContent).toContain('今の注文に追加しますか？')
+    await click(button('やめる', confirm ?? document))
+    expect(lines()).toEqual([['コーヒー', '1']])
+    await click(checkbox('[data-pick-submit]'))
+    await click(button('追加する', document.querySelector('[role="alertdialog"]') ?? document))
+    expect(lines()).toEqual([['コーヒー', '3']])
+  })
+
+  it('入っている注文は選べない', async () => {
+    ordersApi.fetchOrders.mockResolvedValue([O1, O3])
+    await mountPage()
+    await click(checkbox('[data-from-orders]'))
+    await click(checkbox('[data-order="101"]'))
+    await click(checkbox('[data-pick-submit]'))
+    await click(checkbox('[data-from-orders]'))
+    expect(checkbox('[data-order="101"]').disabled).toBe(true)
+    expect(checkbox('[data-order="101"]').textContent).toContain('カートに入っています')
+    expect(checkbox('[data-group="t1"] [role="checkbox"]').disabled).toBe(true)
+  })
+
+  it('?table= で開くと、そのテーブルの注文を選んだ状態でダイアログを出し、URL から外す', async () => {
+    ordersApi.fetchOrders.mockResolvedValue([O1, O2, O3])
+    const { router } = await mountPage('/register?table=1')
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull()
+    expect(checkbox('[data-order="101"]').getAttribute('aria-checked')).toBe('true')
+    expect(checkbox('[data-order="103"]').getAttribute('aria-checked')).toBe('false')
+    expect(router.currentRoute.value.query).toEqual({})
+    expect(checkbox('[data-pick-submit]').textContent?.trim()).toBe('カートに入れる（2 件）')
+  })
+
+  it('件数が取れなければ件数なしで出す', async () => {
+    ordersApi.fetchOrders.mockRejectedValue(apiError(500, { message: 'x' }))
+    await mountPage()
+    expect(checkbox('[data-from-orders]').textContent?.trim()).toBe('注文から会計')
+    await click(checkbox('[data-from-orders]'))
+    expect(document.querySelector('[role="dialog"] [role="alert"]')?.textContent).toContain('注文を読み込めませんでした')
+  })
+
+  it('AC-S02-17：会計済みの注文は確認して外せる', async () => {
+    ordersApi.fetchOrders.mockResolvedValue([O1, O3])
+    await mountPage()
+    await click(checkbox('[data-from-orders]'))
+    await click(checkbox('[data-order="101"]'))
+    await click(checkbox('[data-order="103"]'))
+    await click(checkbox('[data-pick-submit]'))
+    api.createSale.mockRejectedValue(apiError(409, { message: '会計済みの注文が含まれています。画面を更新してください', code: 'ORDER_ALREADY_PAID', details: { order_ids: [101] } }))
+    await checkoutByCard()
+    const dialog = document.querySelector('[role="alertdialog"]')
+    expect(dialog?.textContent).toContain('この注文はすでに会計されています（#1）')
+    await click(button('外す', dialog ?? document))
+    expect(lines()).toEqual([['コーヒー', '1']])
+    expect(document.querySelector('[data-linked-orders]')?.textContent).toContain('#3（T2）')
+    expect(document.querySelector('[data-linked-orders]')?.textContent).not.toContain('#1')
   })
 })

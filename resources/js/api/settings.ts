@@ -1,5 +1,5 @@
 import { http } from '@/api/client'
-import type { PaymentMethod, PriceMode, Rounding, StoreSettings, TaxType } from '@/types/api'
+import type { OrderSettings, PaymentMethod, PriceMode, Rounding, StoreSettings, TaxType } from '@/types/api'
 
 // 06 §8 店舗設定・税区分・支払方法（owner のみ）
 
@@ -60,4 +60,14 @@ export async function updatePaymentMethod(id: number, input: PaymentMethodInput)
 
 export async function reorderPaymentMethods(ids: number[]): Promise<void> {
   await http.put('/payment-methods/order', { ids })
+}
+
+/** 12 §5.13 #64 注文の設定 */
+export async function fetchOrderSettings(): Promise<OrderSettings> {
+  return (await http.get<OrderSettings>('/settings/orders')).data
+}
+
+/** 12 §5.13 #65（polling_mode が schedule でなければ polling_windows は保存されない） */
+export async function updateOrderSettings(input: OrderSettings): Promise<OrderSettings> {
+  return (await http.put<OrderSettings>('/settings/orders', input)).data
 }

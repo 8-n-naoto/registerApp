@@ -3,25 +3,29 @@
 // スマホ縦は上に税区分とカテゴリ、中央に商品、下に固定の合計バー（注文はシートで開く）。
 // 商品のタップから合計の表示までは通信しない（AC-S02-1）。起動時に GET /register/bootstrap を 1 回呼ぶ
 import { onMounted, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { fetchOrders } from '@/api/orders'
 import BigButton from '@/components/BigButton.vue'
 import BottomSheet from '@/components/BottomSheet.vue'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import MoneyText from '@/components/MoneyText.vue'
 import CheckoutDialog from '@/components/register/CheckoutDialog.vue'
 import DiscountForm from '@/components/register/DiscountForm.vue'
 import HeldList from '@/components/register/HeldList.vue'
 import OptionPicker from '@/components/register/OptionPicker.vue'
 import OrderPanel from '@/components/register/OrderPanel.vue'
+import OrderPickDialog from '@/components/register/OrderPickDialog.vue'
 import ProductArea from '@/components/register/ProductArea.vue'
 import SaleDone from '@/components/register/SaleDone.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { useIsTablet } from '@/lib/breakpoint'
 import { canAddOne } from '@/lib/cart'
 import { useWakeLock } from '@/lib/wakeLock'
-import { useRegisterStore, type ConfirmExtra, type Discount } from '@/stores/register'
+import { useRegisterStore, type ConfirmExtra, type Discount, type StaleOrders } from '@/stores/register'
 import type { Product, Sale } from '@/types/api'
 
 const t = ja.register
+const route = useRoute()
 const router = useRouter()
 const register = useRegisterStore()
 const isTablet = useIsTablet()
@@ -29,7 +33,52 @@ useWakeLock()
 
 onMounted(() => {
   void register.load()
+  // S15［会計へ］（?table=ID）：そのテーブルの注文を選んだ状態で開き、URL から外す
+  const table = Number(route.query.table)
+  if (Number.isSafeInteger(table) && table > 0) {
+    pickTable.value = table
+    pickOpen.value = true
+    void router.replace({ name: 'register' })
+  } else {
+    void refreshUnpaid()
+  }
 })
+
+// ── 注文から会計（12 §8.6）。件数は画面を開いたときとダイアログを開いたときに取る（取れなければ件数なしで出す）
+const unpaidCount = ref<number | null>(null)
+const pickOpen = ref(false)
+const pickTable = ref<number | null>(null)
+
+async function refreshUnpaid(): Promise<void> {
+  try {
+    unpaidCount.value = (await fetchOrders('unpaid')).length
+  } catch {
+    unpaidCount.value = null
+  }
+}
+
+function openPick(): void {
+  pickTable.value = null
+  orderSheet.value = false
+  pickOpen.value = true
+}
+
+function closePick(): void {
+  pickOpen.value = false
+  pickTable.value = null
+}
+
+const stale = ref<StaleOrders | null>(null)
+
+function orderNos(ids: readonly number[]): string {
+  return register.linkedOrders.filter((o) => ids.includes(o.id)).map((o) => `#${o.order_no}`).join('、')
+}
+
+function removeStale(): void {
+  if (stale.value) register.removeOrders(stale.value.ids)
+  stale.value = null
+  void refreshUnpaid()
+}
 
 // ── 商品（カテゴリのタブと商品ボタンは ProductArea）
 function canPress(product: Product): boolean {
@@ -79,9 +128,13 @@ async function confirm(extra: ConfirmExtra): Promise<void> {
   if (outcome.ok) {
     checkoutOpen.value = false
     done.value = outcome.sale
+    void refreshUnpaid()
     return
   }
-  if (outcome.closeDialog) {
+  if (outcome.staleOrders) {
+    checkoutOpen.value = false
+    stale.value = outcome.staleOrders
+  } else if (outcome.closeDialog) {
     checkoutOpen.value = false
     register.notice = { kind: 'error', text: outcome.message }
   } else {
@@ -198,9 +251,11 @@ async function undo(): Promise<void> {
         class="register__order"
       >
         <OrderPanel
+          :unpaid-count="unpaidCount"
           @checkout="openCheckout"
           @discount="discountOpen = true"
           @held="heldOpen = true"
+          @orders="openPick"
         />
       </aside>
     </div>
@@ -237,9 +292,11 @@ async function undo(): Promise<void> {
       @close="orderSheet = false"
     >
       <OrderPanel
+        :unpaid-count="unpaidCount"
         @checkout="openCheckout"
         @discount="discountOpen = true"
         @held="heldOpen = true"
+        @orders="openPick"
       />
     </BottomSheet>
 
@@ -257,6 +314,21 @@ async function undo(): Promise<void> {
     <HeldList
       :open="heldOpen"
       @close="heldOpen = false"
+    />
+    <OrderPickDialog
+      :open="pickOpen && register.bootstrap !== null"
+      :preselect-table="pickTable"
+      @loaded="unpaidCount = $event"
+      @close="closePick"
+    />
+    <ConfirmDialog
+      :open="stale !== null"
+      :title="t.staleOrdersTitle"
+      :message="stale ? fmt(t.staleOrdersMessage, { message: stale.message, orders: orderNos(stale.ids) }) : ''"
+      :confirm-label="t.staleOrdersRemove"
+      danger
+      @confirm="removeStale"
+      @cancel="stale = null"
     />
     <CheckoutDialog
       v-if="register.paymentMethod && register.amounts"

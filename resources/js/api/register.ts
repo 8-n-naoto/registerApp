@@ -24,6 +24,7 @@ export interface SaleInput {
   memo: string | null
   device_name: string | null
   expected_total: number
+  order_ids: number[] // 12 §5.15（注文から会計。無ければ空）
 }
 
 /** 409 OUT_OF_STOCK の details.shortages の 1 件 */

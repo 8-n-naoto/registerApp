@@ -21,6 +21,7 @@ async function mountPage(path = '/orders') {
     routes: [
       { path: '/orders', name: 'orders', component: OrdersPage },
       { path: '/orders/new', name: 'order-new', component: { template: '<p>new</p>' } },
+      { path: '/register', name: 'register', component: { template: '<p>register</p>' } },
       { path: '/', name: 'home', component: { template: '<p>home</p>' } },
     ],
   })
@@ -117,6 +118,16 @@ describe('OrdersPage（S15）', () => {
     link.click()
     await flushPromises()
     expect(router.currentRoute.value.fullPath).toBe('/orders/new?table=1')
+  })
+
+  it('［会計へ］は未会計があるテーブルだけに出し、そのテーブルを選んだ会計へ（12 §8.6）', async () => {
+    const { router } = await mountPage()
+    expect(document.querySelector('[data-to-register="1"]')).toBeNull()
+    const link = card('[data-to-register="2"]')
+    expect(link.textContent?.trim()).toBe('会計へ')
+    link.click()
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/register?table=2')
   })
 
   it('確認待ち：［受け付ける］で受け付け、一覧を取り直す', async () => {

@@ -6,6 +6,7 @@ import type { StoreSettingsBundle } from '@/api/settings'
 import StoreSettingsPage from '@/pages/StoreSettingsPage.vue'
 import { useAuthStore } from '@/stores/auth'
 import { apiError, makeMe } from '@/test/helpers'
+import type { OrderSettings } from '@/types/api'
 
 const api = vi.hoisted(() => ({
   fetchStoreSettings: vi.fn(),
@@ -16,6 +17,8 @@ const api = vi.hoisted(() => ({
   createPaymentMethod: vi.fn(),
   updatePaymentMethod: vi.fn(),
   reorderPaymentMethods: vi.fn(),
+  fetchOrderSettings: vi.fn(),
+  updateOrderSettings: vi.fn(),
 }))
 vi.mock('@/api/settings', () => api)
 
@@ -28,6 +31,10 @@ function bundle(): StoreSettingsBundle {
     ],
     payment_methods: [{ id: 1, name: '現金', is_cash: true, sort_order: 1, is_active: true }],
   }
+}
+
+function orderSettings(extra: Partial<OrderSettings> = {}): OrderSettings {
+  return { customer_order_enabled: true, customer_order_approval: false, customer_session_minutes: 180, polling_mode: 'always', polling_windows: [], ...extra }
 }
 
 async function mountPage() {
@@ -44,6 +51,7 @@ describe('S09 店舗設定（08 §5.10）', () => {
   beforeEach(() => {
     for (const fn of Object.values(api)) fn.mockReset()
     api.fetchStoreSettings.mockResolvedValue(bundle())
+    api.fetchOrderSettings.mockResolvedValue(orderSettings())
   })
 
   it('設定を読み込み、税率は % で、既定・現金扱いの印を出す', async () => {
@@ -140,5 +148,114 @@ describe('S09 店舗設定（08 §5.10）', () => {
     await w.find<HTMLInputElement>('#pay-name-new').element.form?.dispatchEvent(new Event('submit'))
     await flushPromises()
     expect(w.text()).toContain('同じ名前の支払方法があります')
+  })
+})
+
+describe('S09 注文の設定（12 §8.8）', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+    for (const fn of Object.values(api)) fn.mockReset()
+    api.fetchStoreSettings.mockResolvedValue(bundle())
+    api.fetchOrderSettings.mockResolvedValue(orderSettings())
+  })
+
+  function panel(): HTMLElement {
+    const el = document.querySelector<HTMLElement>('[aria-labelledby="order-settings-heading"]')
+    if (!el) throw new Error('panel not found')
+    return el
+  }
+
+  function buttonIn(root: ParentNode, text: string): HTMLButtonElement {
+    const el = [...root.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim() === text)
+    if (!el) throw new Error(`button ${text} not found`)
+    return el
+  }
+
+  function select(label: string): HTMLSelectElement {
+    const el = panel().querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`)
+    if (!el) throw new Error(`select ${label} not found`)
+    return el
+  }
+
+  async function choose(el: HTMLSelectElement, value: string): Promise<void> {
+    el.value = value
+    el.dispatchEvent(new Event('change'))
+    await flushPromises()
+  }
+
+  it('読み込んだ設定を出し、この欄だけを保存する', async () => {
+    api.updateOrderSettings.mockImplementation((input: OrderSettings) => Promise.resolve(input))
+    await mountPage()
+    const enabled = panel().querySelector<HTMLInputElement>('[data-customer-order]')
+    expect(enabled?.checked).toBe(true)
+    expect((panel().querySelector('#order-session') as HTMLSelectElement).value).toBe('180')
+    expect(panel().querySelector('[role="radio"][aria-checked="true"]')?.textContent?.trim()).toBe('常に ON')
+
+    panel().querySelector<HTMLInputElement>('[data-approval]')?.click()
+    await choose(panel().querySelector('#order-session') as HTMLSelectElement, '90')
+    await flushPromises()
+    panel().querySelector<HTMLButtonElement>('[data-save-orders]')?.click()
+    await flushPromises()
+    expect(api.updateOrderSettings).toHaveBeenCalledWith({
+      customer_order_enabled: true,
+      customer_order_approval: true,
+      customer_session_minutes: 90,
+      polling_mode: 'always',
+      polling_windows: [],
+    })
+    expect(api.updateStoreSettings).not.toHaveBeenCalled()
+    expect(panel().querySelector('.adm-ok')?.textContent).toContain('保存しました')
+  })
+
+  it('AC-S09-6：時間で切り替え。時間帯は 3 つまで、5 分刻み、翌日までの説明を出して送る', async () => {
+    api.updateOrderSettings.mockImplementation((input: OrderSettings) => Promise.resolve(input))
+    await mountPage()
+    await (buttonIn(panel(), '時間で切り替え').click(), flushPromises())
+    expect(panel().querySelectorAll('[data-window]')).toHaveLength(1)
+    expect(panel().textContent).toContain('終了が開始より前なら翌日まで')
+    expect([...select('時間帯 1 開始（分）').options].map((o) => o.value)).toHaveLength(12)
+
+    await (buttonIn(panel(), '＋時間帯を追加').click(), flushPromises())
+    await choose(select('時間帯 2 開始（時）'), '22')
+    await choose(select('時間帯 2 終了（時）'), '02')
+    await choose(select('時間帯 2 終了（分）'), '30')
+    await (buttonIn(panel(), '＋時間帯を追加').click(), flushPromises())
+    expect(panel().querySelectorAll('[data-window]')).toHaveLength(3)
+    expect([...panel().querySelectorAll('button')].some((b) => b.textContent?.trim() === '＋時間帯を追加')).toBe(false)
+    buttonIn(panel().querySelector('[data-window="2"]') ?? panel(), '削除').click()
+    await flushPromises()
+
+    panel().querySelector<HTMLButtonElement>('[data-save-orders]')?.click()
+    await flushPromises()
+    expect(api.updateOrderSettings).toHaveBeenCalledWith(expect.objectContaining({
+      polling_mode: 'schedule',
+      polling_windows: [{ start: '11:00', end: '14:00' }, { start: '22:00', end: '02:30' }],
+    }))
+  })
+
+  it('AC-S09-7：開始と終了が同じ時間帯は送らずに止める', async () => {
+    api.fetchOrderSettings.mockResolvedValue(orderSettings({ polling_mode: 'schedule', polling_windows: [{ start: '11:00', end: '14:00' }] }))
+    await mountPage()
+    await choose(select('時間帯 1 終了（時）'), '11')
+    expect(panel().querySelector('[data-window="0"] .adm-error')?.textContent).toContain('開始と終了は別の時刻にしてください')
+    panel().querySelector<HTMLButtonElement>('[data-save-orders]')?.click()
+    await flushPromises()
+    expect(api.updateOrderSettings).not.toHaveBeenCalled()
+  })
+
+  it('サーバーの 422 は時間帯の下に出す', async () => {
+    api.fetchOrderSettings.mockResolvedValue(orderSettings({ polling_mode: 'schedule', polling_windows: [{ start: '11:00', end: '14:00' }] }))
+    api.updateOrderSettings.mockRejectedValue(apiError(422, { message: '入力に誤りがあります', errors: { 'polling_windows.0.end': ['時刻の形式が正しくありません'] } }))
+    await mountPage()
+    panel().querySelector<HTMLButtonElement>('[data-save-orders]')?.click()
+    await flushPromises()
+    expect(panel().querySelector('[data-window="0"] .adm-error')?.textContent).toContain('時刻の形式が正しくありません')
+  })
+
+  it('注文の設定を読めなくても、ほかの欄は使える', async () => {
+    api.fetchOrderSettings.mockRejectedValue(apiError(500, { message: 'x' }))
+    await mountPage()
+    expect(panel().querySelector('[role="alert"]')?.textContent).toContain('x')
+    expect(document.querySelector('#store-name')).not.toBeNull()
   })
 })

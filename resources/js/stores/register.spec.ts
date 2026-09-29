@@ -5,6 +5,7 @@ import { nextTick } from 'vue'
 import type { SaleInput } from '@/api/register'
 import { HELD_MAX, useRegisterStore } from '@/stores/register'
 import { apiError } from '@/test/helpers'
+import { makeOrder, makeOrderItem } from '@/test/orders'
 import { makeBootstrap, makeProduct, makeSale } from '@/test/register'
 
 const api = vi.hoisted(() => ({
@@ -248,5 +249,105 @@ describe('registerStore（08 §7.2）', () => {
     api.fetchBootstrap.mockResolvedValue(makeBootstrap({ store: { id: 2, name: 'B', price_mode: 'tax_included', rounding: 'floor', day_cutoff_time: '00:00', stock_enabled: true } }))
     await register.load()
     expect(register.lines).toEqual([])
+  })
+
+  describe('注文から会計（12 §8.6）', () => {
+    // T1：コーヒー ×2 とラテ（ショット）×1、T2：コーヒー ×1
+    const T1 = makeOrder({ id: 101, order_no: 1, items: [
+      makeOrderItem({ product_id: 1, quantity: 2 }),
+      makeOrderItem({ id: 1002, product_id: 3, product_name: 'ラテ', quantity: 1, options: [{ product_option_id: 31, option_name: 'ショット', price: 50 }] }),
+    ] })
+    const T2 = makeOrder({ id: 102, order_no: 2, order_table_id: 2, table_name: 'T2', items: [makeOrderItem({ product_id: 1, quantity: 1 })] })
+
+    it('注文の品目をカートに足し、確定で order_ids を送る。成功したら外す', async () => {
+      const register = await loaded()
+      register.add(product(1))
+      expect(register.addOrders([T1, T2])).toBe(true)
+      expect(register.lines).toEqual([
+        { key: '1:', product_id: 1, option_ids: [], quantity: 4 },
+        { key: '3:31', product_id: 3, option_ids: [31], quantity: 1 },
+      ])
+      expect(register.orderIds).toEqual([101, 102])
+      expect(register.notice).toEqual({ kind: 'info', text: '注文 2 件をカートに入れました' })
+      expect(register.addOrders([T1])).toBe(false) // 入っている注文は足さない
+      expect(register.lines[0]?.quantity).toBe(4)
+
+      api.createSale.mockResolvedValue(makeSale())
+      await register.confirm(EXTRA)
+      expect(sentInput().order_ids).toEqual([101, 102])
+      expect(register.orderIds).toEqual([])
+    })
+
+    it('注文が無ければ order_ids は空で送る', async () => {
+      const register = await loaded()
+      register.add(product(1))
+      api.createSale.mockResolvedValue(makeSale())
+      await register.confirm(EXTRA)
+      expect(sentInput().order_ids).toEqual([])
+    })
+
+    it('販売を終えた商品の品目は足さずに名前を出す', async () => {
+      api.fetchBootstrap.mockResolvedValue(makeBootstrap({ products: [makeProduct(1, 'コーヒー')] }))
+      const register = await loaded()
+      register.addOrders([T1])
+      expect(register.lines.map((l) => l.key)).toEqual(['1:'])
+      expect(register.orderIds).toEqual([101])
+      expect(register.notice).toEqual({ kind: 'error', text: '販売を終えた商品は入れませんでした：ラテ' })
+    })
+
+    it('1 回の会計に入れられる注文は 20 件まで', async () => {
+      const register = await loaded()
+      const many = Array.from({ length: 21 }, (_, i) => makeOrder({ id: 200 + i, order_no: i + 1 }))
+      expect(register.addOrders(many)).toBe(false)
+      expect(register.orderIds).toEqual([])
+      expect(register.notice?.text).toBe('1 回の会計に入れられる注文は 20 件までです')
+    })
+
+    it('外すとその注文で足した数量を引く。クリアでも外れる', async () => {
+      const register = await loaded()
+      register.add(product(1))
+      register.addOrders([T1, T2])
+      register.removeOrders([101])
+      expect(register.lines).toEqual([{ key: '1:', product_id: 1, option_ids: [], quantity: 2 }])
+      expect(register.orderIds).toEqual([102])
+      register.clearOrder()
+      expect(register.orderIds).toEqual([])
+    })
+
+    it('保留・呼び出し・開き直しで注文を持ち越す', async () => {
+      const register = await loaded()
+      register.addOrders([T1])
+      register.hold()
+      expect(register.orderIds).toEqual([])
+      register.recall(0)
+      expect(register.orderIds).toEqual([101])
+      await nextTick()
+      const again = await loaded()
+      expect(again.orderIds).toEqual([101])
+    })
+
+    it('AC-S02-17：409 ORDER_ALREADY_PAID は「すでに会計されています」と該当の注文を返す', async () => {
+      const register = await loaded()
+      register.addOrders([T1, T2])
+      register.startCheckout()
+      api.createSale.mockRejectedValue(apiError(409, { message: '会計済みの注文が含まれています。画面を更新してください', code: 'ORDER_ALREADY_PAID', details: { order_ids: [102, 999] } }))
+      const outcome = await register.confirm(EXTRA)
+      expect(outcome).toEqual({
+        ok: false,
+        message: 'この注文はすでに会計されています',
+        closeDialog: true,
+        staleOrders: { ids: [102], message: 'この注文はすでに会計されています' },
+      })
+      expect(register.pendingUuid).toBeNull()
+      expect(register.orderIds).toEqual([101, 102]) // 外すかは画面で選ぶ
+    })
+
+    it('422 の見つからない注文もサーバーのメッセージで該当の注文を返す', async () => {
+      const register = await loaded()
+      register.addOrders([T1])
+      api.createSale.mockRejectedValue(apiError(422, { message: '見つからない注文があります。画面を更新してください', code: 'ITEM_UNAVAILABLE', details: { order_ids: [101] } }))
+      const outcome = await register.confirm(EXTRA)
+      expect(outcome.ok ? null : outcome.staleOrders).toEqual({ ids: [101], message: '見つからない注文があります。画面を更新してください' })
+    })
   })
 })
