@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { basePath } from '@/lib/basePath'
 import HomePage from '@/pages/HomePage.vue'
+import RegisterPage from '@/pages/RegisterPage.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { Role } from '@/types/api'
 
@@ -17,6 +18,9 @@ const routes: RouteRecordRaw[] = [
   { path: '/login', name: 'login', component: () => import('@/pages/LoginPage.vue'), meta: { guest: true } },
   // S00 は初回のバンドルに含める（08 §4）
   { path: '/', name: 'home', component: HomePage, meta: { roles: ['owner', 'staff'] } },
+  // S02 も初回のバンドルに含める（08 §4。会計を最初に開いたときに待たせない）
+  { path: '/register', name: 'register', component: RegisterPage, meta: { roles: ['owner', 'staff'] } },
+  { path: '/sales/:id(\\d+)/receipt', name: 'receipt', component: () => import('@/pages/ReceiptPage.vue'), meta: { roles: ['owner', 'staff', 'admin'] } },
   { path: '/account', name: 'account', component: () => import('@/pages/AccountPage.vue') },
   { path: '/products', name: 'products', component: () => import('@/pages/ProductsPage.vue'), meta: { roles: ['owner'] } },
   { path: '/settings/store', name: 'settings-store', component: () => import('@/pages/StoreSettingsPage.vue'), meta: { roles: ['owner'] } },

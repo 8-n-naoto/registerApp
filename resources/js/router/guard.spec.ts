@@ -4,6 +4,8 @@ import { apiError, makeMe } from '@/test/helpers'
 
 const fetchMe = vi.fn()
 vi.mock('@/api/auth', () => ({ fetchMe: () => fetchMe(), login: vi.fn(), logout: vi.fn(), updatePassword: vi.fn() }))
+// ガードだけを見る。初回のバンドルに含める S02 は部品が多く、読み込みに時間がかかるので空の画面に置き換える
+vi.mock('@/pages/RegisterPage.vue', () => ({ default: { template: '<p>register</p>' } }))
 
 async function freshRouter() {
   vi.resetModules()
