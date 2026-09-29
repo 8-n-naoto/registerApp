@@ -43,5 +43,21 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('api', fn (Request $r) => Limit::perMinute(240)->by('u:'.$r->user()?->id));
         RateLimiter::for('backup', fn (Request $r) => Limit::perMinute(1)->by('backup:'.$r->user()?->id));
         RateLimiter::for('import', fn (Request $r) => Limit::perMinute(10)->by('import:'.$r->user()?->id));
+
+        // 12 §5.14 お客さんの公開 API。table.token より前に通し、無効なトークンへの要求も IP で数える
+        // （店舗ごとの 600 回 / 1 分は店舗が決まった後に ResolveTableToken で数える）
+        RateLimiter::for('public-order', function (Request $r) {
+            $ip = $r->ip();
+            if (! $r->isMethod('POST')) {
+                return Limit::perMinute(60)->by('get-ip:'.$ip);
+            }
+            $token = hash('sha256', (string) $r->route('token'));
+
+            return [
+                Limit::perMinute(10)->by('post-ip:'.$ip),
+                Limit::perMinute(5)->by('post-token-m:'.$token),
+                Limit::perHour(30)->by('post-token-h:'.$token),
+            ];
+        });
     }
 }

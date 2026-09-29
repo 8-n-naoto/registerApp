@@ -4,6 +4,7 @@ use App\Enums\ErrorCode;
 use App\Exceptions\BusinessException;
 use App\Http\Middleware\EnsureAccountActive;
 use App\Http\Middleware\EnsureRole;
+use App\Http\Middleware\ResolveTableToken;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -34,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'account.active' => EnsureAccountActive::class, // 06 §1.5
             'role' => EnsureRole::class,                    // role:owner,staff
+            'table.token' => ResolveTableToken::class,      // 12 §3.9 お客さんの公開 API
         ]);
 
         // 07 §11.1：停止中・役割の判定をルートモデルバインディングより先に行う

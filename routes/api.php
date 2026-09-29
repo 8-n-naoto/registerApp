@@ -8,6 +8,15 @@ use Illuminate\Support\Facades\Route;
 // 1 ─ 認証（未ログイン）。06 §3.1 により guest は付けない（ログイン中でも照合し、成功すれば切り替える）
 Route::post('/login', [Api\AuthController::class, 'login']);                                        // #1
 
+// 46〜48 ─ お客さんの公開 API（12 §5.1〜§5.3）。auth:sanctum を通さず、トークンだけでテーブルと店舗を決める。
+// throttle:public-order を table.token より前に置き、無効なトークンへの要求も IP の回数制限に数える（12 §5.14）。
+// {token} に形式の制約を付けない（形式違いも table.token で同じ 404 にし、回数制限に数えるため）
+Route::middleware(['throttle:public-order', 'table.token'])->prefix('/public/tables/{token}')->group(function () {
+    Route::get('/menu', [Api\PublicOrderController::class, 'menu']);                               // #46
+    Route::post('/orders', [Api\PublicOrderController::class, 'store']);                           // #47
+    Route::get('/orders', [Api\PublicOrderController::class, 'index']);                            // #48
+});
+
 Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(function () {
 
     // 2〜4 ─ 自分のアカウント（全役割）

@@ -88,7 +88,10 @@ class RoleMatrixTest extends TestCase
         43 => ['GET', '/admin/stores', ['admin'], 'none', null],
         44 => ['PATCH', '/admin/stores/{id}/active', ['admin'], 'none', 'store'],
         45 => ['GET', '/admin/backup', ['admin'], 'none', null],
-        // 12 §5.0（注文機能）。#46〜#48 は WP 7-5 で足す
+        // 12 §5.0（注文機能）。#46〜#48 はお客さんの公開 API（ログインに関係なくトークンだけで判定する）
+        46 => ['GET', '/public/tables/{id}/menu', ['*'], null, 'token'],
+        47 => ['POST', '/public/tables/{id}/orders', ['*'], null, 'token'],
+        48 => ['GET', '/public/tables/{id}/orders', ['*'], null, 'token'],
         49 => ['GET', '/orders', ['owner', 'staff'], null, null],
         50 => ['POST', '/orders', ['owner', 'staff'], null, null],
         51 => ['POST', '/orders/{id}/accept', ['owner', 'staff'], null, 'order'],
@@ -118,7 +121,7 @@ class RoleMatrixTest extends TestCase
 
     private User $admin;
 
-    /** @var array{own: array<string, int>, other: array<string, int>} */
+    /** @var array{own: array<string, int|string>, other: array<string, int|string>} */
     private array $fixture;
 
     protected function setUp(): void
@@ -137,7 +140,7 @@ class RoleMatrixTest extends TestCase
         $this->fixture = ['own' => $this->fixtureOf($this->store), 'other' => $other];
     }
 
-    /** @return array<string, int> 店舗の {id} に入れる行（会計は当日） */
+    /** @return array<string, int|string> 店舗の {id} に入れる行（会計は当日）。token はテーブルの QR のトークン */
     private function fixtureOf(Store $store): array
     {
         $category = Category::factory()->for($store)->create();
@@ -168,6 +171,8 @@ class RoleMatrixTest extends TestCase
             'sort_order' => 0,
         ]);
 
+        $table = OrderTable::factory()->for($store)->opened()->create();
+
         return [
             'sale' => $sale->id,
             'product' => $product->id,
@@ -177,7 +182,8 @@ class RoleMatrixTest extends TestCase
             'paymentMethod' => $pay->id,
             'staff' => User::factory()->staff($store)->create()->id,
             'store' => $store->id,
-            'orderTable' => OrderTable::factory()->for($store)->create()->id,
+            'orderTable' => $table->id,
+            'token' => $table->plainToken(),
             'order' => $order->id,
             'orderItem' => $orderItem->id,
         ];
@@ -215,7 +221,7 @@ class RoleMatrixTest extends TestCase
 
         $expected = [];
         foreach (self::ROUTES as $no => [$method, $path, $roles]) {
-            if ($no <= 4) {
+            if ($no <= 4 || $roles === ['*']) {
                 $roles = null;   // /login は認証なし、自分のアカウントは役割を問わない
             } else {
                 sort($roles);
@@ -235,6 +241,12 @@ class RoleMatrixTest extends TestCase
         [$method, $path, $roles, $adminStore, $kind] = self::ROUTES[$no];
         $own = $this->url($path, $kind, 'own', $no);
         $other = $kind !== null && $kind !== 'store' ? $this->url($path, $kind, 'other', $no) : null;
+
+        if ($kind === 'token') {
+            $this->assertPublic($method, $path, $no);
+
+            return;
+        }
 
         // 未ログイン → 401（/login だけは通る）
         $this->app['auth']->forgetGuards();
@@ -286,6 +298,31 @@ class RoleMatrixTest extends TestCase
         foreach (['staff' => $this->staff, 'owner' => $this->owner] as $role => $user) {
             if (in_array($role, $roles, true)) {
                 $this->assertPassed($this->as($user)->send($method, $own), $role);
+            }
+        }
+    }
+
+    /**
+     * 12 §6.7：公開 API はトークン（有効 / 無効 / 他店舗）だけで決まり、ログインの有無・役割は関係ない。
+     * 無効なトークンは 404、他店舗のトークンはその店舗のテーブルとして扱う（H20）
+     */
+    private function assertPublic(string $method, string $path, int $no): void
+    {
+        $own = $this->url($path, 'token', 'own', $no);
+        $other = $this->url($path, 'token', 'other', $no);
+        $invalid = '/api'.str_replace('{id}', str_repeat('a', 43), $path);
+
+        $this->app['auth']->forgetGuards();
+        $this->assertPassed($this->send($method, $own), 'guest');
+        $this->send($method, $invalid)->assertNotFound();
+        foreach (['admin' => $this->admin, 'owner' => $this->owner, 'staff' => $this->staff] as $role => $user) {
+            $this->travel(61)->seconds();   // 回数制限（POST は IP ごとに 1 分 10 回、12 §5.14）に掛けない
+            $this->assertPassed($this->as($user)->send($method, $own), $role);
+            $this->as($user)->send($method, $invalid)->assertNotFound();
+            $res = $this->as($user)->send($method, $other);
+            $this->assertPassed($res, "{$role}（他店舗のトークン）");
+            if ($no === 46) {
+                $res->assertJsonPath('store_name', 'B 店');
             }
         }
     }

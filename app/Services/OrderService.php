@@ -17,9 +17,11 @@ use App\Models\User;
 use App\Services\Pricing\PricingException;
 use App\Support\BusinessDate;
 use Closure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * 12 §5.5〜§5.9・§6.2〜§6.5：注文の作成・受付・取消・提供済み。
@@ -41,7 +43,153 @@ use Illuminate\Support\Facades\DB;
  */
 final class OrderService
 {
+    /** 12 §5.2 手順 3：お客さんの 1 注文の数量の合計の上限 */
+    public const CUSTOMER_MAX_TOTAL_QUANTITY = 50;
+
+    /** 12 §5.2 手順 3：テーブルの 1 回の利用（opened_at 以降）でお客さんが送れる注文の件数 */
+    public const CUSTOMER_MAX_ORDERS_PER_SESSION = 20;
+
     public function __construct(private readonly AuditLogger $audit) {}
+
+    /**
+     * 12 §6.2.1 お客さんの受付判定。受け付けるなら null、受け付けないなら理由。
+     * 利用開始から customer_session_minutes ちょうどの時刻は受け付けない（O06）
+     *
+     * @return 'disabled'|'table_closed'|'session_expired'|null
+     */
+    public static function acceptState(Store $store, OrderTable $table, Carbon $now): ?string
+    {
+        if (! $store->customer_order_enabled) {
+            return 'disabled';
+        }
+        $expiresAt = $table->sessionExpiresAt($store);
+        if ($expiresAt === null) {
+            return 'table_closed';
+        }
+        if ($now->greaterThanOrEqualTo($expiresAt)) {
+            return 'session_expired';
+        }
+
+        return null;
+    }
+
+    /**
+     * 12 §5.2 お客さんの注文。手順は 冪等 → 受付判定 → 件数の上限 → 商品 → 売切 → 小計。
+     * 冪等の再送で、別のテーブルの注文の UUID なら 404（他のテーブルの注文を返さない、O15）
+     *
+     * @param  OrderInput  $input
+     * @return array{Order, bool} [注文, 新規に作成したか]
+     */
+    public function createByCustomer(Store $store, OrderTable $table, array $input): array
+    {
+        [$order, $created] = $this->createOnce($store, $input['client_uuid'], function () use ($store, $table, $input): ?Order {
+            if ($this->exists($store, $input['client_uuid'])) {
+                return null;
+            }
+
+            // 利用終了・受付時間の変更の直後に届いた注文を受け付けないよう、トランザクションの中で読み直す（12 §9 #16）
+            $store->refresh();
+            $table->refresh();
+            $reason = self::acceptState($store, $table, Carbon::now());
+            if ($reason !== null) {
+                throw new BusinessException(
+                    ErrorCode::OrderNotAccepting,
+                    '注文を受け付けていません。店員にお声がけください',
+                    409,
+                    details: ['reason' => $reason],
+                );
+            }
+
+            if (array_sum(array_column($input['items'], 'quantity')) > self::CUSTOMER_MAX_TOTAL_QUANTITY) {
+                throw new BusinessException(
+                    ErrorCode::OrderLimitExceeded,
+                    '一度に注文できる数量は合計 '.self::CUSTOMER_MAX_TOTAL_QUANTITY.' までです',
+                    422,
+                    details: ['limit' => 'quantity'],
+                );
+            }
+            if ($this->customerOrdersInSession($table)->count() >= self::CUSTOMER_MAX_ORDERS_PER_SESSION) {
+                throw new BusinessException(
+                    ErrorCode::OrderLimitExceeded,
+                    'このテーブルから注文できる回数の上限に達しました。店員にお声がけください',
+                    422,
+                    details: ['limit' => 'orders_per_session'],
+                );
+            }
+
+            [$products, $options] = $this->loadMasters($store, $input['items'], customerOnly: true);
+            $this->assertOrderable($store, $input['items'], $products, showQuantities: false);
+
+            $order = $this->insert($store, $input, $products, $options, [
+                'source' => OrderSource::Customer,
+                'order_table_id' => $table->id,
+                'table_name' => $table->name,
+                'label' => null,
+                'status' => $store->customer_order_approval ? OrderStatus::Pending : OrderStatus::Active,
+                'user_id' => null,
+                'device_name' => null,
+            ]);
+
+            $this->audit->log(AuditAction::OrderCreated, $order, null, [
+                'order_no' => $order->order_no,
+                'table_name' => $order->table_name,
+                'item_count' => array_sum(array_column($input['items'], 'quantity')),
+                'subtotal' => $order->subtotal,
+            ]);
+
+            return $order;
+        });
+
+        if (! $created && $order->order_table_id !== $table->id) {
+            throw new NotFoundHttpException;
+        }
+
+        return [$order, $created];
+    }
+
+    /**
+     * 12 §5.3：このテーブルの今回の利用中（opened_at 以降）の注文。取消した注文も含む
+     *
+     * @return Builder<Order>
+     */
+    public static function ordersInSession(OrderTable $table): Builder
+    {
+        return Order::query()
+            ->where('order_table_id', $table->id)
+            ->when($table->opened_at === null, fn ($q) => $q->whereRaw('0 = 1'))
+            ->when($table->opened_at !== null, fn ($q) => $q->where('created_at', '>=', $table->opened_at));
+    }
+
+    /**
+     * 12 §6.5：商品ごとの未会計の注文の数量（確認待ち・受付済みで sale_id が無いもの）。注文可能数 = 在庫 − これ
+     *
+     * @param  array<int, int>  $productIds
+     * @return array<int, int>
+     */
+    public static function reservedQuantities(Store $store, array $productIds): array
+    {
+        if ($productIds === []) {
+            return [];
+        }
+
+        $rows = OrderItem::query()
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->where('orders.store_id', $store->id)
+            ->whereIn('orders.status', [OrderStatus::Pending->value, OrderStatus::Active->value])
+            ->whereNull('orders.sale_id')
+            ->whereIn('order_items.product_id', $productIds)
+            ->groupBy('order_items.product_id')
+            ->toBase()
+            ->selectRaw('order_items.product_id AS product_id, SUM(order_items.quantity) AS qty')
+            ->pluck('qty', 'product_id');
+
+        $reserved = [];
+        foreach ($rows as $productId => $qty) {
+            $reserved[(int) $productId] = (int) $qty;
+        }
+
+        return $reserved;
+    }
 
     /**
      * 12 §5.5 店員の注文。受付判定・件数の上限・customer_visible の判定は行わない。操作ログは記録しない
@@ -68,6 +216,13 @@ final class OrderService
             [$products, $options] = $this->loadMasters($store, $input['items'], customerOnly: false);
             $this->assertOrderable($store, $input['items'], $products, showQuantities: true);
 
+            // 空席のテーブルに注文したら利用中にする（12 §5.5・O16）。注文より先に開始して、
+            // 注文の created_at が opened_at 以降になるようにする（今回の利用の注文として数える。§5.3）
+            if ($table !== null && $table->opened_at === null) {
+                $table->opened_at = Carbon::now();
+                $table->save();
+            }
+
             $order = $this->insert($store, $input, $products, $options, [
                 'source' => OrderSource::Staff,
                 'order_table_id' => $table?->id,
@@ -77,12 +232,6 @@ final class OrderService
                 'user_id' => $user->id,
                 'device_name' => $input['device_name'],
             ]);
-
-            // 空席のテーブルに注文したら利用中にする（12 §5.5・O16）
-            if ($table !== null && $table->opened_at === null) {
-                $table->opened_at = Carbon::now();
-                $table->save();
-            }
 
             return $order;
         });
@@ -248,6 +397,12 @@ final class OrderService
         }
     }
 
+    /** @return Builder<Order> */
+    private function customerOrdersInSession(OrderTable $table): Builder
+    {
+        return self::ordersInSession($table)->where('source', OrderSource::Customer);
+    }
+
     private function exists(Store $store, string $clientUuid): bool
     {
         return Order::query()->where('store_id', $store->id)->where('client_uuid', $clientUuid)->exists();
@@ -325,20 +480,11 @@ final class OrderService
         }
         ksort($need);
 
-        $reserved = OrderItem::query()
-            ->join('orders', 'orders.id', '=', 'order_items.order_id')
-            ->where('orders.store_id', $store->id)
-            ->whereIn('orders.status', [OrderStatus::Pending->value, OrderStatus::Active->value])
-            ->whereNull('orders.sale_id')
-            ->whereIn('order_items.product_id', array_keys($need))
-            ->groupBy('order_items.product_id')
-            ->toBase()
-            ->selectRaw('order_items.product_id AS product_id, SUM(order_items.quantity) AS qty')
-            ->pluck('qty', 'product_id');
+        $reserved = self::reservedQuantities($store, array_keys($need));
 
         $shortages = [];
         foreach ($need as $productId => $qty) {
-            $orderable = $products[$productId]->stock_qty - (int) ($reserved[$productId] ?? 0);
+            $orderable = $products[$productId]->stock_qty - ($reserved[$productId] ?? 0);
             if ($qty > $orderable) {
                 $shortages[] = [
                     'product_id' => $productId,
