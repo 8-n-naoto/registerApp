@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatBusinessDate, formatDateTime } from './date'
+import { formatBusinessDate, formatDateTime, formatMonthDayTime, formatTime, shiftDate } from './date'
 
 describe('formatBusinessDate', () => {
   it('月/日（曜日）にする', () => {
@@ -21,5 +21,30 @@ describe('formatDateTime', () => {
 
   it('形式が違えばそのまま返す', () => {
     expect(formatDateTime('昨日')).toBe('昨日')
+  })
+})
+
+describe('shiftDate', () => {
+  it('月末・年末・うるう年をまたいでずらす', () => {
+    expect(shiftDate('2026-09-30', 1)).toBe('2026-10-01')
+    expect(shiftDate('2026-01-01', -1)).toBe('2025-12-31')
+    expect(shiftDate('2028-02-28', 1)).toBe('2028-02-29')
+    expect(shiftDate('2026-09-29', 0)).toBe('2026-09-29')
+  })
+
+  it('形式が違えばそのまま返す', () => {
+    expect(shiftDate('today', 1)).toBe('today')
+  })
+})
+
+describe('formatTime', () => {
+  it('時:分にする', () => {
+    expect(formatTime('2026-09-30T01:30:00+09:00')).toBe('01:30')
+  })
+})
+
+describe('formatMonthDayTime', () => {
+  it('月/日 時:分にする', () => {
+    expect(formatMonthDayTime('2026-09-29T22:10:05+09:00')).toBe('9/29 22:10')
   })
 })

@@ -21,6 +21,8 @@ const routes: RouteRecordRaw[] = [
   // S02 も初回のバンドルに含める（08 §4。会計を最初に開いたときに待たせない）
   { path: '/register', name: 'register', component: RegisterPage, meta: { roles: ['owner', 'staff'] } },
   { path: '/sales/:id(\\d+)/receipt', name: 'receipt', component: () => import('@/pages/ReceiptPage.vue'), meta: { roles: ['owner', 'staff', 'admin'] } },
+  { path: '/sales/daily', name: 'sales-daily', component: () => import('@/pages/DailySalesPage.vue'), meta: { roles: ['owner', 'staff', 'admin'] } },
+  { path: '/closing', name: 'closing', component: () => import('@/pages/ClosingPage.vue'), meta: { roles: ['owner', 'staff'] } },
   { path: '/account', name: 'account', component: () => import('@/pages/AccountPage.vue') },
   { path: '/products', name: 'products', component: () => import('@/pages/ProductsPage.vue'), meta: { roles: ['owner'] } },
   { path: '/settings/store', name: 'settings-store', component: () => import('@/pages/StoreSettingsPage.vue'), meta: { roles: ['owner'] } },

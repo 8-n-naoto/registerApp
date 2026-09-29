@@ -15,3 +15,23 @@ export function formatDateTime(iso: string): string {
   if (!m) return iso
   return `${m[1]}/${Number(m[2])}/${Number(m[3])} ${m[4]}:${m[5]}`
 }
+
+/** 'YYYY-MM-DD' を days 日ずらす（UTC で計算し、端末のタイムゾーンと夏時間に影響されない） */
+export function shiftDate(ymd: string, days: number): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd)
+  if (!m) return ymd
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + days))
+  return d.toISOString().slice(0, 10)
+}
+
+/** ISO 8601 → 'HH:MM'（サーバーの時刻の表記のまま） */
+export function formatTime(iso: string): string {
+  const m = /T(\d{2}):(\d{2})/.exec(iso)
+  return m ? `${m[1]}:${m[2]}` : iso
+}
+
+/** ISO 8601 → '9/29 22:10'（サーバーの時刻の表記のまま） */
+export function formatMonthDayTime(iso: string): string {
+  const m = /^\d{4}-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso)
+  return m ? `${Number(m[1])}/${Number(m[2])} ${m[3]}:${m[4]}` : iso
+}
