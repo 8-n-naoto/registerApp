@@ -9,7 +9,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\ClosingResource;
 use App\Models\RegisterClosing;
 use App\Models\Sale;
-use App\Models\Store;
 use App\Models\User;
 use App\Services\SalesReport;
 use App\Support\BusinessDate;
@@ -31,7 +30,7 @@ class ReportController extends Controller
     public function daily(Request $request): JsonResponse
     {
         $validated = $request->validate(['date' => ['nullable', 'date_format:Y-m-d']]);
-        $store = $this->store($request);
+        $store = $this->currentStore->requireStore();
         $current = BusinessDate::current($store);
         $date = is_string($validated['date'] ?? null) ? $validated['date'] : $current;
 
@@ -77,16 +76,5 @@ class ReportController extends Controller
             'closing' => $closing === null ? null : ClosingResource::make($closing),
             'comparison' => null,
         ]);
-    }
-
-    /** 閲覧の対象店舗。owner / staff は自店舗、admin は ?store_id の店舗（無ければ 422、存在しなければ 404） */
-    private function store(Request $request): Store
-    {
-        $user = $request->user();
-        if ($user instanceof User && $user->role === Role::Admin) {
-            return Store::query()->findOrFail($this->currentStore->requireId());
-        }
-
-        return RegisterController::store($request);
     }
 }

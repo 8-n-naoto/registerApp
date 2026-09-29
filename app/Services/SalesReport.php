@@ -125,6 +125,12 @@ final class SalesReport
             ->all());
     }
 
+    /** 07 §6.1：その営業日の完了した現金の会計の合計（写しの is_cash で判定する） */
+    public function cashSales(int $storeId, string $date): int
+    {
+        return (int) $this->completed($storeId, $date, $date)->where('sales.is_cash', true)->sum('sales.total');
+    }
+
     /** @return Builder<Sale> 期間内の会計（取消を含む） */
     private function period(int $storeId, string $from, string $to): Builder
     {

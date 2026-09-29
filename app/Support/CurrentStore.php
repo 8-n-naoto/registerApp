@@ -57,6 +57,21 @@ final class CurrentStore
         return $id;
     }
 
+    /**
+     * 店舗 ID が必須の API で、店舗のモデルが要るときに使う（営業日の計算など）。
+     * owner / staff はログイン中のユーザーの店舗（account.active が読み込み済み）を使い、admin は ?store_id の店舗を読む
+     */
+    public function requireStore(): Store
+    {
+        $id = $this->requireId();
+        $user = $this->app->make('request')->user();
+        if ($user instanceof User && $user->store_id === $id && $user->store instanceof Store) {
+            return $user->store;
+        }
+
+        return Store::query()->findOrFail($id);
+    }
+
     /** テスト・コマンド用：明示的に店舗を設定する。null を渡すと自動の解決に戻す */
     public function set(?int $storeId): void
     {

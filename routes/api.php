@@ -20,12 +20,14 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
         Route::get('/register/bootstrap', [Api\RegisterController::class, 'bootstrap']);            // #5
         Route::post('/sales', [Api\SaleController::class, 'store']);                                // #6
         Route::post('/sales/{sale}/cancel', [Api\SaleController::class, 'cancel'])->whereNumber('sale'); // #8
+        Route::put('/closings/{date}', [Api\ClosingController::class, 'update']);                   // #13
     });
 
     // owner / staff / admin（admin は ?store_id 必須）
     Route::middleware('role:owner,staff,admin')->group(function () {
         Route::get('/sales/{sale}', [Api\SaleController::class, 'show'])->whereNumber('sale');      // #7
         Route::get('/reports/daily', [Api\ReportController::class, 'daily']);                      // #9
+        Route::get('/closings/{date}', [Api\ClosingController::class, 'show']);                     // #12
     });
 
     // owner のみ。/order は /{id} より先に登録し、ID は数値に限る（04 §4.9）
