@@ -48,4 +48,10 @@ class Store extends Model
     {
         return $this->hasMany(User::class);
     }
+
+    /** @return HasMany<Product, $this> */
+    public function products(): HasMany
+    {
+        return $this->hasMany(Product::class);
+    }
 }

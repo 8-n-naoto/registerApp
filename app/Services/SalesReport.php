@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\SaleStatus;
 use App\Models\Sale;
+use App\Support\BusinessDate;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\JoinClause;
@@ -238,6 +239,51 @@ final class SalesReport
     public function cashSales(int $storeId, string $date): int
     {
         return (int) $this->completed($storeId, $date, $date)->where('sales.is_cash', true)->sum('sales.total');
+    }
+
+    /**
+     * 06 §11.1：店舗ごとに指定した営業日の完了した会計を 1 本の GROUP BY で集計する（店舗数 × クエリにしない）。
+     * 会計の無い店舗も 0 で返す。last_sold_at は ISO 8601
+     *
+     * @param  array<int, string>  $dateByStore  店舗 ID => 営業日
+     * @return array<int, array{business_date: string, total: int, count: int, last_sold_at: string|null}>
+     */
+    public function totalsByStore(array $dateByStore): array
+    {
+        $result = [];
+        foreach ($dateByStore as $storeId => $date) {
+            $result[$storeId] = ['business_date' => $date, 'total' => 0, 'count' => 0, 'last_sold_at' => null];
+        }
+        if ($dateByStore === []) {
+            return $result;
+        }
+
+        $rows = Sale::query()
+            ->withoutGlobalScope('store')
+            ->whereIn('store_id', array_keys($dateByStore))
+            ->whereIn('business_date', array_values(array_unique($dateByStore)))
+            ->where('status', SaleStatus::Completed->value)
+            ->groupBy('store_id', 'business_date')
+            ->selectRaw('store_id, business_date, SUM(total) AS total, COUNT(*) AS count, MAX(sold_at) AS last_sold_at')
+            ->toBase()
+            ->get();
+
+        foreach ($rows as $r) {
+            $storeId = (int) $r->store_id;
+            if (($dateByStore[$storeId] ?? null) !== $r->business_date) {
+                continue; // 他店舗の営業日と同じ日付の行
+            }
+            $result[$storeId] = [
+                'business_date' => $dateByStore[$storeId],
+                'total' => (int) $r->total,
+                'count' => (int) $r->count,
+                'last_sold_at' => is_string($r->last_sold_at)
+                    ? CarbonImmutable::parse($r->last_sold_at, BusinessDate::TIMEZONE)->toIso8601String()
+                    : null,
+            ];
+        }
+
+        return $result;
     }
 
     /** @return Builder<Sale> 期間内の会計（取消を含む） */

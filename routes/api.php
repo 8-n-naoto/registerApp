@@ -77,4 +77,12 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
         Route::put('/staff/{staff}', [Api\StaffController::class, 'update'])->whereNumber('staff');               // #40
         Route::put('/staff/{staff}/password', [Api\StaffController::class, 'updatePassword'])->whereNumber('staff'); // #41
     });
+
+    // admin のみ
+    Route::middleware('role:admin')->prefix('admin')->group(function () {
+        Route::get('/stores', [Api\Admin\StoreController::class, 'index']);                         // #43
+        Route::patch('/stores/{store}/active', [Api\Admin\StoreController::class, 'updateActive'])->whereNumber('store'); // #44
+        Route::get('/backup', [Api\Admin\BackupController::class, 'download'])
+            ->middleware('throttle:backup');                                                        // #45
+    });
 });
