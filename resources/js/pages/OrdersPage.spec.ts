@@ -12,7 +12,7 @@ vi.mock('@/api/orderTables', () => tablesApi)
 const ordersApi = vi.hoisted(() => ({ fetchOrders: vi.fn(), acceptOrder: vi.fn(), cancelOrder: vi.fn() }))
 vi.mock('@/api/orders', () => ordersApi)
 
-async function mountPage() {
+async function mountPage(path = '/orders') {
   const pinia = createPinia()
   setActivePinia(pinia)
   useAuthStore().me = makeMe('staff')
@@ -24,7 +24,7 @@ async function mountPage() {
       { path: '/', name: 'home', component: { template: '<p>home</p>' } },
     ],
   })
-  await router.push('/orders')
+  await router.push(path)
   const w = mount(OrdersPage, { global: { plugins: [pinia, router] }, attachTo: document.body })
   await flushPromises()
   return { w, router }
@@ -82,6 +82,12 @@ describe('OrdersPage（S15）', () => {
     expect(t2.textContent).toContain('未会計 2 件')
     expect(card('[data-table="1"]').textContent).toContain('空席')
     expect(card('[data-tab="pending"]').textContent?.trim()).toBe('確認待ち 1')
+  })
+
+  it('?tab=pending（厨房の件数から）で確認待ちのタブを開く', async () => {
+    await mountPage('/orders?tab=pending')
+    expect(card('[data-tab="pending"]').getAttribute('aria-pressed')).toBe('true')
+    expect(card('[data-order="201"]').textContent).toContain('#3')
   })
 
   it('［利用開始］は確認してから開く', async () => {

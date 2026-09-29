@@ -35,3 +35,8 @@ export function formatMonthDayTime(iso: string): string {
   const m = /^\d{4}-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso)
   return m ? `${Number(m[1])}/${Number(m[2])} ${m[3]}:${m[4]}` : iso
 }
+
+/** 時刻（ミリ秒）→ 東京の 'HH:MM:SS'（端末のタイムゾーンに影響されない。東京に夏時間は無い） */
+export function formatTokyoClock(ms: number): string {
+  return new Date(ms + 9 * 3600_000).toISOString().slice(11, 19)
+}

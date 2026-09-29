@@ -2,7 +2,7 @@
 // S15 注文・テーブル（12 §8.5）：タブ［テーブル］［確認待ち n］［未会計］［本日の注文］。
 // 画面を開いたとき・タブを切り替えたとき・［更新］で取得する（自動更新はしない）。確認待ちの件数は毎回取り直す
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { acceptOrder, cancelOrder, fetchOrders, type OrderView } from '@/api/orders'
 import { closeOrderTable, fetchOrderTables, openOrderTable } from '@/api/orderTables'
 import AppHeader from '@/components/AppHeader.vue'
@@ -20,7 +20,10 @@ type Tab = 'tables' | OrderView
 
 const t = ja.orders
 
-const tab = ref<Tab>('tables')
+const TABS: readonly Tab[] = ['tables', 'pending', 'unpaid', 'today']
+/** 厨房の「確認待ち n 件」から ?tab=pending で開く */
+const initialTab = useRoute().query.tab
+const tab = ref<Tab>(TABS.find((x) => x === initialTab) ?? 'tables')
 const tables = ref<OrderTable[]>([])
 const orders = ref<Order[]>([])
 const pendingCount = ref(0)

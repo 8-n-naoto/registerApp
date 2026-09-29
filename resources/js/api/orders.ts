@@ -1,5 +1,5 @@
 import { http } from '@/api/client'
-import type { Order } from '@/types/api'
+import type { KitchenOrders, Order } from '@/types/api'
 
 // 12 §5.4〜§5.9 注文（owner / staff）
 
@@ -44,4 +44,16 @@ export async function serveAllOrder(id: number): Promise<Order> {
 /** #54 注文全体を返す */
 export async function setItemServed(itemId: number, served: boolean): Promise<Order> {
   return (await http.patch<Order>(`/order-items/${itemId}/served`, { served })).data
+}
+
+export type KitchenFetch = { changed: false; etag: string | null } | { changed: true; etag: string | null; data: KitchenOrders }
+
+/** #55 前回の ETag を If-None-Match に付ける。変化が無ければ 304（本文なし） */
+export async function fetchKitchenOrders(etag: string | null): Promise<KitchenFetch> {
+  const res = await http.get<KitchenOrders>('/kitchen/orders', {
+    headers: etag === null ? {} : { 'If-None-Match': etag },
+    validateStatus: (status) => (status >= 200 && status < 300) || status === 304,
+  })
+  const next = typeof res.headers.etag === 'string' ? res.headers.etag : etag
+  return res.status === 304 ? { changed: false, etag: next } : { changed: true, etag: next, data: res.data }
 }

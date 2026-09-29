@@ -25,6 +25,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/sales/summary', name: 'sales-summary', component: () => import('@/pages/SalesSummaryPage.vue'), meta: { roles: ['owner', 'admin'] } },
   { path: '/orders/new', name: 'order-new', component: () => import('@/pages/OrderNewPage.vue'), meta: { roles: ['owner', 'staff'] } },
   { path: '/orders', name: 'orders', component: () => import('@/pages/OrdersPage.vue'), meta: { roles: ['owner', 'staff'] } },
+  { path: '/kitchen', name: 'kitchen', component: () => import('@/pages/KitchenPage.vue'), meta: { roles: ['owner', 'staff'] } },
   { path: '/closing', name: 'closing', component: () => import('@/pages/ClosingPage.vue'), meta: { roles: ['owner', 'staff'] } },
   { path: '/account', name: 'account', component: () => import('@/pages/AccountPage.vue') },
   { path: '/products', name: 'products', component: () => import('@/pages/ProductsPage.vue'), meta: { roles: ['owner'] } },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatBusinessDate, formatDateTime, formatMonthDayTime, formatTime, shiftDate } from './date'
+import { formatBusinessDate, formatDateTime, formatMonthDayTime, formatTime, formatTokyoClock, shiftDate } from './date'
 
 describe('formatBusinessDate', () => {
   it('月/日（曜日）にする', () => {
@@ -46,5 +46,12 @@ describe('formatTime', () => {
 describe('formatMonthDayTime', () => {
   it('月/日 時:分にする', () => {
     expect(formatMonthDayTime('2026-09-29T22:10:05+09:00')).toBe('9/29 22:10')
+  })
+})
+
+describe('formatTokyoClock', () => {
+  it('端末のタイムゾーンに関係なく東京の時刻を出す', () => {
+    expect(formatTokyoClock(Date.parse('2026-09-29T12:34:05+09:00'))).toBe('12:34:05')
+    expect(formatTokyoClock(Date.parse('2026-09-29T15:00:00Z'))).toBe('00:00:00')
   })
 })
