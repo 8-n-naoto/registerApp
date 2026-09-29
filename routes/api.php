@@ -22,6 +22,15 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
         Route::post('/sales/{sale}/cancel', [Api\SaleController::class, 'cancel'])->whereNumber('sale'); // #8
         Route::put('/closings/{date}', [Api\ClosingController::class, 'update']);                   // #13
 
+        // 注文・厨房（12 §5.4〜§5.10）
+        Route::get('/orders', [Api\OrderController::class, 'index']);                               // #49
+        Route::post('/orders', [Api\OrderController::class, 'store']);                              // #50
+        Route::post('/orders/{order}/accept', [Api\OrderController::class, 'accept'])->whereNumber('order');       // #51
+        Route::post('/orders/{order}/cancel', [Api\OrderController::class, 'cancel'])->whereNumber('order');       // #52
+        Route::post('/orders/{order}/serve-all', [Api\OrderController::class, 'serveAll'])->whereNumber('order');  // #53
+        Route::patch('/order-items/{orderItem}/served', [Api\OrderController::class, 'served'])->whereNumber('orderItem'); // #54
+        Route::get('/kitchen/orders', [Api\KitchenController::class, 'index']);                     // #55
+
         // テーブルの一覧・利用開始・終了（12 §5.11）
         Route::get('/order-tables', [Api\OrderTableController::class, 'index']);                   // #56
         Route::post('/order-tables/{orderTable}/open', [Api\OrderTableController::class, 'open'])->whereNumber('orderTable');   // #62
@@ -75,6 +84,10 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
         Route::post('/payment-methods', [Api\PaymentMethodController::class, 'store']);             // #35
         Route::put('/payment-methods/order', [Api\PaymentMethodController::class, 'reorder']);      // #37
         Route::put('/payment-methods/{paymentMethod}', [Api\PaymentMethodController::class, 'update'])->whereNumber('paymentMethod'); // #36
+
+        // 注文の設定（12 §5.13）
+        Route::get('/settings/orders', [Api\OrderSettingsController::class, 'show']);              // #64
+        Route::put('/settings/orders', [Api\OrderSettingsController::class, 'update']);            // #65
 
         // スタッフ
         Route::get('/staff', [Api\StaffController::class, 'index']);                                // #38

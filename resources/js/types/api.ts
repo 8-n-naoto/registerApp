@@ -130,6 +130,61 @@ export interface OrderTable {
   token_rotated_at: string
 }
 
+/** 12 §4 注文 */
+export type OrderSource = 'customer' | 'staff'
+export type OrderStatus = 'pending' | 'active' | 'cancelled'
+export type PollingMode = 'always' | 'off' | 'schedule'
+export interface PollingWindow { start: string; end: string }   // HH:MM。start > end は日付をまたぐ
+export interface OrderSettings {
+  customer_order_enabled: boolean
+  customer_order_approval: boolean
+  customer_session_minutes: number
+  polling_mode: PollingMode
+  polling_windows: PollingWindow[]
+}
+export interface PollingState { interval_sec: number; active: boolean; next_change_at: string | null }
+export interface OrderItemOption { product_option_id: number; option_name: string; price: number }
+export interface OrderItem {
+  id: number
+  product_id: number
+  product_code: string
+  product_name: string
+  product_memo: string | null
+  unit_price: number
+  options_price: number
+  quantity: number
+  line_total: number
+  memo: string | null
+  served_at: string | null
+  options: OrderItemOption[]
+}
+export interface Order {
+  id: number
+  client_uuid: string
+  business_date: string
+  order_no: number
+  source: OrderSource
+  order_table_id: number | null
+  table_name: string | null
+  label: string | null
+  status: OrderStatus
+  note: string | null
+  subtotal: number
+  served_at: string | null
+  sale_id: number | null
+  user_name: string | null
+  created_at: string
+  items: OrderItem[]
+}
+/** GET /kitchen/orders（#55） */
+export interface KitchenOrders {
+  server_time: string
+  polling: PollingState
+  in_progress: Order[]
+  done: Order[]
+  pending_count: number
+}
+
 /** エラー応答の本文（06 §1.3） */
 export interface ApiErrorBody {
   message: string

@@ -2,7 +2,10 @@
 
 namespace Tests\Feature\Authorization;
 
+use App\Enums\OrderSource;
+use App\Enums\OrderStatus;
 use App\Models\Category;
+use App\Models\Order;
 use App\Models\OrderTable;
 use App\Models\PaymentMethod;
 use App\Models\Product;
@@ -15,6 +18,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\HttpFoundation\Response;
@@ -84,7 +88,14 @@ class RoleMatrixTest extends TestCase
         43 => ['GET', '/admin/stores', ['admin'], 'none', null],
         44 => ['PATCH', '/admin/stores/{id}/active', ['admin'], 'none', 'store'],
         45 => ['GET', '/admin/backup', ['admin'], 'none', null],
-        // 12 §5.0（注文機能）。#46〜#55・#64・#65 は WP 7-4・7-5 で足す
+        // 12 §5.0（注文機能）。#46〜#48 は WP 7-5 で足す
+        49 => ['GET', '/orders', ['owner', 'staff'], null, null],
+        50 => ['POST', '/orders', ['owner', 'staff'], null, null],
+        51 => ['POST', '/orders/{id}/accept', ['owner', 'staff'], null, 'order'],
+        52 => ['POST', '/orders/{id}/cancel', ['owner', 'staff'], null, 'order'],
+        53 => ['POST', '/orders/{id}/serve-all', ['owner', 'staff'], null, 'order'],
+        54 => ['PATCH', '/order-items/{id}/served', ['owner', 'staff'], null, 'orderItem'],
+        55 => ['GET', '/kitchen/orders', ['owner', 'staff'], null, null],
         56 => ['GET', '/order-tables', ['owner', 'staff'], null, null],
         57 => ['POST', '/order-tables', ['owner'], null, null],
         58 => ['PUT', '/order-tables/{id}', ['owner'], null, 'orderTable'],
@@ -93,6 +104,8 @@ class RoleMatrixTest extends TestCase
         61 => ['GET', '/order-tables/{id}/qr', ['owner'], null, 'orderTable'],
         62 => ['POST', '/order-tables/{id}/open', ['owner', 'staff'], null, 'orderTable'],
         63 => ['POST', '/order-tables/{id}/close', ['owner', 'staff'], null, 'orderTable'],
+        64 => ['GET', '/settings/orders', ['owner'], null, null],
+        65 => ['PUT', '/settings/orders', ['owner'], null, null],
     ];
 
     /** 本文以外で必要な検索条件（期間の集計は from / to が先に検証されるため、store_id の検証を確かめられるよう正しい期間を付ける） */
@@ -134,6 +147,26 @@ class RoleMatrixTest extends TestCase
         $option = ProductOption::factory()->for($product)->create();
         $date = BusinessDate::current($store);
         $sale = $this->sale('x', '2026-09-29 11:00', $date, $tax, $pay, [[$product, '商品', 400, 0, 1]], 0, 400, 36, null, store: $store);
+        // 確認待ちの注文（staff の受付が 200、owner の受付は 409 になる）
+        $order = new Order([
+            'client_uuid' => (string) Str::uuid(),
+            'business_date' => $date,
+            'order_no' => 1,
+            'source' => OrderSource::Customer,
+            'status' => OrderStatus::Pending,
+            'subtotal' => 400,
+        ]);
+        $order->forceFill(['store_id' => $store->id])->save();
+        $orderItem = $order->items()->create([
+            'product_id' => $product->id,
+            'product_code' => $product->code,
+            'product_name' => '商品',
+            'unit_price' => 400,
+            'options_price' => 0,
+            'quantity' => 1,
+            'line_total' => 400,
+            'sort_order' => 0,
+        ]);
 
         return [
             'sale' => $sale->id,
@@ -145,6 +178,8 @@ class RoleMatrixTest extends TestCase
             'staff' => User::factory()->staff($store)->create()->id,
             'store' => $store->id,
             'orderTable' => OrderTable::factory()->for($store)->create()->id,
+            'order' => $order->id,
+            'orderItem' => $orderItem->id,
         ];
     }
 
