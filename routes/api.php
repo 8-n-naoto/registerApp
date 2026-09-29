@@ -30,6 +30,12 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
         Route::get('/closings/{date}', [Api\ClosingController::class, 'show']);                     // #12
     });
 
+    // owner / admin（admin は ?store_id 必須）
+    Route::middleware('role:owner,admin')->group(function () {
+        Route::get('/reports/summary', [Api\ReportController::class, 'summary']);                   // #10
+        Route::get('/reports/export', [Api\ReportController::class, 'export']);                     // #11
+    });
+
     // owner のみ。/order は /{id} より先に登録し、ID は数値に限る（04 §4.9）
     Route::middleware('role:owner')->group(function () {
         // 商品

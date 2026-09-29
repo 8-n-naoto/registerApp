@@ -6,21 +6,26 @@ use App\Enums\ErrorCode;
 use App\Enums\Role;
 use App\Exceptions\BusinessException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ReportExportRequest;
+use App\Http\Requests\ReportPeriodRequest;
 use App\Http\Resources\ClosingResource;
 use App\Models\RegisterClosing;
 use App\Models\Sale;
 use App\Models\User;
+use App\Services\SalesExport;
 use App\Services\SalesReport;
 use App\Support\BusinessDate;
 use App\Support\CurrentStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
     public function __construct(
         private readonly SalesReport $report,
         private readonly CurrentStore $currentStore,
+        private readonly SalesExport $export,
     ) {}
 
     /**
@@ -75,6 +80,40 @@ class ReportController extends Controller
             'sales' => $sales,
             'closing' => $closing === null ? null : ClosingResource::make($closing),
             'comparison' => null,
+        ]);
+    }
+
+    /** #10 GET /reports/summary?from=&to=（06 §5.2、07 §7）。owner / admin（?store_id 必須） */
+    public function summary(ReportPeriodRequest $request): JsonResponse
+    {
+        $storeId = $this->currentStore->requireStore()->id;
+        $from = $request->fromDate();
+        $to = $request->toDate();
+
+        return response()->json([
+            'from' => $from,
+            'to' => $to,
+            'totals' => $this->report->totals($storeId, $from, $to),
+            'by_date' => $this->report->byDate($storeId, $from, $to),
+            'by_hour' => $this->report->byHour($storeId, $from, $to),
+            'by_tax' => $this->report->byTax($storeId, $from, $to),
+            'by_payment' => $this->report->byPayment($storeId, $from, $to),
+            'ranking' => $this->report->byProduct($storeId, $from, $to, 20),
+        ]);
+    }
+
+    /** #11 GET /reports/export?type=&from=&to=（06 §5.3、07 §8）。UTF-8・BOM 付き・CRLF の CSV を逐次書き出す */
+    public function export(ReportExportRequest $request): StreamedResponse
+    {
+        $storeId = $this->currentStore->requireStore()->id;
+        $type = $request->type();
+        $from = $request->fromDate();
+        $to = $request->toDate();
+
+        return response()->stream($this->export->writer($type, $storeId, $from, $to), 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.SalesExport::filename($type, $from, $to).'"',
+            'Cache-Control' => 'no-store',
         ]);
     }
 }
