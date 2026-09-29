@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Enums\AuditAction;
 use App\Enums\DiscountType;
 use App\Enums\ErrorCode;
+use App\Enums\Role;
 use App\Enums\SaleStatus;
 use App\Exceptions\BusinessException;
 use App\Models\PaymentMethod;
@@ -18,11 +20,13 @@ use App\Services\Pricing\PricingException;
 use App\Support\BusinessDate;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
  * 06 §4.2 会計の確定（07 §4 冪等・§5 在庫）。手順 1〜8 を 1 トランザクションで行う。
- * 会計の作成は操作ログに記録しない（06 §1.8。会計そのものが記録）
+ * 会計の作成は操作ログに記録しない（06 §1.8。会計そのものが記録）。
+ * 06 §4.4 会計の取消（07 §5.2 在庫の戻し）
  *
  * @phpstan-type SaleInput array{
  *     client_uuid: string,
@@ -40,6 +44,8 @@ use Illuminate\Support\Facades\DB;
 final class SaleService
 {
     public const MAX_TOTAL = 99_999_999;
+
+    public function __construct(private readonly AuditLogger $audit) {}
 
     /**
      * @param  SaleInput  $input
@@ -297,6 +303,64 @@ final class SaleService
                 409,
                 details: ['shortages' => $shortages],
             );
+        }
+    }
+
+    /**
+     * 06 §4.4：取消済みは 409、staff は当日の営業日のみ（422）。状態の変更・在庫の戻し・締めの印・操作ログを 1 トランザクションで行う
+     */
+    public function cancel(Store $store, User $user, Sale $sale): Sale
+    {
+        DB::transaction(function () use ($store, $user, $sale): void {
+            // 同時に取り消された場合に備え、トランザクション内の最新の状態で判定する
+            if (Sale::query()->whereKey($sale->id)->where('status', SaleStatus::Cancelled)->exists()) {
+                throw new BusinessException(ErrorCode::AlreadyCancelled, 'この会計は取り消し済みです', 409);
+            }
+            if ($user->role === Role::Staff && $sale->business_date !== BusinessDate::current($store)) {
+                throw new BusinessException(ErrorCode::CancelNotAllowed, 'スタッフは当日の会計のみ取り消せます', 422);
+            }
+
+            // 手順 1
+            $sale->status = SaleStatus::Cancelled;
+            $sale->cancelled_at = Carbon::now(BusinessDate::TIMEZONE);
+            $sale->cancelled_by = $user->id;
+            $sale->save();
+
+            // 手順 2
+            $this->restoreStock($store, $sale);
+
+            // 手順 3
+            $this->markClosingChanged($store, $sale->business_date);
+
+            // 手順 4
+            $this->audit->log(
+                AuditAction::SaleCancelled,
+                $sale,
+                ['status' => SaleStatus::Completed->value],
+                ['status' => SaleStatus::Cancelled->value, 'total' => $sale->total],
+                $store->id,
+            );
+        });
+
+        return $sale->load(Sale::WITH_ALL);
+    }
+
+    /** 07 §5.2：明細の数量を商品ごとに合算し、現時点で在庫管理 ON かつ未削除の商品だけ戻す（上限なし） */
+    private function restoreStock(Store $store, Sale $sale): void
+    {
+        $back = [];
+        foreach ($sale->items()->get(['product_id', 'quantity']) as $item) {
+            $back[$item->product_id] = ($back[$item->product_id] ?? 0) + $item->quantity;
+        }
+        ksort($back);
+
+        foreach ($back as $productId => $qty) {
+            // SoftDeletes のスコープで削除済みは対象外。影響行数 0 は何もしない
+            Product::query()
+                ->whereKey($productId)
+                ->where('store_id', $store->id)
+                ->where('track_stock', true)
+                ->increment('stock_qty', $qty);
         }
     }
 
