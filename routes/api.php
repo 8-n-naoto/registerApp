@@ -3,7 +3,7 @@
 use App\Http\Controllers\Api;
 use Illuminate\Support\Facades\Route;
 
-// 06 §13 の 45 ルートは各 WP で追加する（並びと権限は docs/04 §4.9）。
+// 06 §13 の 45 ルートと 12 §5.0 の #46〜#65 は各 WP で追加する（並びと権限は docs/04 §4.9）。
 
 // 1 ─ 認証（未ログイン）。06 §3.1 により guest は付けない（ログイン中でも照合し、成功すれば切り替える）
 Route::post('/login', [Api\AuthController::class, 'login']);                                        // #1
@@ -21,6 +21,11 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
         Route::post('/sales', [Api\SaleController::class, 'store']);                                // #6
         Route::post('/sales/{sale}/cancel', [Api\SaleController::class, 'cancel'])->whereNumber('sale'); // #8
         Route::put('/closings/{date}', [Api\ClosingController::class, 'update']);                   // #13
+
+        // テーブルの一覧・利用開始・終了（12 §5.11）
+        Route::get('/order-tables', [Api\OrderTableController::class, 'index']);                   // #56
+        Route::post('/order-tables/{orderTable}/open', [Api\OrderTableController::class, 'open'])->whereNumber('orderTable');   // #62
+        Route::post('/order-tables/{orderTable}/close', [Api\OrderTableController::class, 'close'])->whereNumber('orderTable'); // #63
     });
 
     // owner / staff / admin（admin は ?store_id 必須）
@@ -76,6 +81,13 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
         Route::post('/staff', [Api\StaffController::class, 'store']);                               // #39
         Route::put('/staff/{staff}', [Api\StaffController::class, 'update'])->whereNumber('staff');               // #40
         Route::put('/staff/{staff}/password', [Api\StaffController::class, 'updatePassword'])->whereNumber('staff'); // #41
+
+        // テーブル・QR（12 §5.12）
+        Route::post('/order-tables', [Api\OrderTableController::class, 'store']);                  // #57
+        Route::put('/order-tables/{orderTable}', [Api\OrderTableController::class, 'update'])->whereNumber('orderTable');              // #58
+        Route::delete('/order-tables/{orderTable}', [Api\OrderTableController::class, 'destroy'])->whereNumber('orderTable');          // #59
+        Route::post('/order-tables/{orderTable}/token', [Api\OrderTableController::class, 'regenerateToken'])->whereNumber('orderTable'); // #60
+        Route::get('/order-tables/{orderTable}/qr', [Api\OrderTableController::class, 'qr'])->whereNumber('orderTable');               // #61
     });
 
     // admin のみ

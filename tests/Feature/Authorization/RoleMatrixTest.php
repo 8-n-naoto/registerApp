@@ -3,6 +3,7 @@
 namespace Tests\Feature\Authorization;
 
 use App\Models\Category;
+use App\Models\OrderTable;
 use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\ProductOption;
@@ -83,6 +84,15 @@ class RoleMatrixTest extends TestCase
         43 => ['GET', '/admin/stores', ['admin'], 'none', null],
         44 => ['PATCH', '/admin/stores/{id}/active', ['admin'], 'none', 'store'],
         45 => ['GET', '/admin/backup', ['admin'], 'none', null],
+        // 12 §5.0（注文機能）。#46〜#55・#64・#65 は WP 7-4・7-5 で足す
+        56 => ['GET', '/order-tables', ['owner', 'staff'], null, null],
+        57 => ['POST', '/order-tables', ['owner'], null, null],
+        58 => ['PUT', '/order-tables/{id}', ['owner'], null, 'orderTable'],
+        59 => ['DELETE', '/order-tables/{id}', ['owner'], null, 'orderTable'],
+        60 => ['POST', '/order-tables/{id}/token', ['owner'], null, 'orderTable'],
+        61 => ['GET', '/order-tables/{id}/qr', ['owner'], null, 'orderTable'],
+        62 => ['POST', '/order-tables/{id}/open', ['owner', 'staff'], null, 'orderTable'],
+        63 => ['POST', '/order-tables/{id}/close', ['owner', 'staff'], null, 'orderTable'],
     ];
 
     /** 本文以外で必要な検索条件（期間の集計は from / to が先に検証されるため、store_id の検証を確かめられるよう正しい期間を付ける） */
@@ -134,6 +144,7 @@ class RoleMatrixTest extends TestCase
             'paymentMethod' => $pay->id,
             'staff' => User::factory()->staff($store)->create()->id,
             'store' => $store->id,
+            'orderTable' => OrderTable::factory()->for($store)->create()->id,
         ];
     }
 
@@ -145,7 +156,7 @@ class RoleMatrixTest extends TestCase
         }
     }
 
-    /** 06 §13 の 45 行と登録済みの api ルート（メソッド・パス・role ミドルウェア）が 1 対 1 に一致する */
+    /** 06 §13 の 45 行・12 §5.0 の行と登録済みの api ルート（メソッド・パス・role ミドルウェア）が 1 対 1 に一致する */
     public function test_ルートの一覧が06の13と一致する(): void
     {
         $actual = [];
@@ -179,7 +190,7 @@ class RoleMatrixTest extends TestCase
 
         ksort($actual);
         ksort($expected);
-        $this->assertCount(45, $actual);
+        $this->assertCount(count(self::ROUTES), $actual);
         $this->assertSame($expected, $actual);
     }
 

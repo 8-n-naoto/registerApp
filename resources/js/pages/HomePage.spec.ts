@@ -24,10 +24,10 @@ function mountAs(role: Role) {
 }
 
 describe('S00 ホーム（08 §5.2）', () => {
-  it('owner はカード 4 枚とボタン 9 個', () => {
+  it('owner はカード 4 枚とボタン 10 個', () => {
     const w = mountAs('owner')
     expect(w.findAll('.home-card__title').map((e) => e.text())).toEqual(['レジ操作', '商品管理', '売上管理', '設定'])
-    expect(w.findAll('.home-card__btn')).toHaveLength(9)
+    expect(w.findAll('.home-card__btn')).toHaveLength(10)
   })
 
   it('AC-S00-2：staff はレジ操作・売上管理の 2 枚で、売上管理は売上確認・レジ締めのみ', () => {

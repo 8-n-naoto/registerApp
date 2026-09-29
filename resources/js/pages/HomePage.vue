@@ -41,6 +41,7 @@ const allCards: HomeCard[] = [
     links: [
       { label: ja.home.btn.staff, to: '/settings/staff', roles: OWNER },
       { label: ja.home.btn.store, to: '/settings/store', roles: OWNER },
+      { label: ja.home.btn.tables, to: '/settings/tables', roles: OWNER },
       { label: ja.home.btn.logs, to: '/logs', roles: OWNER },
     ],
   },

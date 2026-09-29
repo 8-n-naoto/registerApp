@@ -117,6 +117,19 @@ export interface AuditLogRow {
   before: Record<string, unknown> | null; after: Record<string, unknown> | null; ip: string | null
 }
 
+/** 12 §4 注文のテーブル。トークンは含まない（QR は GET /order-tables/{id}/qr だけ） */
+export interface OrderTable {
+  id: number
+  name: string
+  sort_order: number
+  is_active: boolean
+  opened_at: string | null
+  session_expires_at: string | null
+  unpaid_order_count: number
+  unpaid_subtotal: number
+  token_rotated_at: string
+}
+
 /** エラー応答の本文（06 §1.3） */
 export interface ApiErrorBody {
   message: string
