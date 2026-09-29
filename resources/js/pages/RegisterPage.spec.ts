@@ -283,6 +283,18 @@ describe('S02 商品 500 件（WP 6-2・08 §10）', () => {
     for (const fn of Object.values(api)) fn.mockReset()
   })
 
+  it('商品ボタンはメモを小さく出し、商品コードは出さない', async () => {
+    api.fetchBootstrap.mockResolvedValue(makeBootstrap({
+      categories: [],
+      products: [makeProduct(1, 'コーヒー', { memo: 'ホット', code: 'HOT-1' }), makeProduct(2, 'コーヒー', { memo: 'アイス' })],
+    }))
+    await mountPage()
+    expect(tile(1).textContent).toContain('ホット')
+    expect(tile(2).textContent).toContain('アイス')
+    expect(document.querySelector('.tile__code')).toBeNull()
+    expect(document.body.textContent).not.toContain('HOT-1')
+  })
+
   it('500 件を並べ、商品タップ → 合計の反映が遅くならない（jsdom の中央値で後退を検出）', async () => {
     const products = Array.from({ length: 500 }, (_, i) => makeProduct(i + 1, `商品 ${i + 1}`, { price: 100 + (i % 10) * 10 }))
     api.fetchBootstrap.mockResolvedValue(makeBootstrap({ categories: [], products }))

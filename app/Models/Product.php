@@ -17,7 +17,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $id
  * @property int $store_id
  * @property int|null $category_id
+ * @property string $code
  * @property string $name
+ * @property string|null $memo
  * @property int $price
  * @property ProductColor $color
  * @property int $sort_order
@@ -34,9 +36,17 @@ class Product extends Model
 
     use SoftDeletes;
 
+    /** 自動採番する商品コードの形式（P + 4 桁以上の連番） */
+    public const AUTO_CODE_PREFIX = 'P';
+
+    /** 商品コードに使える文字（正規化後。20 文字以内は検証側で見る） */
+    public const CODE_PATTERN = '/^[A-Z0-9_-]+$/';
+
     protected $fillable = [
         'category_id',
+        'code',
         'name',
+        'memo',
         'price',
         'color',
         'sort_order',
@@ -55,6 +65,39 @@ class Product extends Model
             'track_stock' => 'boolean',
             'stock_qty' => 'integer',
         ];
+    }
+
+    /** 商品コードが空なら店舗内の次の番号を振る（画面・CSV・初期データのどこから作っても同じ規則にする） */
+    protected static function booted(): void
+    {
+        static::creating(function (Product $product): void {
+            if (($product->code ?? '') === '') {
+                $product->code = self::nextAutoCode($product->store_id);
+            }
+        });
+    }
+
+    /**
+     * P0001 形式の既存の最大番号 + 1。削除済みも含めて数え、番号を重ねない
+     */
+    public static function nextAutoCode(int $storeId): string
+    {
+        $max = 0;
+        $codes = self::query()->withoutGlobalScopes()->where('store_id', $storeId)
+            ->where('code', 'like', self::AUTO_CODE_PREFIX.'%')->pluck('code');
+        foreach ($codes as $code) {
+            if (preg_match('/^'.self::AUTO_CODE_PREFIX.'([0-9]{1,9})$/', (string) $code, $m) === 1) {
+                $max = max($max, (int) $m[1]);
+            }
+        }
+
+        return sprintf(self::AUTO_CODE_PREFIX.'%04d', $max + 1);
+    }
+
+    /** 商品コードの入力を正規化する（全角英数字・記号を半角、英字を大文字） */
+    public static function normalizeCode(string $value): string
+    {
+        return strtoupper(trim(mb_convert_kana($value, 'as', 'UTF-8')));
     }
 
     /** @return BelongsTo<Category, $this> */

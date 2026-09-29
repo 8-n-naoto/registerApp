@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\ProductColor;
+use App\Models\Product;
 use App\Services\StockService;
 use App\Support\CurrentStore;
 use Illuminate\Foundation\Http\FormRequest;
@@ -14,17 +15,34 @@ use Illuminate\Validation\Rule;
  */
 class ProductRequest extends FormRequest
 {
+    /** 商品コードは全角を半角、英字を大文字にそろえてから検証する */
+    protected function prepareForValidation(): void
+    {
+        if (is_string($this->input('code'))) {
+            $this->merge(['code' => Product::normalizeCode($this->string('code')->toString())]);
+        }
+    }
+
     /** @return array<string, list<mixed>> */
     public function rules(): array
     {
         $isCreate = $this->isMethod('POST');
         $required = $isCreate ? 'sometimes' : 'required';
+        $storeId = app(CurrentStore::class)->requireId();
+        $product = $this->route('product');
 
         $rules = [
+            // POST は空欄なら自動採番。PUT は必須
+            'code' => [$isCreate ? 'nullable' : 'required', 'string', 'max:20', 'regex:'.Product::CODE_PATTERN,
+                Rule::unique('products', 'code')
+                    ->where('store_id', $storeId)
+                    ->whereNull('deleted_at')
+                    ->ignore($product instanceof Product ? $product->id : null)],
             'name' => ['required', 'string', 'min:1', 'max:50'],
+            'memo' => [$isCreate ? 'nullable' : 'present', 'nullable', 'string', 'max:200'],
             'price' => ['required', 'integer', 'min:0', 'max:9999999'],
             'category_id' => [$isCreate ? 'nullable' : 'present', 'nullable', 'integer', Rule::exists('categories', 'id')
-                ->where('store_id', app(CurrentStore::class)->requireId())
+                ->where('store_id', $storeId)
                 ->whereNull('deleted_at')],
             'color' => [$required, Rule::enum(ProductColor::class)],
             'is_active' => [$required, 'boolean'],
@@ -41,7 +59,9 @@ class ProductRequest extends FormRequest
     public function attributes(): array
     {
         return [
+            'code' => '商品コード',
             'name' => '商品名',
+            'memo' => 'メモ',
             'price' => '価格',
             'category_id' => 'カテゴリ',
             'color' => '色',
@@ -51,11 +71,21 @@ class ProductRequest extends FormRequest
         ];
     }
 
-    /** @return array{name: string, price: int, category_id: int|null, color: string, is_active: bool, track_stock: bool} */
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return [
+            'code.regex' => '商品コードは英数字・ハイフン・アンダースコアで入力してください',
+        ];
+    }
+
+    /** @return array{code: string, name: string, memo: string|null, price: int, category_id: int|null, color: string, is_active: bool, track_stock: bool} */
     public function productData(): array
     {
         return [
+            'code' => $this->filled('code') ? $this->string('code')->toString() : '',
             'name' => $this->string('name')->toString(),
+            'memo' => $this->filled('memo') ? $this->string('memo')->toString() : null,
             'price' => $this->integer('price'),
             'category_id' => $this->filled('category_id') ? $this->integer('category_id') : null,
             'color' => $this->string('color', ProductColor::Gray->value)->toString(),

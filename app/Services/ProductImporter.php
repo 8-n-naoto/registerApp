@@ -14,13 +14,18 @@ use Illuminate\Support\Facades\DB;
  * 商品 CSV 一括登録（06 §7.7・07 §10）。
  * 検証と変換を行い、dry_run でなくエラーが無ければ 1 トランザクションでカテゴリと商品を作る。
  *
- * @phpstan-type ImportRow array{line: int, category: string|null, name: string, price: int, color: string, track_stock: bool, stock_qty: int, is_active: bool}
+ * @phpstan-type ImportRow array{line: int, category: string|null, name: string, price: int, color: string, track_stock: bool, stock_qty: int, is_active: bool, code: string|null, memo: string|null}
  * @phpstan-type LineMessages array{line: int, messages: list<string>}
  * @phpstan-type ImportResult array{dry_run: bool, valid_count: int, new_categories: list<string>, errors: list<LineMessages>, warnings: list<LineMessages>, rows: list<ImportRow>}
  */
 final class ProductImporter
 {
-    public const HEADER = ['カテゴリ', '商品名', '価格', '色', '在庫管理', '在庫数', '販売中'];
+    public const HEADER = ['カテゴリ', '商品名', '価格', '色', '在庫管理', '在庫数', '販売中', '商品コード', 'メモ'];
+
+    /** 商品コード・メモの列を追加する前の形式。コードは自動採番、メモは空で取り込む */
+    public const LEGACY_HEADER = ['カテゴリ', '商品名', '価格', '色', '在庫管理', '在庫数', '販売中'];
+
+    public const COLUMNS = 9;
 
     public const MAX_ROWS = 500;
 
@@ -85,7 +90,7 @@ final class ProductImporter
         while ($header !== [] && end($header) === '') {
             array_pop($header);
         }
-        if ($header !== self::HEADER) {
+        if ($header !== self::HEADER && $header !== self::LEGACY_HEADER) {
             return $fileError('1 行目の見出しが違います');
         }
 
@@ -103,12 +108,26 @@ final class ProductImporter
         }
 
         $existingCategories = Category::query()->pluck('name')->all();
-        $existingNames = array_flip(Product::query()->pluck('name')->all());
-        $seenNames = [];
+        $existingKeys = [];
+        foreach (Product::query()->get(['name', 'memo']) as $product) {
+            $existingKeys[$this->sameKey($product->name, $product->memo)] = true;
+        }
+        $existingCodes = array_flip(Product::query()->pluck('code')->all());
+        $seenKeys = [];
+        $seenCodes = [];
 
         foreach ($data as $line => $cells) {
-            [$row, $messages] = $this->validateRow($cells);
-            if ($row === null) {
+            [$row, $messages] = $this->validateRow($cells, count($header));
+            if ($row !== null && $row['code'] !== null) {
+                if (isset($existingCodes[$row['code']])) {
+                    $messages[] = '商品コード：既に使われています';
+                } elseif (isset($seenCodes[$row['code']])) {
+                    $messages[] = '商品コード：'.$seenCodes[$row['code']].' 行目と同じです';
+                } else {
+                    $seenCodes[$row['code']] = $line;
+                }
+            }
+            if ($row === null || $messages !== []) {
                 $result['errors'][] = ['line' => $line, 'messages' => $messages];
 
                 continue;
@@ -120,13 +139,15 @@ final class ProductImporter
             }
 
             $warnings = [];
-            if (isset($existingNames[$row['name']])) {
-                $warnings[] = '同名の商品が既にあります';
+            // 同名でもメモが違えば別の商品として扱う（見分けが付かないものだけ警告）
+            $key = $this->sameKey($row['name'], $row['memo']);
+            if (isset($existingKeys[$key])) {
+                $warnings[] = '商品名・メモが同じ商品が既にあります';
             }
-            if (isset($seenNames[$row['name']])) {
-                $warnings[] = $seenNames[$row['name']].' 行目と同じ商品名です';
+            if (isset($seenKeys[$key])) {
+                $warnings[] = $seenKeys[$key].' 行目と商品名・メモが同じです';
             } else {
-                $seenNames[$row['name']] = $line;
+                $seenKeys[$key] = $line;
             }
             if ($warnings !== []) {
                 $result['warnings'][] = ['line' => $line, 'messages' => $warnings];
@@ -150,20 +171,21 @@ final class ProductImporter
      * 07 §10.2・§10.3。エラーが無ければ [行, []]、あれば [null, メッセージ]
      *
      * @param  list<string>  $cells
-     * @return array{0: array{category: string|null, name: string, price: int, color: string, track_stock: bool, stock_qty: int, is_active: bool}|null, 1: list<string>}
+     * @param  int  $columns  見出しの列数（旧形式は 7）
+     * @return array{0: array{category: string|null, name: string, price: int, color: string, track_stock: bool, stock_qty: int, is_active: bool, code: string|null, memo: string|null}|null, 1: list<string>}
      */
-    public function validateRow(array $cells): array
+    public function validateRow(array $cells, int $columns = self::COLUMNS): array
     {
         $cells = array_map($this->trim(...), $cells);
         $messages = [];
 
-        foreach (array_slice($cells, count(self::HEADER)) as $extra) {
+        foreach (array_slice($cells, $columns) as $extra) {
             if ($extra !== '') {
                 $messages[] = '列が多すぎます';
                 break;
             }
         }
-        [$category, $name, $price, $color, $track, $stock, $active] = array_pad(array_slice($cells, 0, 7), 7, '');
+        [$category, $name, $price, $color, $track, $stock, $active, $code, $memo] = array_pad(array_slice($cells, 0, $columns), self::COLUMNS, '');
 
         if (mb_strlen($category) > 30) {
             $messages[] = 'カテゴリ：30 文字以内で入力してください';
@@ -210,6 +232,15 @@ final class ProductImporter
             $messages[] = '販売中：1・ON・はい または 0・OFF・いいえ で入力してください';
         }
 
+        $code = Product::normalizeCode($code);
+        if (strlen($code) > 20 || ($code !== '' && preg_match(Product::CODE_PATTERN, $code) !== 1)) {
+            $messages[] = '商品コード：英数字・ハイフン・アンダースコアの 20 文字以内で入力してください';
+        }
+
+        if (mb_strlen($memo) > 200) {
+            $messages[] = 'メモ：200 文字以内で入力してください';
+        }
+
         if ($messages !== [] || $priceValue === null || $colorValue === null || $trackValue === null
             || $stockValue === null || $activeValue === null) {
             return [null, $messages];
@@ -223,6 +254,8 @@ final class ProductImporter
             'track_stock' => $trackValue,
             'stock_qty' => $stockValue,
             'is_active' => $activeValue,
+            'code' => $code === '' ? null : $code,
+            'memo' => $memo === '' ? null : $memo,
         ], []];
     }
 
@@ -240,6 +273,10 @@ final class ProductImporter
 
         /** @var array<string, int> $nextOrder カテゴリ ID（未分類は ''）→ 次の sort_order */
         $nextOrder = [];
+        /** @var list<Product> $withCode */
+        $withCode = [];
+        /** @var list<Product> $autoCode */
+        $autoCode = [];
         foreach ($result['rows'] as $row) {
             $categoryId = $row['category'] === null ? null : $categoryIds[$row['category']];
             $key = (string) $categoryId;
@@ -249,7 +286,9 @@ final class ProductImporter
 
             $product = new Product([
                 'category_id' => $categoryId,
+                'code' => $row['code'] ?? '',
                 'name' => $row['name'],
+                'memo' => $row['memo'],
                 'price' => $row['price'],
                 'color' => $row['color'],
                 'is_active' => $row['is_active'],
@@ -257,6 +296,14 @@ final class ProductImporter
                 'stock_qty' => $row['stock_qty'],
             ]);
             $product->sort_order = $nextOrder[$key]++;
+            if ($row['code'] === null) {
+                $autoCode[] = $product;
+            } else {
+                $withCode[] = $product;
+            }
+        }
+        // 自動採番がファイル内で指定されたコード（P0005 など）と重ならないよう、指定のある行を先に保存する
+        foreach ([...$withCode, ...$autoCode] as $product) {
             $product->save();
         }
 
@@ -264,6 +311,12 @@ final class ProductImporter
             'count' => $result['valid_count'],
             'new_categories' => $result['new_categories'],
         ]);
+    }
+
+    /** 同名判定のキー（商品名とメモの組） */
+    private function sameKey(string $name, ?string $memo): string
+    {
+        return $name."\0".($memo ?? '');
     }
 
     /** 先頭の BOM を除き UTF-8 にする。UTF-8 でも CP932 でもなければ null */

@@ -36,7 +36,9 @@ export interface ProductOption { id: number; product_id: number; name: string; p
 export interface Product {
   id: number
   category_id: number | null
+  code: string
   name: string
+  memo: string | null
   price: number
   color: ProductColor
   sort_order: number

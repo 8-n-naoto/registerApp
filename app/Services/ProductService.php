@@ -8,6 +8,7 @@ use App\Exceptions\BusinessException;
 use App\Models\Product;
 use App\Models\ProductOption;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -23,11 +24,11 @@ final class ProductService
     public function __construct(private readonly AuditLogger $audit) {}
 
     /**
-     * @param  array{name: string, price: int, category_id: int|null, color: string, is_active: bool, track_stock: bool, stock_qty: int}  $data
+     * @param  array{code: string, name: string, memo: string|null, price: int, category_id: int|null, color: string, is_active: bool, track_stock: bool, stock_qty: int}  $data
      */
     public function create(array $data): Product
     {
-        return DB::transaction(function () use ($data): Product {
+        return $this->guardCode(fn () => DB::transaction(function () use ($data): Product {
             if (Product::query()->count() >= self::MAX_PRODUCTS) {
                 $this->limitExceeded('name', '商品は '.self::MAX_PRODUCTS.' 件までです');
             }
@@ -39,17 +40,17 @@ final class ProductService
             $this->audit->log(AuditAction::ProductCreated, $product, null, $this->snapshot($product));
 
             return $product->load('options');
-        });
+        }));
     }
 
     /**
      * 全項目の置き換え（在庫数を除く）。カテゴリを変えた場合は移動先の末尾に並べる
      *
-     * @param  array{name: string, price: int, category_id: int|null, color: string, is_active: bool, track_stock: bool}  $data
+     * @param  array{code: string, name: string, memo: string|null, price: int, category_id: int|null, color: string, is_active: bool, track_stock: bool}  $data
      */
     public function update(Product $product, array $data): Product
     {
-        return DB::transaction(function () use ($product, $data): Product {
+        return $this->guardCode(fn () => DB::transaction(function () use ($product, $data): Product {
             $original = $product->attributesToArray();
             $product->fill($data);
             if ($product->isDirty('category_id')) {
@@ -63,7 +64,7 @@ final class ProductService
             }
 
             return $product->load('options');
-        });
+        }));
     }
 
     /** 論理削除（オプションも論理削除） */
@@ -148,7 +149,9 @@ final class ProductService
     private function snapshot(Product $product): array
     {
         return [
+            'code' => $product->code,
             'name' => $product->name,
+            'memo' => $product->memo,
             'price' => $product->price,
             'category_id' => $product->category_id,
             'color' => $product->color->value,
@@ -156,6 +159,20 @@ final class ProductService
             'track_stock' => $product->track_stock,
             'stock_qty' => $product->stock_qty,
         ];
+    }
+
+    /**
+     * 検証の後に同じコードが登録された場合（同時操作）も、500 ではなく入力エラーにする
+     *
+     * @param  callable(): Product  $callback
+     */
+    private function guardCode(callable $callback): Product
+    {
+        try {
+            return $callback();
+        } catch (UniqueConstraintViolationException) {
+            $this->limitExceeded('code', 'その商品コードは既に使われています');
+        }
     }
 
     private function limitExceeded(string $field, string $message): never

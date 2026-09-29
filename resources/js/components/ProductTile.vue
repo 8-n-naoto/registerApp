@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// 商品ボタンの見た目（08 §6）：色・売切・残数・オプション印。押せる要素は親が包む（レジと商品管理で共用）
+// 商品ボタンの見た目（08 §6）：色・売切・残数・オプション印・メモ。押せる要素は親が包む（レジと商品管理で共用）
+// 商品コードは商品管理だけで出す（showCode）。レジのボタンは名前とメモで見分ける
 import { computed } from 'vue'
 import { fmt, ja } from '@/i18n/ja'
 import { formatYen } from '@/lib/money'
@@ -7,10 +8,11 @@ import type { Product } from '@/types/api'
 
 const props = withDefaults(
   defineProps<{
-    product: Pick<Product, 'name' | 'price' | 'color' | 'is_active' | 'track_stock' | 'stock_qty' | 'options'>
+    product: Pick<Product, 'code' | 'name' | 'memo' | 'price' | 'color' | 'is_active' | 'track_stock' | 'stock_qty' | 'options'>
     layout?: 'tile' | 'row'
+    showCode?: boolean
   }>(),
-  { layout: 'tile' },
+  { layout: 'tile', showCode: false },
 )
 
 const soldOut = computed(() => props.product.track_stock && props.product.stock_qty <= 0)
@@ -26,7 +28,17 @@ const hasOptions = computed(() => props.product.options.some((o) => o.is_active)
       class="tile__swatch"
       aria-hidden="true"
     />
-    <span class="tile__name">{{ product.name }}</span>
+    <span class="tile__text">
+      <span class="tile__name">{{ product.name }}</span>
+      <span
+        v-if="product.memo"
+        class="tile__memo"
+      >{{ product.memo }}</span>
+      <span
+        v-if="showCode"
+        class="tile__code tabular"
+      >{{ product.code }}</span>
+    </span>
     <span class="tile__price tabular">{{ formatYen(product.price) }}</span>
     <span class="tile__marks">
       <span
@@ -82,6 +94,27 @@ const hasOptions = computed(() => props.product.options.some((o) => o.is_active)
 }
 
 .tile--tile .tile__swatch { display: none; }
+.tile__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.tile__memo,
+.tile__code {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.tile__memo {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.tile__code { white-space: nowrap; text-overflow: ellipsis; opacity: 0.85; }
+.tile--row .tile__code { color: var(--c-text-sub); opacity: 1; }
+
 .tile--tile .tile__name { font-size: var(--fs-product); font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
 .tile--tile .tile__price { font-size: var(--fs-product-price); font-weight: 700; }
 
@@ -105,7 +138,8 @@ const hasOptions = computed(() => props.product.options.some((o) => o.is_active)
   border: 1px solid var(--c-border);
 }
 
-.tile--row .tile__name { flex: 1 1 auto; min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
+.tile--row .tile__text { flex: 1 1 auto; }
+.tile--row .tile__name { font-weight: 700; overflow-wrap: anywhere; }
 .tile--row .tile__price { font-weight: 700; white-space: nowrap; }
 
 .tile__marks { display: flex; flex-wrap: wrap; gap: 4px; }

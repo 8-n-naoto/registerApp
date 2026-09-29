@@ -30,7 +30,7 @@ vi.mock('@/api/catalog', () => api)
 
 function product(id: number, name: string, categoryId: number | null, extra: Partial<Product> = {}): Product {
   return {
-    id, name, category_id: categoryId, price: 400, color: 'gray', sort_order: id,
+    id, code: `P000${id}`, name, memo: null, category_id: categoryId, price: 400, color: 'gray', sort_order: id,
     is_active: true, track_stock: false, stock_qty: 0, options: [], ...extra,
   }
 }
@@ -92,6 +92,44 @@ describe('S08 商品管理（08 §5.9）', () => {
     expect(names()).toEqual(['おまけ'])
   })
 
+  it('同じ名前の商品はメモとコードで見分けられる。編集ではコードとメモを送り、コードは空にできない', async () => {
+    api.fetchCatalog.mockResolvedValue({
+      categories,
+      products: [
+        product(1, 'コーヒー', 10, { memo: 'ホット', code: 'HOT-1' }),
+        product(2, 'コーヒー', 10, { memo: 'アイス' }),
+      ],
+    })
+    await mountPage()
+    expect([...document.querySelectorAll('.tile__memo')].map((e) => e.textContent)).toEqual(['ホット', 'アイス'])
+    expect([...document.querySelectorAll('.tile__code')].map((e) => e.textContent)).toEqual(['HOT-1', 'P0002'])
+    expect(document.querySelector('.items__btn')?.getAttribute('aria-label')).toBe('コーヒー（ホット） HOT-1 を編集')
+
+    ;[...document.querySelectorAll<HTMLElement>('.items__btn')][0]?.click()
+    await flushPromises()
+    const codeInput = document.querySelector<HTMLInputElement>('#product-code')
+    const memoInput = document.querySelector<HTMLTextAreaElement>('#product-memo')
+    if (!codeInput || !memoInput) throw new Error('no inputs')
+    expect(codeInput.value).toBe('HOT-1')
+    expect(memoInput.value).toBe('ホット')
+
+    codeInput.value = ' '
+    codeInput.dispatchEvent(new Event('input'))
+    codeInput.form?.dispatchEvent(new Event('submit'))
+    await flushPromises()
+    expect(api.updateProduct).not.toHaveBeenCalled()
+    expect(document.body.textContent).toContain('商品コードを入力してください')
+
+    api.updateProduct.mockResolvedValue(product(1, 'コーヒー', 10, { code: 'HOT-2', memo: null }))
+    codeInput.value = 'HOT-2'
+    codeInput.dispatchEvent(new Event('input'))
+    memoInput.value = '  '
+    memoInput.dispatchEvent(new Event('input'))
+    codeInput.form?.dispatchEvent(new Event('submit'))
+    await flushPromises()
+    expect(api.updateProduct).toHaveBeenCalledWith(1, expect.objectContaining({ code: 'HOT-2', memo: null }))
+  })
+
   it('AC-S08-2：在庫管理 ON は「残 n」、在庫 0 は「売切」', async () => {
     await mountPage()
     expect(document.body.textContent).toContain('残 5')
@@ -144,7 +182,7 @@ describe('S08 商品管理（08 §5.9）', () => {
     await flushPromises()
 
     expect(api.createProduct).toHaveBeenCalledWith({
-      name: 'パン', price: 1200, category_id: 20, color: 'gray', is_active: true, track_stock: false, stock_qty: 0,
+      code: '', name: 'パン', memo: null, price: 1200, category_id: 20, color: 'gray', is_active: true, track_stock: false, stock_qty: 0,
     })
     expect(names()).toContain('パン')
   })

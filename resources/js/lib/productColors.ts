@@ -15,6 +15,6 @@ export const PRODUCT_COLORS: readonly { key: ProductColor; label: string }[] = [
 ]
 
 /** CSV 一括登録のひな形（06 §7.7 の見出しと例 2 行）。Excel で開けるよう UTF-8 の BOM を付ける */
-export const IMPORT_TEMPLATE = '﻿カテゴリ,商品名,価格,色,在庫管理,在庫数,販売中\r\n'
-  + 'ドリンク,コーヒー,450,オレンジ,OFF,0,ON\r\n'
-  + 'フード,ケーキ,500,ピンク,ON,10,ON\r\n'
+export const IMPORT_TEMPLATE = '﻿カテゴリ,商品名,価格,色,在庫管理,在庫数,販売中,商品コード,メモ\r\n'
+  + 'ドリンク,コーヒー,450,オレンジ,OFF,0,ON,,ホット\r\n'
+  + 'フード,ケーキ,500,ピンク,ON,10,ON,CAKE-01,\r\n'

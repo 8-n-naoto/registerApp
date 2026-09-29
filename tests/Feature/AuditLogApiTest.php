@@ -43,7 +43,7 @@ class AuditLogApiTest extends TestCase
     {
         $product = Product::factory()->for($this->store)->create(['name' => 'コーヒー', 'price' => 400, 'color' => 'blue']);
         $this->actingAs($this->owner)->putJson("/api/products/{$product->id}", [
-            'name' => 'コーヒー', 'price' => 450, 'category_id' => null, 'color' => 'blue', 'is_active' => true, 'track_stock' => false,
+            'code' => $product->code, 'name' => 'コーヒー', 'memo' => null, 'price' => 450, 'category_id' => null, 'color' => 'blue', 'is_active' => true, 'track_stock' => false,
         ])->assertOk();
 
         $this->getJson('/api/logs')->assertOk()

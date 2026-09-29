@@ -70,6 +70,7 @@ class SchemaTest extends TestCase
                 ['price', false, null], ['color', false, 'gray'], ['sort_order', false, '0'],
                 ['is_active', false, '1'], ['track_stock', false, '0'], ['stock_qty', false, '0'],
                 ['created_at', true, null], ['updated_at', true, null], ['deleted_at', true, null],
+                ['code', false, ''], ['memo', true, null],
             ]],
             'product_options' => ['product_options', [
                 ['id', false, null], ['store_id', false, null], ['product_id', false, null], ['name', false, null],
@@ -145,6 +146,7 @@ class SchemaTest extends TestCase
             'payment_methods_store_id_sort_order_index',
             'categories_store_id_sort_order_index',
             'products_store_id_category_id_sort_order_index',
+            'products_store_id_code_unique',
             'product_options_product_id_sort_order_index',
             'sales_store_id_client_uuid_unique',
             'sales_store_id_business_date_status_index',

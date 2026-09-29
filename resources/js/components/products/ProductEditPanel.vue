@@ -26,7 +26,9 @@ const emit = defineEmits<{ saved: [product: Product]; deleted: [id: number]; clo
 const current = ref<Product | null>(props.product)
 const isNew = computed(() => current.value === null)
 
+const code = ref(props.product?.code ?? '')
 const name = ref(props.product?.name ?? '')
+const memo = ref(props.product?.memo ?? '')
 const price = ref(props.product ? String(props.product.price) : '')
 const categoryId = ref<number | null>(props.product ? props.product.category_id : props.defaultCategoryId)
 const color = ref<ProductColor>(props.product?.color ?? 'gray')
@@ -55,6 +57,9 @@ async function save(): Promise<void> {
   errors.value = {}
   failed.value = null
   savedMessage.value = null
+  const codeValue = code.value.trim()
+  // 新規の空欄はサーバーで自動採番。既存の商品はコードを消せない（06 §7.3）
+  if (!isNew.value && codeValue === '') errors.value.code = t.codeRequired
   const priceValue = parseNonNegativeInt(price.value)
   if (priceValue === null || priceValue > PRICE_MAX) errors.value.price = t.priceInvalid
   const stockQty = parseNonNegativeInt(initialStock.value)
@@ -63,8 +68,11 @@ async function save(): Promise<void> {
 
   saving.value = true
   try {
+    const memoValue = memo.value.trim()
     const input = {
+      code: codeValue,
       name: name.value.trim(),
+      memo: memoValue === '' ? null : memoValue,
       price: priceValue,
       category_id: categoryId.value,
       color: color.value,
@@ -75,6 +83,7 @@ async function save(): Promise<void> {
       ? await updateProduct(current.value.id, input)
       : await createProduct({ ...input, stock_qty: trackStock.value ? (stockQty ?? 0) : 0 })
     current.value = saved
+    code.value = saved.code
     options.value = [...saved.options]
     savedMessage.value = ja.common.saved
     emit('saved', saved)
@@ -185,6 +194,65 @@ async function confirmDelete(): Promise<void> {
               class="adm-error"
             >
               {{ errors.name }}
+            </p>
+          </div>
+
+          <div class="adm-field">
+            <label
+              for="product-memo"
+              class="adm-field__label"
+            >{{ t.memo }}</label>
+            <textarea
+              id="product-memo"
+              v-model="memo"
+              class="adm-input edit__memo"
+              maxlength="200"
+              rows="2"
+              aria-describedby="product-memo-help"
+              :aria-invalid="errors.memo ? 'true' : undefined"
+            />
+            <p
+              id="product-memo-help"
+              class="adm-help"
+            >
+              {{ t.memoHelp }}
+            </p>
+            <p
+              v-if="errors.memo"
+              class="adm-error"
+            >
+              {{ errors.memo }}
+            </p>
+          </div>
+
+          <div class="adm-field">
+            <label
+              for="product-code"
+              class="adm-field__label"
+            >{{ t.code }}</label>
+            <input
+              id="product-code"
+              v-model="code"
+              class="adm-input tabular"
+              maxlength="20"
+              autocapitalize="characters"
+              autocomplete="off"
+              spellcheck="false"
+              :placeholder="isNew ? 'P0001' : undefined"
+              aria-describedby="product-code-help"
+              :aria-invalid="errors.code ? 'true' : undefined"
+            >
+            <p
+              id="product-code-help"
+              class="adm-help"
+            >
+              {{ t.codeHelp }}
+            </p>
+            <p
+              v-if="errors.code"
+              class="adm-error"
+            >
+              {{ errors.code }}
             </p>
           </div>
 
@@ -472,6 +540,7 @@ async function confirmDelete(): Promise<void> {
 .edit__subtitle { font-size: 20px; }
 .edit__stock { font-size: 20px; font-weight: 700; }
 .edit__category { width: 100%; }
+.edit__memo { min-height: 96px; padding: 12px 14px; }
 .edit__fieldset { margin: 0; padding: 0; border: 0; }
 
 .colors { display: grid; grid-template-columns: repeat(5, minmax(var(--tap-min), 1fr)); gap: 8px; }

@@ -43,6 +43,7 @@ class ProductApiTest extends TestCase
     {
         return [
             'name' => 'コーヒー',
+            'memo' => null,
             'price' => 400,
             'category_id' => null,
             'color' => 'blue',
@@ -71,7 +72,7 @@ class ProductApiTest extends TestCase
             ->assertJsonPath('products.1.options.0.name', '大盛り')
             ->assertJsonPath('products.1.options.0.product_id', $b->id);
         $this->assertSame(
-            ['id', 'category_id', 'name', 'price', 'color', 'sort_order', 'is_active', 'track_stock', 'stock_qty', 'options'],
+            ['id', 'category_id', 'code', 'name', 'memo', 'price', 'color', 'sort_order', 'is_active', 'track_stock', 'stock_qty', 'options'],
             array_keys($res->json('products.0')),
         );
     }
@@ -147,6 +148,72 @@ class ProductApiTest extends TestCase
         $this->postJson('/api/products', $this->payload(['price' => 9_999_999, 'stock_qty' => 999_999]))->assertCreated();
     }
 
+    public function test_商品コードは空欄なら店舗ごとに連番を振り削除済みの番号も重ねない(): void
+    {
+        $this->actingAs($this->owner);
+        $first = $this->postJson('/api/products', $this->payload())->assertCreated()->json('code');
+        $second = (int) $this->postJson('/api/products', $this->payload(['code' => '']))->assertCreated()->json('id');
+        $this->assertSame('P0001', $first);
+        $this->assertSame('P0002', Product::query()->findOrFail($second)->code);
+
+        Product::query()->findOrFail($second)->delete();
+        Product::factory()->for($this->other)->create(['code' => 'P0099']);
+        $this->postJson('/api/products', $this->payload(['code' => 'p0010']))->assertCreated()->assertJsonPath('code', 'P0010');
+        $this->postJson('/api/products', $this->payload())->assertCreated()->assertJsonPath('code', 'P0011');
+        // 他店舗の番号は数えない
+        $this->assertSame('P0100', Product::nextAutoCode($this->other->id));
+    }
+
+    public function test_商品コードは正規化して店舗内の削除されていない商品と重複できない(): void
+    {
+        $this->actingAs($this->owner);
+        $this->postJson('/api/products', $this->payload(['code' => ' ４９０１２３４ｘ－１_a ']))
+            ->assertCreated()->assertJsonPath('code', '4901234X-1_A');
+
+        $this->postJson('/api/products', $this->payload(['code' => '4901234x-1_a']))
+            ->assertUnprocessable()->assertJsonPath('errors.code.0', 'その商品コードは既に使われています');
+        $this->postJson('/api/products', $this->payload(['code' => 'A B']))
+            ->assertUnprocessable()->assertJsonValidationErrors(['code']);
+        $this->postJson('/api/products', $this->payload(['code' => 'コード']))
+            ->assertUnprocessable()->assertJsonValidationErrors(['code']);
+        $this->postJson('/api/products', $this->payload(['code' => str_repeat('A', 21)]))
+            ->assertUnprocessable()->assertJsonValidationErrors(['code']);
+        $this->postJson('/api/products', $this->payload(['code' => str_repeat('A', 20)]))->assertCreated();
+
+        // 他店舗の同じコード・削除済みの商品のコードは使える
+        Product::factory()->for($this->other)->create(['code' => 'SAME']);
+        $this->postJson('/api/products', $this->payload(['code' => 'SAME']))->assertCreated();
+        Product::factory()->for($this->store)->create(['code' => 'OLD'])->delete();
+        $this->postJson('/api/products', $this->payload(['code' => 'OLD']))->assertCreated();
+    }
+
+    public function test_同名の商品もコードとメモで分けて登録でき変更は操作ログに残る(): void
+    {
+        $this->actingAs($this->owner);
+        $hot = $this->postJson('/api/products', $this->payload(['memo' => 'ホット']))->assertCreated()
+            ->assertJsonPath('memo', 'ホット');
+        $this->postJson('/api/products', $this->payload(['memo' => 'アイス']))->assertCreated();
+        $this->postJson('/api/products', $this->payload(['memo' => str_repeat('あ', 201)]))
+            ->assertUnprocessable()->assertJsonValidationErrors(['memo']);
+        $this->assertSame(2, Product::query()->where('name', 'コーヒー')->count());
+        $created = AuditLog::query()->withoutGlobalScopes()->where('action', 'product_created')
+            ->where('target_id', $hot->json('id'))->firstOrFail();
+        $this->assertSame(['P0001', 'ホット'], [$created->after['code'] ?? null, $created->after['memo'] ?? null]);
+
+        $id = $hot->json('id');
+        $this->putJson("/api/products/{$id}", $this->payload(['code' => 'HOT-1', 'memo' => 'ホット（大）']))
+            ->assertOk()->assertJsonPath('code', 'HOT-1');
+        $log = $this->audit('product_updated');
+        $this->assertSame(['code' => 'P0001', 'memo' => 'ホット'], $log->before);
+        $this->assertSame(['code' => 'HOT-1', 'memo' => 'ホット（大）'], $log->after);
+
+        // 自分自身のコードのままなら重複にならない。メモは空欄で消せる
+        $this->putJson("/api/products/{$id}", $this->payload(['code' => 'HOT-1', 'memo' => '']))
+            ->assertOk()->assertJsonPath('memo', null);
+        $this->putJson("/api/products/{$id}", $this->payload(['code' => '', 'memo' => null]))
+            ->assertUnprocessable()->assertJsonValidationErrors(['code']);
+    }
+
     public function test_商品は500件まで(): void
     {
         Product::factory()->for($this->store)->count(500)->create();
@@ -164,10 +231,10 @@ class ProductApiTest extends TestCase
         $product = Product::factory()->for($this->store)->tracked(7)->create(['name' => '旧', 'price' => 300, 'color' => 'red']);
 
         $this->actingAs($this->owner)->putJson("/api/products/{$product->id}", ['name' => '新', 'price' => 300])
-            ->assertUnprocessable()->assertJsonValidationErrors(['category_id', 'color', 'is_active', 'track_stock']);
+            ->assertUnprocessable()->assertJsonValidationErrors(['code', 'memo', 'category_id', 'color', 'is_active', 'track_stock']);
 
         $this->putJson("/api/products/{$product->id}", $this->payload([
-            'name' => '新', 'price' => 300, 'color' => 'red', 'track_stock' => true, 'stock_qty' => 0,
+            'code' => $product->code, 'name' => '新', 'price' => 300, 'color' => 'red', 'track_stock' => true, 'stock_qty' => 0,
         ]))->assertOk()->assertJsonPath('name', '新')->assertJsonPath('stock_qty', 7);
 
         $log = $this->audit('product_updated');
@@ -183,7 +250,7 @@ class ProductApiTest extends TestCase
         $product = Product::factory()->for($this->store)->create(['category_id' => $from->id, 'sort_order' => 0]);
 
         $this->actingAs($this->owner)->putJson("/api/products/{$product->id}", $this->payload([
-            'name' => $product->name, 'price' => $product->price, 'color' => $product->color->value,
+            'code' => $product->code, 'name' => $product->name, 'price' => $product->price, 'color' => $product->color->value,
             'category_id' => $to->id,
         ]))->assertOk()->assertJsonPath('category_id', $to->id)->assertJsonPath('sort_order', 4);
     }

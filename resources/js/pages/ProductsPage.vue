@@ -45,6 +45,9 @@ const visibleProducts = computed<Product[]>(() => {
   return sorted.sort((a, b) => rankOf(a) - rankOf(b) || bySort(a, b))
 })
 
+/** 読み上げ用の名前。同名の商品をメモとコードで区別できるようにする */
+const productLabel = (p: Product): string => [p.name, p.memo ? `（${p.memo}）` : '', ` ${p.code}`].join('')
+
 const selectedCategory = computed(() => (typeof tab.value === 'number' ? categories.value.find((c) => c.id === tab.value) ?? null : null))
 
 async function load(): Promise<void> {
@@ -334,6 +337,7 @@ onMounted(load)
               <ProductTile
                 :product="item"
                 :layout="isTablet ? 'tile' : 'row'"
+                show-code
               />
             </template>
           </SortableList>
@@ -358,12 +362,13 @@ onMounted(load)
             <button
               type="button"
               class="items__btn"
-              :aria-label="fmt(ja.common.editNamed, { name: p.name })"
+              :aria-label="fmt(ja.common.editNamed, { name: productLabel(p) })"
               @click="editing = p"
             >
               <ProductTile
                 :product="p"
                 :layout="isTablet ? 'tile' : 'row'"
+                show-code
               />
             </button>
           </li>

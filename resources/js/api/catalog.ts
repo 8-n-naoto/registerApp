@@ -4,7 +4,9 @@ import type { Category, Product, ProductColor, ProductOption } from '@/types/api
 // 06 §7 商品・カテゴリ・オプション（owner のみ）
 
 export interface ProductInput {
+  code: string // 新規で空欄なら自動採番
   name: string
+  memo: string | null
   price: number
   category_id: number | null
   color: ProductColor
@@ -33,6 +35,8 @@ export interface ImportRow {
   track_stock: boolean
   stock_qty: number
   is_active: boolean
+  code: string | null // null は自動採番
+  memo: string | null
 }
 
 export interface ImportLineMessages {

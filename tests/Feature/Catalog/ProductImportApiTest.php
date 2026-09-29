@@ -18,7 +18,10 @@ class ProductImportApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** 商品コード・メモの列を追加する前の形式（07 §10 の試験ベクタはこの形式で書いてある） */
     private const HEADER = 'カテゴリ,商品名,価格,色,在庫管理,在庫数,販売中';
+
+    private const HEADER_WITH_CODE = 'カテゴリ,商品名,価格,色,在庫管理,在庫数,販売中,商品コード,メモ';
 
     private Store $store;
 
@@ -101,7 +104,7 @@ class ProductImportApiTest extends TestCase
     {
         return [
             'line' => $line, 'category' => null, 'name' => $name, 'price' => $price, 'color' => 'gray',
-            'track_stock' => false, 'stock_qty' => 0, 'is_active' => true, ...$override,
+            'track_stock' => false, 'stock_qty' => 0, 'is_active' => true, 'code' => null, 'memo' => null, ...$override,
         ];
     }
 
@@ -119,8 +122,8 @@ class ProductImportApiTest extends TestCase
             array_column($res->json('errors'), 'line'),
         );
         $this->assertSame([
-            ['line' => 5, 'messages' => ['同名の商品が既にあります']],
-            ['line' => 15, 'messages' => ['3 行目と同じ商品名です']],
+            ['line' => 5, 'messages' => ['商品名・メモが同じ商品が既にあります']],
+            ['line' => 15, 'messages' => ['3 行目と商品名・メモが同じです']],
         ], $res->json('warnings'));
 
         $this->assertSame([
@@ -233,6 +236,73 @@ class ProductImportApiTest extends TestCase
         $this->assertSame('products_imported', $log->action);
         $this->assertSame($this->store->id, $log->store_id);
         $this->assertSame(['count' => 6, 'new_categories' => ['フード', 'スイーツ']], $log->after);
+    }
+
+    public function test_商品コードとメモの列を読み_空のコードは指定のある行の後に自動で振る(): void
+    {
+        Product::factory()->for($this->store)->create(['name' => 'コーヒー', 'code' => 'P0001', 'memo' => 'ホット']);
+
+        $body = implode("\r\n", [
+            self::HEADER_WITH_CODE,
+            ',コーヒー,400,,,,,,アイス',            // 2 同名でもメモが違えば警告しない
+            ',コーヒー,400,,,,,,ホット',            // 3 既存と商品名・メモが同じ → 警告
+            ',紅茶,400,,,,,ｐ０００３,',            // 4 正規化して P0003
+            ',緑茶,400,,,,,,',                      // 5 自動
+        ])."\r\n";
+
+        $res = $this->import($body)->assertOk();
+        $res->assertJsonPath('errors', [])
+            ->assertJsonPath('warnings', [['line' => 3, 'messages' => ['商品名・メモが同じ商品が既にあります']]])
+            ->assertJsonPath('rows.0.memo', 'アイス')
+            ->assertJsonPath('rows.0.code', null)
+            ->assertJsonPath('rows.2.code', 'P0003');
+
+        $this->import($body, 'false')->assertOk();
+        // 指定のある P0003 を先に保存し、自動の 3 件はその後の番号になる
+        $this->assertSame(['P0001', 'P0004', 'P0005', 'P0003', 'P0006'], Product::query()->withoutGlobalScopes()
+            ->where('store_id', $this->store->id)->orderBy('sort_order')->orderBy('id')->pluck('code')->all());
+    }
+
+    public function test_商品コードの誤りと重複は行エラー(): void
+    {
+        Product::factory()->for($this->store)->create(['code' => 'USED']);
+        Product::factory()->for($this->store)->create(['code' => 'GONE'])->delete();
+        Product::factory()->for($this->other)->create(['code' => 'OTHER']);
+
+        $res = $this->import(implode("\n", [
+            self::HEADER_WITH_CODE,
+            ',A,1,,,,,used,',                       // 2 既存と重複
+            ',B,1,,,,,A B,',                        // 3 空白
+            ',C,1,,,,,'.str_repeat('X', 21).',',    // 4 21 文字
+            ',D,1,,,,,NEW,',                        // 5
+            ',E,1,,,,,new,',                        // 6 5 行目と重複
+            ',F,1,,,,,GONE,',                       // 7 削除済みの商品のコードは使える
+            ',G,1,,,,,OTHER,',                      // 8 他店舗のコードは使える
+            ',H,1,,,,,,'.str_repeat('あ', 201),    // 9 メモ 201 文字
+            ',I,1,,,,,,,余分',                      // 10 列が多い
+        ]))->assertOk();
+
+        $this->assertSame([
+            ['line' => 2, 'messages' => ['商品コード：既に使われています']],
+            ['line' => 3, 'messages' => ['商品コード：英数字・ハイフン・アンダースコアの 20 文字以内で入力してください']],
+            ['line' => 4, 'messages' => ['商品コード：英数字・ハイフン・アンダースコアの 20 文字以内で入力してください']],
+            ['line' => 6, 'messages' => ['商品コード：5 行目と同じです']],
+            ['line' => 9, 'messages' => ['メモ：200 文字以内で入力してください']],
+            ['line' => 10, 'messages' => ['列が多すぎます']],
+        ], $res->json('errors'));
+        $this->assertSame(['NEW', 'GONE', 'OTHER'], array_column($res->json('rows'), 'code'));
+    }
+
+    public function test_旧形式の見出しは商品コードを自動で振りメモは空で取り込む(): void
+    {
+        $this->import($this->csv([',A,1,,,,', ',B,2,,,,']), 'false')->assertOk();
+
+        $this->assertSame(['P0001', 'P0002'], Product::query()->withoutGlobalScopes()
+            ->where('store_id', $this->store->id)->orderBy('id')->pluck('code')->all());
+        $this->assertDatabaseHas('products', ['name' => 'A', 'memo' => null]);
+        // 旧形式で 8 列目に値があれば従来どおり列が多すぎる
+        $this->import($this->csv([',A,1,,,,,P0009']))->assertOk()
+            ->assertJsonPath('errors.0.messages', ['列が多すぎます']);
     }
 
     public function test_他店舗の商品やカテゴリとは照合しない(): void

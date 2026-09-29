@@ -4,7 +4,7 @@ import type { Product } from '@/types/api'
 
 function product(id: number, extra: Partial<Product> = {}): Product {
   return {
-    id, category_id: null, name: `商品${id}`, price: 400, color: 'gray', sort_order: id, is_active: true,
+    id, category_id: null, code: `P${id}`, name: `商品${id}`, memo: null, price: 400, color: 'gray', sort_order: id, is_active: true,
     track_stock: false, stock_qty: 0, options: [], ...extra,
   }
 }
