@@ -1,50 +1,83 @@
 <script setup lang="ts">
-// S00 ホーム（08 §3.1・§3.2）。WP 0-6 では見た目の骨格のみ。役割による出し分けとアカウントメニューは WP 2 で入れる
-import { RouterLink } from 'vue-router'
+// S00 ホーム（08 §3.1・§3.2）。役割でカードとボタンを出し分ける
+import { computed } from 'vue'
+import { RouterLink, type RouteLocationRaw } from 'vue-router'
+import AccountMenu from '@/components/AccountMenu.vue'
 import WaveBackground from '@/components/WaveBackground.vue'
-import { ja } from '@/i18n/ja'
+import { fmt, ja } from '@/i18n/ja'
+import { formatBusinessDate } from '@/lib/date'
+import { useAuthStore } from '@/stores/auth'
+import type { Role } from '@/types/api'
 
-interface HomeLink { label: string; to: string }
+interface HomeLink { label: string; to: RouteLocationRaw; roles: Role[] }
 interface HomeCard { key: string; title: string; links: HomeLink[] }
 
-const cards: HomeCard[] = [
-  { key: 'register', title: ja.home.card.register, links: [{ label: ja.home.btn.checkout, to: '/register' }] },
+const OWNER: Role[] = ['owner']
+const BOTH: Role[] = ['owner', 'staff']
+
+// 画面ができるまで遷移先は 404 になる（各 WP で追加）。パスは 08 §4
+const allCards: HomeCard[] = [
+  { key: 'register', title: ja.home.card.register, links: [{ label: ja.home.btn.checkout, to: '/register', roles: BOTH }] },
   {
     key: 'products',
     title: ja.home.card.products,
     links: [
-      { label: ja.home.btn.productEdit, to: '/products' },
-      { label: ja.home.btn.productImport, to: '/products?import=1' },
+      { label: ja.home.btn.productEdit, to: '/products', roles: OWNER },
+      { label: ja.home.btn.productImport, to: '/products?import=1', roles: OWNER },
     ],
   },
   {
     key: 'sales',
     title: ja.home.card.sales,
     links: [
-      { label: ja.home.btn.daily, to: '/sales/daily' },
-      { label: ja.home.btn.closing, to: '/closing' },
-      { label: ja.home.btn.summary, to: '/sales/summary' },
+      { label: ja.home.btn.daily, to: '/sales/daily', roles: BOTH },
+      { label: ja.home.btn.closing, to: '/closing', roles: BOTH },
+      { label: ja.home.btn.summary, to: '/sales/summary', roles: OWNER },
     ],
   },
   {
     key: 'settings',
     title: ja.home.card.settings,
     links: [
-      { label: ja.home.btn.staff, to: '/settings/staff' },
-      { label: ja.home.btn.store, to: '/settings/store' },
-      { label: ja.home.btn.logs, to: '/logs' },
+      { label: ja.home.btn.staff, to: '/settings/staff', roles: OWNER },
+      { label: ja.home.btn.store, to: '/settings/store', roles: OWNER },
+      { label: ja.home.btn.logs, to: '/logs', roles: OWNER },
     ],
   },
 ]
+
+const auth = useAuthStore()
+
+// ボタンが 1 つも残らないカードは出さない（staff は 2 枚：AC-S00-2）
+const cards = computed(() => {
+  const role = auth.role
+  if (!role) return []
+  return allCards
+    .map((card) => ({ ...card, links: card.links.filter((link) => link.roles.includes(role)) }))
+    .filter((card) => card.links.length > 0)
+})
+
+const storeName = computed(() => auth.me?.store?.name ?? '')
+const businessDate = computed(() => {
+  const date = auth.me?.current_business_date
+  return date ? fmt(ja.home.businessDate, { date: formatBusinessDate(date) }) : ''
+})
 </script>
 
 <template>
   <div class="home">
     <WaveBackground />
     <header class="home__top">
-      <h1 class="home__title">
-        {{ ja.app.title }}
-      </h1>
+      <div>
+        <h1 class="home__title">
+          {{ ja.app.title }}
+        </h1>
+        <p class="home__store">
+          <span>{{ storeName }}</span>
+          <span v-if="businessDate">{{ businessDate }}</span>
+        </p>
+      </div>
+      <AccountMenu />
     </header>
     <main class="home__cards">
       <section
@@ -58,7 +91,7 @@ const cards: HomeCard[] = [
         <div class="home-card__links">
           <RouterLink
             v-for="link in card.links"
-            :key="link.to"
+            :key="link.label"
             :to="link.to"
             class="home-card__btn"
           >
@@ -90,6 +123,15 @@ const cards: HomeCard[] = [
   font-weight: 800;
   line-height: 1.1;
   letter-spacing: 0.02em;
+}
+
+.home__store {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: 8px;
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .home__cards {
@@ -137,10 +179,20 @@ const cards: HomeCard[] = [
 .home-card__btn:active { background: rgba(255, 255, 255, 0.2); }
 
 @media (min-width: 768px) {
-  .home__top { margin-bottom: 48px; }
+  .home__top { margin-bottom: 40px; }
+  .home__store { font-size: 20px; }
 
   /* 4 列の等幅。staff でカードが 2 枚でも幅は同じにして左寄せ */
-  .home__cards { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
+  .home__store {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: 8px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.home__cards { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
 
   .home-card {
     flex-direction: column;

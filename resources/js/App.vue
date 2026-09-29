@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
+import NetworkErrorBar from '@/components/NetworkErrorBar.vue'
 import { ja } from '@/i18n/ja'
 import { applyUpdate, needRefresh } from '@/lib/pwa'
 
@@ -10,6 +11,7 @@ const showUpdate = computed(() => needRefresh.value && route.name !== 'register'
 </script>
 
 <template>
+  <NetworkErrorBar />
   <div
     v-if="showUpdate"
     class="update-bar"

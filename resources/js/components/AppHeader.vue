@@ -1,6 +1,7 @@
 <script setup lang="ts">
-// 管理系画面の青い帯（08 §3.3）。右端はアカウントメニュー（WP 2 で AccountMenu を入れる）
+// 管理系画面の青い帯（08 §3.3）。右端はアカウントメニュー
 import { RouterLink } from 'vue-router'
+import AccountMenu from '@/components/AccountMenu.vue'
 import { ja } from '@/i18n/ja'
 
 withDefaults(
@@ -32,7 +33,9 @@ withDefaults(
       {{ viewingStoreName }}
     </p>
     <div class="app-header__end">
-      <slot name="end" />
+      <slot name="end">
+        <AccountMenu />
+      </slot>
     </div>
   </header>
 </template>

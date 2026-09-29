@@ -30,18 +30,30 @@ export async function ensureCsrfCookie(): Promise<void> {
   await axios.get(csrfCookieUrl, { withCredentials: true, headers: { Accept: 'application/json' } })
 }
 
-/** ルーター・ストアへの依存を持たないよう、401 / 停止時の処理は外から登録する */
+/** ルーター・ストアへの依存を持たないよう、401 / 停止時・通信エラーの処理は外から登録する */
 type Handler = (err: AxiosError<ApiErrorBody>) => void
 let onUnauthorized: Handler = () => {}
 let onSuspended: Handler = () => {}
-export function setAuthHandlers(h: { unauthorized: Handler; suspended: Handler }): void {
+let onNetworkError: (failed: boolean) => void = () => {}
+export function setAuthHandlers(h: { unauthorized: Handler; suspended: Handler; network: (failed: boolean) => void }): void {
   onUnauthorized = h.unauthorized
   onSuspended = h.suspended
+  onNetworkError = h.network
 }
 
 http.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    onNetworkError(false)
+    return res
+  },
   async (error: AxiosError<ApiErrorBody>) => {
+    // 応答が無い（通信できない・タイムアウト）：帯を出す。自動の再送はしない（08 §8）
+    if (!error.response) {
+      onNetworkError(true)
+      return Promise.reject(error)
+    }
+    onNetworkError(false)
+
     const status = error.response?.status
     const config = error.config as InternalAxiosRequestConfig | undefined
 
