@@ -34,6 +34,7 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
     Route::middleware('role:owner,admin')->group(function () {
         Route::get('/reports/summary', [Api\ReportController::class, 'summary']);                   // #10
         Route::get('/reports/export', [Api\ReportController::class, 'export']);                     // #11
+        Route::get('/logs', [Api\AuditLogController::class, 'index']);                              // #42（admin の store_id は任意）
     });
 
     // owner のみ。/order は /{id} より先に登録し、ID は数値に限る（04 §4.9）
