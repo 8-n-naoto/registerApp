@@ -38,5 +38,15 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
         Route::put('/products/{product}/options/order', [Api\ProductOptionController::class, 'reorder'])->whereNumber('product');    // #29
         Route::put('/options/{option}', [Api\ProductOptionController::class, 'update'])->whereNumber('option');                      // #27
         Route::delete('/options/{option}', [Api\ProductOptionController::class, 'destroy'])->whereNumber('option');                  // #28
+
+        // 店舗設定・税区分・支払方法
+        Route::get('/settings/store', [Api\StoreSettingsController::class, 'show']);                // #30
+        Route::put('/settings/store', [Api\StoreSettingsController::class, 'update']);              // #31
+        Route::post('/tax-types', [Api\TaxTypeController::class, 'store']);                         // #32
+        Route::put('/tax-types/order', [Api\TaxTypeController::class, 'reorder']);                  // #34
+        Route::put('/tax-types/{taxType}', [Api\TaxTypeController::class, 'update'])->whereNumber('taxType');                 // #33
+        Route::post('/payment-methods', [Api\PaymentMethodController::class, 'store']);             // #35
+        Route::put('/payment-methods/order', [Api\PaymentMethodController::class, 'reorder']);      // #37
+        Route::put('/payment-methods/{paymentMethod}', [Api\PaymentMethodController::class, 'update'])->whereNumber('paymentMethod'); // #36
     });
 });
