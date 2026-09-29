@@ -49,6 +49,9 @@ class Sale extends Model
 {
     use BelongsToStore;
 
+    /** SaleResource が使う関連（06 §4.3：明細とオプション込みで 1 回に取得する） */
+    public const WITH_ALL = ['items.options', 'user', 'cancelledBy', 'store'];
+
     protected $fillable = [
         'client_uuid',
         'business_date',

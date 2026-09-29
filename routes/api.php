@@ -15,6 +15,12 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
     Route::get('/me', [Api\MeController::class, 'show']);                                           // #3
     Route::put('/me/password', [Api\MeController::class, 'updatePassword']);                        // #4
 
+    // owner / staff（admin 不可）
+    Route::middleware('role:owner,staff')->group(function () {
+        Route::get('/register/bootstrap', [Api\RegisterController::class, 'bootstrap']);            // #5
+        Route::post('/sales', [Api\SaleController::class, 'store']);                                // #6
+    });
+
     // owner のみ。/order は /{id} より先に登録し、ID は数値に限る（04 §4.9）
     Route::middleware('role:owner')->group(function () {
         // 商品
