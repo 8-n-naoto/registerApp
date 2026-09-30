@@ -238,7 +238,7 @@ function clear(): void {
       class="order__error"
       role="alert"
     >
-      {{ t.pricingError }}
+      {{ register.pricingError }}
     </p>
 
     <div

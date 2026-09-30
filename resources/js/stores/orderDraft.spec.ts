@@ -6,7 +6,7 @@ import type { StaffOrderInput } from '@/api/orders'
 import { useOrderDraftStore } from '@/stores/orderDraft'
 import { apiError } from '@/test/helpers'
 import { makeOrder, makeTable } from '@/test/orders'
-import { makeBootstrap } from '@/test/register'
+import { makeBootstrap, makeProduct } from '@/test/register'
 
 const registerApi = vi.hoisted(() => ({ fetchBootstrap: vi.fn() }))
 vi.mock('@/api/register', () => registerApi)
@@ -50,6 +50,19 @@ describe('orderDraftStore（12 §8.4・§8.10）', () => {
     expect(draft.itemCount).toBe(3)
     expect(draft.subtotal).toBe(400 * 2 + 550)
     expect(draft.activeTables.map((t) => t.id)).toEqual([1, 2])
+  })
+
+  it('割引の商品は注文の商品に出さず、分類の件数からも除く', async () => {
+    const bootstrap = makeBootstrap()
+    registerApi.fetchBootstrap.mockResolvedValue({
+      ...bootstrap,
+      products: [...bootstrap.products, makeProduct(9, 'クーポン', { category_id: 10, price: 500, is_discount: true })],
+      categories: [{ id: 10, name: 'ドリンク', sort_order: 1, product_count: 3 }],
+    })
+    const draft = await loaded()
+    expect(draft.products.has(9)).toBe(false)
+    expect(draft.products.has(1)).toBe(true)
+    expect(draft.bootstrap?.categories[0]?.product_count).toBe(2)
   })
 
   it('在庫管理 ON は在庫の数まで、OFF は制限しない', async () => {

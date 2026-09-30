@@ -24,7 +24,7 @@ final class ProductService
     public function __construct(private readonly AuditLogger $audit) {}
 
     /**
-     * @param  array{code: string, name: string, memo: string|null, price: int, category_id: int|null, color: string, is_active: bool, track_stock: bool, customer_visible?: bool, stock_qty: int}  $data
+     * @param  array{code: string, name: string, memo: string|null, price: int, category_id: int|null, color: string, is_active: bool, track_stock: bool, customer_visible?: bool, is_discount: bool, stock_qty: int}  $data
      */
     public function create(array $data): Product
     {
@@ -34,6 +34,9 @@ final class ProductService
             }
 
             $product = new Product($data);
+            if ($product->is_discount) {
+                $product->stock_qty = 0;
+            }
             $product->sort_order = SortOrder::next($this->inCategory($data['category_id']));
             $product->save();
 
@@ -46,13 +49,19 @@ final class ProductService
     /**
      * 全項目の置き換え（在庫数を除く）。カテゴリを変えた場合は移動先の末尾に並べる
      *
-     * @param  array{code: string, name: string, memo: string|null, price: int, category_id: int|null, color: string, is_active: bool, track_stock: bool, customer_visible?: bool}  $data
+     * @param  array{code: string, name: string, memo: string|null, price: int, category_id: int|null, color: string, is_active: bool, track_stock: bool, customer_visible?: bool, is_discount: bool}  $data
      */
     public function update(Product $product, array $data): Product
     {
         return $this->guardCode(fn () => DB::transaction(function () use ($product, $data): Product {
             $original = $product->attributesToArray();
             $product->fill($data);
+            // 割引の明細はオプションを持てない（docs/10「割引の商品」。07 §1 の規則 3）
+            if ($product->is_discount && $product->isDirty('is_discount')
+                && ProductOption::query()->where('product_id', $product->id)->exists()) {
+                $product->discardChanges();
+                $this->limitExceeded('is_discount', 'オプションのある商品は割引にできません。先にオプションを削除してください');
+            }
             if ($product->isDirty('category_id')) {
                 $product->sort_order = SortOrder::next($this->inCategory($product->category_id));
             }
@@ -89,6 +98,9 @@ final class ProductService
     public function createOption(Product $product, array $data): ProductOption
     {
         return DB::transaction(function () use ($product, $data): ProductOption {
+            if ($product->is_discount) {
+                $this->limitExceeded('name', '割引の商品にはオプションを付けられません');
+            }
             $scope = ProductOption::query()->where('product_id', $product->id);
             if ($scope->count() >= self::MAX_OPTIONS) {
                 $this->limitExceeded('name', 'オプションは 1 商品につき '.self::MAX_OPTIONS.' 件までです');
@@ -158,6 +170,7 @@ final class ProductService
             'is_active' => $product->is_active,
             'track_stock' => $product->track_stock,
             'customer_visible' => $product->customer_visible,
+            'is_discount' => $product->is_discount,
             'stock_qty' => $product->stock_qty,
         ];
     }

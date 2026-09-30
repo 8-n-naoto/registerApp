@@ -47,6 +47,7 @@ export interface Product {
   track_stock: boolean
   stock_qty: number
   customer_visible: boolean    // 12 §3.7：お客さんのメニュー（C01）に出すか
+  is_discount: boolean         // 割引の商品（price は正の数。計算では −price。docs/10）
   options: ProductOption[]
 }
 

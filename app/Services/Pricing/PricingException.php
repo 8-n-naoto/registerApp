@@ -5,12 +5,14 @@ namespace App\Services\Pricing;
 use RuntimeException;
 
 /**
- * 07 §1.4 の計算エラー。reason は試験ベクタの expected_error（NEGATIVE_LINE_PRICE / RECEIVED_SHORT）。
+ * 07 §1.4 の計算エラー。reason は試験ベクタの expected_error（NEGATIVE_LINE_PRICE / NEGATIVE_SUBTOTAL / RECEIVED_SHORT）。
  * 会計の API（06 §4.2）はこれを 422 の errors に変換する
  */
 final class PricingException extends RuntimeException
 {
     public const NEGATIVE_LINE_PRICE = 'NEGATIVE_LINE_PRICE';
+
+    public const NEGATIVE_SUBTOTAL = 'NEGATIVE_SUBTOTAL';
 
     public const RECEIVED_SHORT = 'RECEIVED_SHORT';
 
@@ -26,6 +28,12 @@ final class PricingException extends RuntimeException
     public static function negativeLinePrice(int $index): self
     {
         return new self(self::NEGATIVE_LINE_PRICE, 'オプションを含めた単価が 0 円未満です', itemIndex: $index);
+    }
+
+    /** 割引の明細の合計が商品の合計を超えた（docs/10「割引の商品」） */
+    public static function negativeSubtotal(): self
+    {
+        return new self(self::NEGATIVE_SUBTOTAL, '割引が商品の合計を超えています');
     }
 
     public static function receivedShort(int $total): self

@@ -113,7 +113,7 @@ final class SaleService
         $pricingItems = [];
         foreach ($input['items'] as $item) {
             $pricingItems[] = [
-                'unit_price' => $products[$item['product_id']]->price,
+                'unit_price' => $products[$item['product_id']]->signedPrice(),
                 'option_prices' => array_map(fn (int $id): int => $options[$id]->price, $item['option_ids']),
                 'quantity' => $item['quantity'],
             ];
@@ -121,7 +121,7 @@ final class SaleService
         try {
             $amounts = PriceCalculator::amounts($store->price_mode, $store->rounding, $taxType->rate_permille, $pricingItems, $input['discount']);
         } catch (PricingException $e) {
-            $key = "items.{$e->itemIndex}.option_ids";
+            $key = $e->itemIndex === null ? 'items' : "items.{$e->itemIndex}.option_ids";
             throw new BusinessException(ErrorCode::Validation, $e->getMessage(), 422, errors: [$key => [$e->getMessage()]]);
         }
         if ($amounts['total'] !== $input['expected_total']) {
@@ -190,7 +190,7 @@ final class SaleService
                 'product_name' => $product->name,
                 'product_code' => $product->code,
                 'product_memo' => $product->memo,
-                'unit_price' => $product->price,
+                'unit_price' => $product->signedPrice(),
                 'options_price' => array_sum($pricingItems[$i]['option_prices']),
                 'quantity' => $item['quantity'],
                 'line_total' => $amounts['line_totals'][$i],

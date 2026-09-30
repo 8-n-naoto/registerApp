@@ -34,6 +34,7 @@ class PublicOrderController extends Controller
         $products = Product::query()
             ->where('is_active', true)
             ->where('customer_visible', true)
+            ->where('is_discount', false)
             ->with(['options' => fn ($q) => $q->where('is_active', true)])
             ->orderBy('sort_order')->orderBy('id')
             ->get();

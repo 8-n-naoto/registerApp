@@ -40,7 +40,8 @@ class ProductRequest extends FormRequest
                     ->ignore($product instanceof Product ? $product->id : null)],
             'name' => ['required', 'string', 'min:1', 'max:50'],
             'memo' => [$isCreate ? 'nullable' : 'present', 'nullable', 'string', 'max:200'],
-            'price' => ['required', 'integer', 'min:0', 'max:9999999'],
+            // 割引の商品は 1 円以上（0 円の割引は意味が無い）。価格は正の数で受け取り、計算で −価格 にする
+            'price' => ['required', 'integer', 'min:'.($this->isDiscount() ? 1 : 0), 'max:9999999'],
             'category_id' => [$isCreate ? 'nullable' : 'present', 'nullable', 'integer', Rule::exists('categories', 'id')
                 ->where('store_id', $storeId)
                 ->whereNull('deleted_at')],
@@ -49,6 +50,8 @@ class ProductRequest extends FormRequest
             'track_stock' => [$required, 'boolean'],
             // 12 §3.7。導入前の画面との互換のため省略可（POST は表示、PUT は現在の値のまま）
             'customer_visible' => ['sometimes', 'boolean'],
+            // docs/10「割引の商品」。省略時は POST は通常の商品、PUT は現在の値のまま
+            'is_discount' => ['sometimes', 'boolean'],
         ];
         if ($isCreate) {
             $rules['stock_qty'] = ['sometimes', 'integer', 'min:0', 'max:'.StockService::MAX_QTY];
@@ -70,6 +73,7 @@ class ProductRequest extends FormRequest
             'is_active' => '販売中',
             'track_stock' => '在庫管理',
             'customer_visible' => 'お客さんのメニューに出す',
+            'is_discount' => '割引',
             'stock_qty' => '在庫数',
         ];
     }
@@ -82,9 +86,25 @@ class ProductRequest extends FormRequest
         ];
     }
 
-    /** @return array{code: string, name: string, memo: string|null, price: int, category_id: int|null, color: string, is_active: bool, track_stock: bool, customer_visible?: bool} */
+    /** 送られた値、無ければ（PUT なら）現在の値 */
+    public function isDiscount(): bool
+    {
+        if ($this->has('is_discount')) {
+            return $this->boolean('is_discount');
+        }
+        $product = $this->route('product');
+
+        return $product instanceof Product && $product->is_discount;
+    }
+
+    /**
+     * 割引の商品は在庫管理しない・お客さんのメニューに出さない（レジだけで使う）
+     *
+     * @return array{code: string, name: string, memo: string|null, price: int, category_id: int|null, color: string, is_active: bool, track_stock: bool, customer_visible?: bool, is_discount: bool}
+     */
     public function productData(): array
     {
+        $isDiscount = $this->isDiscount();
         $data = [
             'code' => $this->filled('code') ? $this->string('code')->toString() : '',
             'name' => $this->string('name')->toString(),
@@ -93,9 +113,12 @@ class ProductRequest extends FormRequest
             'category_id' => $this->filled('category_id') ? $this->integer('category_id') : null,
             'color' => $this->string('color', ProductColor::Gray->value)->toString(),
             'is_active' => $this->boolean('is_active', true),
-            'track_stock' => $this->boolean('track_stock'),
+            'track_stock' => ! $isDiscount && $this->boolean('track_stock'),
+            'is_discount' => $isDiscount,
         ];
-        if ($this->has('customer_visible')) {
+        if ($isDiscount) {
+            $data['customer_visible'] = false;
+        } elseif ($this->has('customer_visible')) {
             $data['customer_visible'] = $this->boolean('customer_visible');
         }
 

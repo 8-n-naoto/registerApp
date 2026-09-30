@@ -5,7 +5,7 @@ import type { Product, Sale } from '@/types/api'
 export function makeProduct(id: number, name: string, extra: Partial<Product> = {}): Product {
   return {
     id, category_id: null, code: `P${String(id).padStart(4, '0')}`, name, memo: null, price: 400, color: 'gray', sort_order: id, is_active: true,
-    track_stock: false, stock_qty: 0, customer_visible: true, options: [], ...extra,
+    track_stock: false, stock_qty: 0, customer_visible: true, is_discount: false, options: [], ...extra,
   }
 }
 

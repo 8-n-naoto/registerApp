@@ -1497,6 +1497,147 @@
         "received": 0,
         "change_amount": 0
       }
+    },
+    {
+      "id": "P46",
+      "note": "割引の商品（単価が負の明細）。値引き後の 700 に 1 回だけ税の端数処理",
+      "input": {
+        "price_mode": "tax_included",
+        "rounding": "floor",
+        "tax_rate_permille": 100,
+        "items": [
+          { "unit_price": 1200, "option_prices": [], "quantity": 1 },
+          { "unit_price": -500, "option_prices": [], "quantity": 1 }
+        ],
+        "discount": null,
+        "is_cash": true,
+        "received": 1000
+      },
+      "expected": {
+        "line_totals": [1200, -500],
+        "subtotal": 700,
+        "discount_amount": 0,
+        "total": 700,
+        "tax_amount": 63,
+        "received": 1000,
+        "change_amount": 300
+      }
+    },
+    {
+      "id": "P47",
+      "note": "割引の商品と会計全体の値引き（金額）の併用。税抜",
+      "input": {
+        "price_mode": "tax_excluded",
+        "rounding": "round",
+        "tax_rate_permille": 100,
+        "items": [
+          { "unit_price": 1000, "option_prices": [], "quantity": 2 },
+          { "unit_price": -300, "option_prices": [], "quantity": 1 }
+        ],
+        "discount": {
+          "type": "amount",
+          "value": 100
+        },
+        "is_cash": false,
+        "received": null
+      },
+      "expected": {
+        "line_totals": [2000, -300],
+        "subtotal": 1700,
+        "discount_amount": 100,
+        "total": 1760,
+        "tax_amount": 160,
+        "received": 1760,
+        "change_amount": 0
+      }
+    },
+    {
+      "id": "P48",
+      "note": "割引で小計がちょうど 0 円は許可",
+      "input": {
+        "price_mode": "tax_included",
+        "rounding": "floor",
+        "tax_rate_permille": 80,
+        "items": [
+          { "unit_price": 500, "option_prices": [], "quantity": 1 },
+          { "unit_price": -500, "option_prices": [], "quantity": 1 }
+        ],
+        "discount": null,
+        "is_cash": true,
+        "received": 0
+      },
+      "expected": {
+        "line_totals": [500, -500],
+        "subtotal": 0,
+        "discount_amount": 0,
+        "total": 0,
+        "tax_amount": 0,
+        "received": 0,
+        "change_amount": 0
+      }
+    },
+    {
+      "id": "P49",
+      "note": "割引が商品の合計を超える → 422",
+      "input": {
+        "price_mode": "tax_included",
+        "rounding": "floor",
+        "tax_rate_permille": 100,
+        "items": [
+          { "unit_price": 500, "option_prices": [], "quantity": 1 },
+          { "unit_price": -300, "option_prices": [], "quantity": 2 }
+        ],
+        "discount": null,
+        "is_cash": false,
+        "received": null
+      },
+      "expected_error": "NEGATIVE_SUBTOTAL"
+    },
+    {
+      "id": "P50",
+      "note": "割引の明細にオプション → 422（割引の商品はオプションを持てない）",
+      "input": {
+        "price_mode": "tax_included",
+        "rounding": "floor",
+        "tax_rate_permille": 100,
+        "items": [
+          { "unit_price": 1000, "option_prices": [], "quantity": 1 },
+          { "unit_price": -100, "option_prices": [50], "quantity": 1 }
+        ],
+        "discount": null,
+        "is_cash": false,
+        "received": null
+      },
+      "expected_error": "NEGATIVE_LINE_PRICE",
+      "expected_error_index": 1
+    },
+    {
+      "id": "P51",
+      "note": "割引の商品の後に会計全体の値引き（%）。% は割引後の小計にかかる",
+      "input": {
+        "price_mode": "tax_included",
+        "rounding": "floor",
+        "tax_rate_permille": 100,
+        "items": [
+          { "unit_price": 1000, "option_prices": [], "quantity": 1 },
+          { "unit_price": -200, "option_prices": [], "quantity": 1 }
+        ],
+        "discount": {
+          "type": "percent",
+          "value": 10
+        },
+        "is_cash": true,
+        "received": 1000
+      },
+      "expected": {
+        "line_totals": [1000, -200],
+        "subtotal": 800,
+        "discount_amount": 80,
+        "total": 720,
+        "tax_amount": 65,
+        "received": 1000,
+        "change_amount": 280
+      }
     }
   ]
 }

@@ -39,6 +39,8 @@ const color = ref<ProductColor>(props.product?.color ?? 'gray')
 const isActive = ref(props.product?.is_active ?? true)
 const trackStock = ref(props.product?.track_stock ?? false)
 const customerVisible = ref(props.product?.customer_visible ?? true)
+/** 割引の商品（docs/10）。価格は正の数で入力し、レジでは −価格 になる。在庫・オプション・お客さんのメニューは使わない */
+const isDiscount = ref(props.product?.is_discount ?? false)
 const initialStock = ref('0')
 const options = ref<ProductOption[]>(props.product ? [...props.product.options] : [])
 
@@ -66,9 +68,12 @@ async function save(): Promise<void> {
   // 新規の空欄はサーバーで自動採番。既存の商品はコードを消せない（06 §7.3）
   if (!isNew.value && codeValue === '') errors.value.code = t.codeRequired
   const priceValue = parseNonNegativeInt(price.value)
-  if (priceValue === null || priceValue > PRICE_MAX) errors.value.price = t.priceInvalid
+  if (priceValue === null || priceValue > PRICE_MAX || (isDiscount.value && priceValue === 0)) {
+    errors.value.price = isDiscount.value ? t.discountPriceInvalid : t.priceInvalid
+  }
+  const tracked = trackStock.value && !isDiscount.value
   const stockQty = parseNonNegativeInt(initialStock.value)
-  if (isNew.value && trackStock.value && (stockQty === null || stockQty > STOCK_MAX)) errors.value.stock_qty = t.stockInvalid
+  if (isNew.value && tracked && (stockQty === null || stockQty > STOCK_MAX)) errors.value.stock_qty = t.stockInvalid
   if (Object.keys(errors.value).length > 0 || priceValue === null) return
 
   saving.value = true
@@ -82,14 +87,17 @@ async function save(): Promise<void> {
       category_id: categoryId.value,
       color: color.value,
       is_active: isActive.value,
-      track_stock: trackStock.value,
-      customer_visible: customerVisible.value,
+      track_stock: tracked,
+      customer_visible: customerVisible.value && !isDiscount.value,
+      is_discount: isDiscount.value,
     }
     const saved = current.value
       ? await updateProduct(current.value.id, input)
-      : await createProduct({ ...input, stock_qty: trackStock.value ? (stockQty ?? 0) : 0 })
+      : await createProduct({ ...input, stock_qty: tracked ? (stockQty ?? 0) : 0 })
     current.value = saved
     code.value = saved.code
+    trackStock.value = saved.track_stock
+    customerVisible.value = saved.customer_visible
     options.value = [...saved.options]
     savedMessage.value = ja.common.saved
     emit('saved', saved)
@@ -263,10 +271,31 @@ async function confirmDelete(): Promise<void> {
           </div>
 
           <div class="adm-field">
+            <label class="adm-check"><input
+              v-model="isDiscount"
+              type="checkbox"
+              :disabled="options.length > 0"
+              aria-describedby="is-discount-help"
+            >{{ t.isDiscount }}</label>
+            <p
+              id="is-discount-help"
+              class="adm-help"
+            >
+              {{ options.length > 0 ? t.isDiscountHasOptions : t.isDiscountHelp }}
+            </p>
+            <p
+              v-if="errors.is_discount"
+              class="adm-error"
+            >
+              {{ errors.is_discount }}
+            </p>
+          </div>
+
+          <div class="adm-field">
             <label
               for="product-price"
               class="adm-field__label"
-            >{{ t.price }}</label>
+            >{{ isDiscount ? t.discountPrice : t.price }}</label>
             <input
               id="product-price"
               v-model="price"
@@ -346,7 +375,10 @@ async function confirmDelete(): Promise<void> {
             type="checkbox"
           >{{ t.isActive }}</label>
 
-          <div class="adm-field">
+          <div
+            v-if="!isDiscount"
+            class="adm-field"
+          >
             <label class="adm-check"><input
               v-model="trackStock"
               type="checkbox"
@@ -367,7 +399,10 @@ async function confirmDelete(): Promise<void> {
             </p>
           </div>
 
-          <div class="adm-field">
+          <div
+            v-if="!isDiscount"
+            class="adm-field"
+          >
             <label class="adm-check"><input
               v-model="customerVisible"
               type="checkbox"
@@ -382,7 +417,7 @@ async function confirmDelete(): Promise<void> {
           </div>
 
           <div
-            v-if="trackStock && isNew"
+            v-if="trackStock && !isDiscount && isNew"
             class="adm-field"
           >
             <label
@@ -429,7 +464,7 @@ async function confirmDelete(): Promise<void> {
         </form>
 
         <section
-          v-if="trackStock && current"
+          v-if="trackStock && !isDiscount && current"
           class="edit__section"
           aria-labelledby="stock-heading"
         >
@@ -483,7 +518,10 @@ async function confirmDelete(): Promise<void> {
           </div>
         </section>
 
-        <section class="edit__section">
+        <section
+          v-if="!isDiscount"
+          class="edit__section"
+        >
           <OptionEditor
             v-if="current"
             :product-id="current.id"

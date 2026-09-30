@@ -73,13 +73,18 @@ export function reconcile(
   return { lines: kept, removed }
 }
 
+/** 計算に使う単価。割引の商品は −価格（docs/10「割引の商品」） */
+export function signedPrice(product: Pick<Product, 'price' | 'is_discount'>): number {
+  return product.is_discount ? -product.price : product.price
+}
+
 /** 計算用の明細（lib/pricing.ts の入力）。reconcile 済みの注文を渡す */
 export function toPricingItems(lines: readonly CartLine[], products: ReadonlyMap<number, Product>): PricingItem[] {
   return lines.map((line) => {
     const product = products.get(line.product_id)
     if (!product) throw new Error(`product ${line.product_id} is not loaded`)
     return {
-      unit_price: product.price,
+      unit_price: signedPrice(product),
       option_prices: line.option_ids.map((id) => product.options.find((o) => o.id === id)?.price ?? 0),
       quantity: line.quantity,
     }

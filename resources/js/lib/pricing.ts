@@ -40,7 +40,7 @@ export interface PricingResult extends PricingAmounts {
   change_amount: number
 }
 
-export type PricingErrorReason = 'NEGATIVE_LINE_PRICE' | 'RECEIVED_SHORT' | 'INVALID_ARGUMENT'
+export type PricingErrorReason = 'NEGATIVE_LINE_PRICE' | 'NEGATIVE_SUBTOTAL' | 'RECEIVED_SHORT' | 'INVALID_ARGUMENT'
 
 /** 07 §1.4 の計算エラー。message は reason（試験ベクタの expected_error）で始まる */
 export class PricingError extends Error {
@@ -71,7 +71,10 @@ export function roundDiv(numerator: number, denominator: number, rounding: Round
   return q + (2 * r >= denominator ? 1 : 0)
 }
 
-/** 07 §1.3 の金額部分（小計・値引き・合計・税）。expected_total はこの total */
+/**
+ * 07 §1.3 の金額部分（小計・値引き・合計・税）。expected_total はこの total。
+ * 単価が負の明細は割引の商品（docs/10「割引の商品」）で、オプションを持てない。小計が負ならエラー
+ */
 export function calculateAmounts(input: PricingAmountsInput): PricingAmounts {
   const { rounding, tax_rate_permille: rate } = input
   assertInt(rate)
@@ -79,11 +82,13 @@ export function calculateAmounts(input: PricingAmountsInput): PricingAmounts {
   const lineTotals = input.items.map((item, i) => {
     assertInt(item.unit_price, item.quantity, ...item.option_prices)
     const perUnit = item.option_prices.reduce((sum, p) => sum + p, item.unit_price)
-    if (perUnit < 0) throw new PricingError('NEGATIVE_LINE_PRICE', i)
+    const isDiscount = item.unit_price < 0
+    if (isDiscount ? item.option_prices.length > 0 : perUnit < 0) throw new PricingError('NEGATIVE_LINE_PRICE', i)
     return perUnit * item.quantity
   })
   const subtotal = lineTotals.reduce((sum, v) => sum + v, 0)
   assertInt(subtotal)
+  if (subtotal < 0) throw new PricingError('NEGATIVE_SUBTOTAL')
 
   let discountAmount = 0
   if (input.discount !== null) {

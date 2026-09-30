@@ -13,6 +13,7 @@ export interface ProductInput {
   is_active: boolean
   track_stock: boolean
   customer_visible: boolean
+  is_discount: boolean
 }
 
 export interface ProductCreateInput extends ProductInput {

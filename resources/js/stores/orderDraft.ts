@@ -123,8 +123,19 @@ export const useOrderDraftStore = defineStore('orderDraft', () => {
     try {
       const previous = products.value
       const [data, tableList] = await Promise.all([fetchBootstrap(), fetchOrderTables()])
+      // 割引の商品はレジだけで使う（docs/10「割引の商品」）。割引の商品だけのカテゴリはタブを出さない
+      const discounts = data.products.filter((p) => p.is_discount)
+      const orderable = data.products.filter((p) => !p.is_discount)
+      const categories = data.categories.map((c) => ({
+        ...c,
+        product_count: c.product_count - discounts.filter((p) => p.category_id === c.id).length,
+      }))
       // 店舗の在庫管理が OFF（12 §6.6）：売切・残数・在庫による数量の制限を出さない
-      bootstrap.value = data.store.stock_enabled ? data : { ...data, products: data.products.map((p) => ({ ...p, track_stock: false })) }
+      bootstrap.value = {
+        ...data,
+        categories,
+        products: data.store.stock_enabled ? orderable : orderable.map((p) => ({ ...p, track_stock: false })),
+      }
       tables.value = tableList
       if (restoredFor !== data.store.id) {
         lines.value = []

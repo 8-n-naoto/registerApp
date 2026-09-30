@@ -42,19 +42,21 @@ final class PriceCalculator
     }
 
     /**
-     * 07 §1.3 の明細の金額：(単価 + オプションの合計) × 数量。注文の小計（12 §6.3）もこれで計算する
+     * 07 §1.3 の明細の金額：(単価 + オプションの合計) × 数量。注文の小計（12 §6.3）もこれで計算する。
+     * 単価が負の明細は割引の商品（docs/10「割引の商品」）で、オプションを持てない
      *
      * @param  list<PricingItem>  $items
      * @return list<int>
      *
-     * @throws PricingException 単価（商品 + オプション）が 0 円未満の明細がある
+     * @throws PricingException 通常の明細の単価（商品 + オプション）が 0 円未満、または割引の明細にオプションがある
      */
     public static function lineTotals(array $items): array
     {
         $lineTotals = [];
         foreach ($items as $i => $item) {
             $perUnit = $item['unit_price'] + array_sum($item['option_prices']);
-            if ($perUnit < 0) {
+            $isDiscount = $item['unit_price'] < 0;
+            if ($isDiscount ? $item['option_prices'] !== [] : $perUnit < 0) {
                 throw PricingException::negativeLinePrice($i);
             }
             $lineTotals[] = $perUnit * $item['quantity'];
@@ -70,12 +72,15 @@ final class PriceCalculator
      * @param  PricingDiscount|null  $discount
      * @return PricingAmounts
      *
-     * @throws PricingException 単価（商品 + オプション）が 0 円未満の明細がある
+     * @throws PricingException 明細の単価が不正（lineTotals）、または割引で小計が 0 円未満
      */
     public static function amounts(PriceMode $priceMode, Rounding $rounding, int $taxRatePermille, array $items, ?array $discount): array
     {
         $lineTotals = self::lineTotals($items);
         $subtotal = array_sum($lineTotals);
+        if ($subtotal < 0) {
+            throw PricingException::negativeSubtotal();
+        }
 
         $discountAmount = match ($discount['type'] ?? null) {
             null => 0,

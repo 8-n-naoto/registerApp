@@ -102,7 +102,8 @@ final class SalesReport
 
     /**
      * 明細を（商品 ID, 写しの商品名・商品コード・メモ）でまとめる。金額は値引き前・オプション込みの明細額。
-     * 並びは金額の降順、同額は商品 ID・商品名・商品コード・メモの昇順
+     * 並びは金額の降順、同額は商品 ID・商品名・商品コード・メモの昇順。
+     * 割引の明細は負の金額で入る（limit を付けた売れ筋の上位では除く）
      *
      * @return list<ProductRow>
      */
@@ -111,6 +112,8 @@ final class SalesReport
         $query = $this->completed($storeId, $from, $to)
             ->toBase()
             ->join('sale_items', fn (JoinClause $join) => $join->on('sale_items.sale_id', '=', 'sales.id'))
+            // 売れ筋の上位（limit あり）には割引の明細（単価が負）を入れない。商品別の全件には入れる（合計と合う）
+            ->when($limit !== null, fn ($q) => $q->where('sale_items.unit_price', '>=', 0))
             ->select(['sale_items.product_id', 'sale_items.product_name', 'sale_items.product_code', 'sale_items.product_memo'])
             ->selectRaw('SUM(sale_items.quantity) AS quantity, SUM(sale_items.line_total) AS amount')
             ->groupBy('sale_items.product_id', 'sale_items.product_name', 'sale_items.product_code', 'sale_items.product_memo')

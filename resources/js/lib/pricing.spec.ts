@@ -9,7 +9,7 @@ const vectors = raw as PricingVectorFile
 describe('試験ベクタのファイル', () => {
   it('件数と ID の重複', () => {
     expect(vectors.version).toBe(1)
-    for (const [list, count] of [[vectors.rounding, 17], [vectors.pricing, 45]] as const) {
+    for (const [list, count] of [[vectors.rounding, 17], [vectors.pricing, 51]] as const) {
       const ids = list.map((v) => v.id)
       expect(ids).toHaveLength(count)
       expect(new Set(ids).size).toBe(ids.length)

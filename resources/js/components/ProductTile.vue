@@ -1,14 +1,15 @@
 <script setup lang="ts">
-// 商品ボタンの見た目（08 §6）：色・売切・残数・オプション印・メモ。押せる要素は親が包む（レジと商品管理で共用）
+// 商品ボタンの見た目（08 §6）：色・売切・残数・オプション印・メモ・割引の印（価格は −¥500 のように出す）。押せる要素は親が包む（レジと商品管理で共用）
 // 商品コードは商品管理だけで出す（showCode）。レジのボタンは名前とメモで見分ける
 import { computed } from 'vue'
 import { fmt, ja } from '@/i18n/ja'
+import { signedPrice } from '@/lib/cart'
 import { formatYen } from '@/lib/money'
 import type { Product } from '@/types/api'
 
 const props = withDefaults(
   defineProps<{
-    product: Pick<Product, 'code' | 'name' | 'memo' | 'price' | 'color' | 'is_active' | 'track_stock' | 'stock_qty' | 'options'>
+    product: Pick<Product, 'code' | 'name' | 'memo' | 'price' | 'is_discount' | 'color' | 'is_active' | 'track_stock' | 'stock_qty' | 'options'>
     layout?: 'tile' | 'row'
     showCode?: boolean
   }>(),
@@ -39,8 +40,12 @@ const hasOptions = computed(() => props.product.options.some((o) => o.is_active)
         class="tile__code tabular"
       >{{ product.code }}</span>
     </span>
-    <span class="tile__price tabular">{{ formatYen(product.price) }}</span>
+    <span class="tile__price tabular">{{ formatYen(signedPrice(product)) }}</span>
     <span class="tile__marks">
+      <span
+        v-if="product.is_discount"
+        class="tile__mark"
+      >{{ ja.products.discountMark }}</span>
       <span
         v-if="!product.is_active"
         class="tile__mark tile__mark--stopped"

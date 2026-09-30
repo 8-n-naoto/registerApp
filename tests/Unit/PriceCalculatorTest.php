@@ -60,7 +60,7 @@ class PriceCalculatorTest extends TestCase
     {
         $file = self::file();
         $this->assertSame(1, $file['version']);
-        foreach (['rounding' => 17, 'pricing' => 45] as $key => $count) {
+        foreach (['rounding' => 17, 'pricing' => 51] as $key => $count) {
             /** @var list<array<string, mixed>> $rows */
             $rows = $file[$key];
             $ids = array_column($rows, 'id');

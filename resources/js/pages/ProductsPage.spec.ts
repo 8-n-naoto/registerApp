@@ -31,7 +31,7 @@ vi.mock('@/api/catalog', () => api)
 function product(id: number, name: string, categoryId: number | null, extra: Partial<Product> = {}): Product {
   return {
     id, code: `P000${id}`, name, memo: null, category_id: categoryId, price: 400, color: 'gray', sort_order: id,
-    is_active: true, track_stock: false, stock_qty: 0, customer_visible: true, options: [], ...extra,
+    is_active: true, track_stock: false, stock_qty: 0, customer_visible: true, is_discount: false, options: [], ...extra,
   }
 }
 
@@ -171,6 +171,33 @@ describe('S08 商品管理（08 §5.9）', () => {
     expect(api.updateProduct).toHaveBeenCalledWith(2, expect.objectContaining({ customer_visible: false }))
   })
 
+  it('割引にすると在庫・メニュー・オプションの欄を隠し、在庫管理 OFF・メニューに出さない形で送る。割引額 0 は送らない', async () => {
+    await mountPage()
+    ;[...document.querySelectorAll<HTMLElement>('.items__btn')][1]?.click() // 紅茶（在庫管理 ON）
+    await flushPromises()
+    const check = [...document.querySelectorAll<HTMLLabelElement>('.adm-check')].find((l) => l.textContent?.includes('割引の商品にする'))
+    check?.querySelector('input')?.click()
+    await flushPromises()
+    expect(document.querySelector('#stock-value')).toBeNull()
+    expect(document.body.textContent).not.toContain('お客さんのメニューに出す')
+    expect(document.body.textContent).toContain('割引額（円）')
+
+    const priceInput = document.querySelector<HTMLInputElement>('#product-price')
+    if (!priceInput) throw new Error('no price input')
+    priceInput.value = '0'
+    priceInput.dispatchEvent(new Event('input'))
+    priceInput.form?.dispatchEvent(new Event('submit'))
+    await flushPromises()
+    expect(api.updateProduct).not.toHaveBeenCalled()
+
+    priceInput.value = '500'
+    priceInput.dispatchEvent(new Event('input'))
+    api.updateProduct.mockImplementation((_id: number, input: object) => Promise.resolve(product(2, '紅茶', 10, { ...input, stock_qty: 0 })))
+    priceInput.form?.dispatchEvent(new Event('submit'))
+    await flushPromises()
+    expect(api.updateProduct).toHaveBeenCalledWith(2, expect.objectContaining({ price: 500, is_discount: true, track_stock: false, customer_visible: false }))
+  })
+
   it('在庫の入荷は add で送り、表示を更新する', async () => {
     await mountPage()
     ;[...document.querySelectorAll<HTMLElement>('.items__btn')][1]?.click()
@@ -205,7 +232,7 @@ describe('S08 商品管理（08 §5.9）', () => {
     await flushPromises()
 
     expect(api.createProduct).toHaveBeenCalledWith({
-      code: '', name: 'パン', memo: null, price: 1200, category_id: 20, color: 'gray', is_active: true, track_stock: false, customer_visible: true, stock_qty: 0,
+      code: '', name: 'パン', memo: null, price: 1200, category_id: 20, color: 'gray', is_active: true, track_stock: false, customer_visible: true, is_discount: false, stock_qty: 0,
     })
     expect(names()).toContain('パン')
   })

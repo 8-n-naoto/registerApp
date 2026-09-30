@@ -27,6 +27,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property bool $track_stock
  * @property int $stock_qty
  * @property bool $customer_visible
+ * @property bool $is_discount
  */
 class Product extends Model
 {
@@ -46,6 +47,7 @@ class Product extends Model
     /** DB の既定値（12 §3.7） */
     protected $attributes = [
         'customer_visible' => true,
+        'is_discount' => false,
     ];
 
     protected $fillable = [
@@ -60,6 +62,7 @@ class Product extends Model
         'track_stock',
         'stock_qty',
         'customer_visible',
+        'is_discount',
     ];
 
     protected function casts(): array
@@ -72,7 +75,14 @@ class Product extends Model
             'track_stock' => 'boolean',
             'stock_qty' => 'integer',
             'customer_visible' => 'boolean',
+            'is_discount' => 'boolean',
         ];
+    }
+
+    /** 計算に使う単価。割引の商品は −価格（docs/10「割引の商品」） */
+    public function signedPrice(): int
+    {
+        return $this->is_discount ? -$this->price : $this->price;
     }
 
     /** 商品コードが空なら店舗内の次の番号を振る（画面・CSV・初期データのどこから作っても同じ規則にする） */

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import type { SaleInput } from '@/api/register'
 import { HELD_MAX, useRegisterStore } from '@/stores/register'
+import { ja } from '@/i18n/ja'
 import { apiError } from '@/test/helpers'
 import { makeOrder, makeOrderItem } from '@/test/orders'
 import { makeBootstrap, makeProduct, makeSale } from '@/test/register'
@@ -68,6 +69,24 @@ describe('registerStore（08 §7.2）', () => {
     register.add(product(1))
     register.setDiscount({ type: 'percent', value: 10 })
     expect(register.amounts).toMatchObject({ subtotal: 400, discount_amount: 40, total: 360 })
+  })
+
+  it('割引の商品は合計から差し引き、商品の合計を超えたら金額を出さずに知らせる', async () => {
+    const bootstrap = makeBootstrap()
+    api.fetchBootstrap.mockImplementation(() => Promise.resolve({
+      ...bootstrap,
+      products: [...bootstrap.products, makeProduct(9, 'クーポン', { price: 500, is_discount: true, customer_visible: false })],
+    }))
+    const register = await loaded()
+    register.add(product(1))
+    register.add(product(3))
+    register.add(product(9))
+    expect(register.amounts).toMatchObject({ subtotal: 400, total: 400, tax_amount: 36 })
+    expect(register.pricingError).toBeNull()
+
+    register.add(product(9))
+    expect(register.amounts).toBeNull()
+    expect(register.pricingError).toBe(ja.register.discountExceeds)
   })
 
   it('AC-S02-11：注文を localStorage に保存し、開き直すと復元する', async () => {

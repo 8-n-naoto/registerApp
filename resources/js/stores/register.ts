@@ -121,10 +121,10 @@ export const useRegisterStore = defineStore('register', () => {
   const itemCount = computed(() => lines.value.reduce((sum, l) => sum + l.quantity, 0))
   const orderIds = computed(() => linkedOrders.value.map((o) => o.id))
 
-  const pricing = computed<{ amounts: PricingAmounts | null; error: boolean }>(() => {
+  const pricing = computed<{ amounts: PricingAmounts | null; error: string | null }>(() => {
     const b = bootstrap.value
     const t = taxType.value
-    if (!b || !t) return { amounts: null, error: false }
+    if (!b || !t) return { amounts: null, error: null }
     try {
       return {
         amounts: calculateAmounts({
@@ -134,14 +134,18 @@ export const useRegisterStore = defineStore('register', () => {
           items: toPricingItems(lines.value, products.value),
           discount: discount.value,
         }),
-        error: false,
+        error: null,
       }
     } catch (err) {
-      if (err instanceof PricingError) return { amounts: null, error: true }
+      if (err instanceof PricingError) {
+        const message = err.reason === 'NEGATIVE_SUBTOTAL' ? ja.register.discountExceeds : ja.register.pricingError
+        return { amounts: null, error: message }
+      }
       throw err
     }
   })
   const amounts = computed(() => pricing.value.amounts)
+  /** 計算できないときの表示文（割引が商品の合計を超えた・単価が不正）。計算できれば null */
   const pricingError = computed(() => pricing.value.error)
   const canCheckout = computed(() => lines.value.length > 0 && amounts.value !== null && paymentMethod.value !== null)
 
@@ -423,7 +427,7 @@ export const useRegisterStore = defineStore('register', () => {
     const pay = paymentMethod.value
     const total = amounts.value?.total
     if (submitting.value || !tax || !pay || total === undefined || lines.value.length === 0) {
-      return { ok: false, message: ja.register.pricingError, closeDialog: false }
+      return { ok: false, message: pricingError.value ?? ja.register.pricingError, closeDialog: false }
     }
     startCheckout()
     const uuid = pendingUuid.value ?? uuidV4()

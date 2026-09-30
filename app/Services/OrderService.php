@@ -410,7 +410,7 @@ final class OrderService
 
     /**
      * 12 §5.2 手順 4：自店舗の範囲で取得し、使えないもの（存在しない・販売停止・削除済み・オプションが別商品のもの、
-     * お客さんの注文では customer_visible = 0 も）があれば ITEM_UNAVAILABLE
+     * 割引の商品（レジだけで使う。docs/10「割引の商品」）、お客さんの注文では customer_visible = 0 も）があれば ITEM_UNAVAILABLE
      *
      * @param  list<OrderItemInput>  $items
      * @return array{array<int, Product>, array<int, ProductOption>}
@@ -423,6 +423,7 @@ final class OrderService
         // 削除済みは SoftDeletes で除かれる
         /** @var array<int, Product> $products */
         $products = Product::query()->where('store_id', $store->id)->where('is_active', true)
+            ->where('is_discount', false)
             ->when($customerOnly, fn ($q) => $q->where('customer_visible', true))
             ->whereIn('id', $productIds)->get()->keyBy('id')->all();
         /** @var array<int, ProductOption> $options */
