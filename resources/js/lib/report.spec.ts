@@ -22,6 +22,10 @@ function makeReport(): DailyReport {
       { product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: null, quantity: 3, amount: 1300 },
       { product_id: 1, product_name: 'ブレンド', product_code: 'P0001', product_memo: null, quantity: 1, amount: 400 },
     ],
+    by_category: [
+      { category_id: 20, category_name: 'フード', quantity: 5, amount: 2500 },
+      { category_id: 10, category_name: 'ドリンク', quantity: 4, amount: 1700 },
+    ],
     sales: [
       { id: 4, sold_at: '2026-09-30T01:30:00+09:00', total: 1000, payment_method_name: 'QR', tax_type_name: '店内', user_name: '店長', status: 'completed', item_count: 2 },
       { id: 1, sold_at: '2026-09-29T10:15:00+09:00', total: 1300, payment_method_name: '現金', tax_type_name: '店内', user_name: '店長', status: 'completed', item_count: 3 },
@@ -35,8 +39,8 @@ function makeReport(): DailyReport {
 const s1 = makeSale({
   id: 1, tax_type_name: '店内', tax_rate_permille: 100, total: 1300, tax_amount: 118, customer_count: 2, status: 'cancelled',
   items: [
-    { id: 11, product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: null, unit_price: 400, options_price: 0, quantity: 2, line_total: 800, options: [] },
-    { id: 12, product_id: 2, product_name: 'ケーキ', product_code: 'P0002', product_memo: null, unit_price: 500, options_price: 0, quantity: 1, line_total: 500, options: [] },
+    { id: 11, product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: null, category_id: 10, category_name: 'ドリンク', unit_price: 400, options_price: 0, quantity: 2, line_total: 800, options: [] },
+    { id: 12, product_id: 2, product_name: 'ケーキ', product_code: 'P0002', product_memo: null, category_id: 20, category_name: 'フード', unit_price: 500, options_price: 0, quantity: 1, line_total: 500, options: [] },
   ],
 })
 
@@ -55,6 +59,10 @@ describe('applyCancel（08 AC-S05-1）', () => {
       { product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: null, quantity: 1, amount: 500 },
       { product_id: 1, product_name: 'ブレンド', product_code: 'P0001', product_memo: null, quantity: 1, amount: 400 },
     ])
+    expect(r.by_category).toEqual([
+      { category_id: 20, category_name: 'フード', quantity: 4, amount: 2000 },
+      { category_id: 10, category_name: 'ドリンク', quantity: 2, amount: 900 },
+    ])
     expect(r.sales.map((s) => s.status)).toEqual(['completed', 'cancelled'])
   })
 
@@ -68,6 +76,10 @@ describe('applyCancel（08 AC-S05-1）', () => {
         { product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: null, quantity: 2, amount: 800 },
         { product_id: 2, product_name: 'ケーキ', product_code: 'P0002', product_memo: null, quantity: 1, amount: 500 },
       ],
+      by_category: [
+        { category_id: 10, category_name: 'ドリンク', quantity: 2, amount: 800 },
+        { category_id: 20, category_name: 'フード', quantity: 1, amount: 500 },
+      ],
       closing: {
         business_date: '2026-09-29', float_amount: 10000, cash_sales: 1300, expected_cash: 11300, counted_cash: 11300,
         difference: 0, memo: null, changed_after_close: false, user_name: '店長', updated_at: '2026-09-29T20:00:00+09:00',
@@ -78,6 +90,7 @@ describe('applyCancel（08 AC-S05-1）', () => {
     expect(r.by_tax).toEqual([])
     expect(r.by_payment).toEqual([])
     expect(r.by_product).toEqual([])
+    expect(r.by_category).toEqual([])
     expect(r.closing?.changed_after_close).toBe(true)
     expect(closingState(r)).toBe('changed')
   })
@@ -93,6 +106,25 @@ describe('applyCancel（08 AC-S05-1）', () => {
     const sale = { ...s1, items: [{ ...s1.items[0]!, product_memo: 'アイス' }] }
     expect(applyCancel(report, sale).by_product).toEqual([
       { product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: null, quantity: 3, amount: 1300 },
+    ])
+  })
+
+  it('カテゴリは会計時点の写し（ID と名前）ごとに差し引き、未分類は null の行から引く', () => {
+    const report: DailyReport = {
+      ...makeReport(),
+      by_category: [
+        { category_id: 10, category_name: 'ドリンク', quantity: 4, amount: 1700 },
+        { category_id: 10, category_name: '飲み物', quantity: 2, amount: 800 },
+        { category_id: null, category_name: null, quantity: 3, amount: 900 },
+      ],
+    }
+    const sale = {
+      ...s1,
+      items: [{ ...s1.items[0]!, category_id: 10, category_name: '飲み物' }, { ...s1.items[1]!, category_id: null, category_name: null }],
+    }
+    expect(applyCancel(report, sale).by_category).toEqual([
+      { category_id: 10, category_name: 'ドリンク', quantity: 4, amount: 1700 },
+      { category_id: null, category_name: null, quantity: 2, amount: 400 },
     ])
   })
 

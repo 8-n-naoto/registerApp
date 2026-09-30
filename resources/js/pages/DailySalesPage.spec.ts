@@ -34,6 +34,10 @@ function makeReport(extra: Partial<DailyReport> = {}): DailyReport {
       { payment_method_name: '現金', is_cash: true, total: 780, count: 1 },
     ],
     by_product: [{ product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: null, quantity: 4, amount: 1600 }],
+    by_category: [
+      { category_id: 10, category_name: 'ドリンク', quantity: 4, amount: 1600 },
+      { category_id: null, category_name: null, quantity: 1, amount: 180 },
+    ],
     sales: [
       { id: 502, sold_at: '2026-09-29T14:10:00+09:00', total: 1000, payment_method_name: 'カード', tax_type_name: '標準', user_name: '山田', status: 'completed', item_count: 1 },
       { id: 501, sold_at: '2026-09-29T13:05:12+09:00', total: 780, payment_method_name: '現金', tax_type_name: '標準', user_name: '山田', status: 'completed', item_count: 2 },
@@ -101,6 +105,15 @@ describe('S04 日次売上（08 §5.5）', () => {
       expect(text).toContain(s)
     }
     expect(w.find('[data-test="closing-state"]').text()).toBe('未')
+  })
+
+  it('カテゴリ別に数量と金額を出し、カテゴリの無い明細は「未分類」にまとめる', async () => {
+    const { w } = await mountPage('/sales/daily')
+    const rows = w.find('[data-test="by-category"] tbody').findAll('tr')
+    expect(rows.map((r) => r.findAll('td').map((d) => d.text()))).toEqual([
+      ['ドリンク', '4', '¥1,600'],
+      ['未分類', '1', '¥180'],
+    ])
   })
 
   it('商品別の行にメモと商品コードを出し、同じ名前の商品を見分けられる', async () => {

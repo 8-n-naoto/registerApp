@@ -1,5 +1,5 @@
 import { apiBaseUrl, http } from '@/api/client'
-import type { ByDateRow, ByHourRow, ByPaymentRow, ByProductRow, ByTaxRow, Closing, SaleSummaryRow, SalesTotals } from '@/types/api'
+import type { ByCategoryRow, ByDateRow, ByHourRow, ByPaymentRow, ByProductRow, ByTaxRow, Closing, SaleSummaryRow, SalesTotals } from '@/types/api'
 
 // 06 §5 売上・集計・§6 レジ締め
 
@@ -9,6 +9,7 @@ export interface DailyReport {
   by_tax: ByTaxRow[]
   by_payment: ByPaymentRow[]
   by_product: ByProductRow[]
+  by_category: ByCategoryRow[]
   sales: SaleSummaryRow[]
   closing: Closing | null
   comparison: null
@@ -46,6 +47,7 @@ export interface SummaryReport {
   by_tax: ByTaxRow[]
   by_payment: ByPaymentRow[]
   ranking: ByProductRow[]
+  by_category: ByCategoryRow[]
 }
 
 export type ExportType = 'daily' | 'sales' | 'items' | 'tax'

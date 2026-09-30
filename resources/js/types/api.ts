@@ -61,6 +61,8 @@ export interface SaleItem {
   product_name: string
   product_code: string
   product_memo: string | null
+  category_id: number | null     // 会計時点のカテゴリの写し（未分類は null）
+  category_name: string | null
   unit_price: number
   options_price: number
   quantity: number
@@ -104,6 +106,7 @@ export interface SalesTotals { total: number; count: number; customers: number; 
 export interface ByTaxRow { tax_type_name: string; rate_permille: number; total: number; tax_amount: number; taxable_amount: number }
 export interface ByPaymentRow { payment_method_name: string; is_cash: boolean; total: number; count: number }
 export interface ByProductRow { product_id: number; product_name: string; product_code: string; product_memo: string | null; quantity: number; amount: number }
+export interface ByCategoryRow { category_id: number | null; category_name: string | null; quantity: number; amount: number }
 export interface ByHourRow { hour: number; total: number; count: number }   // hour: 0〜23
 export interface ByDateRow { date: string; total: number; count: number; customers: number }
 export interface Closing {

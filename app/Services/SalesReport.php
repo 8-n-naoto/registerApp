@@ -17,6 +17,7 @@ use Illuminate\Database\Query\JoinClause;
  * @phpstan-type Totals array{total: int, count: int, customers: int, average: int, discount_total: int, cancelled_count: int}
  * @phpstan-type TaxRow array{tax_type_name: string, rate_permille: int, total: int, tax_amount: int, taxable_amount: int}
  * @phpstan-type PaymentRow array{payment_method_name: string, is_cash: bool, total: int, count: int}
+ * @phpstan-type CategoryRow array{category_id: int|null, category_name: string|null, quantity: int, amount: int}
  * @phpstan-type ProductRow array{product_id: int, product_name: string, product_code: string, product_memo: string|null, quantity: int, amount: int}
  * @phpstan-type DateRow array{date: string, total: int, count: int, customers: int}
  * @phpstan-type DayRow array{date: string, total: int, count: int, customers: int, discount_total: int, cancelled_count: int}
@@ -132,6 +133,34 @@ final class SalesReport
                 'product_name' => (string) $r->product_name,
                 'product_code' => (string) $r->product_code,
                 'product_memo' => $r->product_memo === null ? null : (string) $r->product_memo,
+                'quantity' => (int) $r->quantity,
+                'amount' => (int) $r->amount,
+            ])
+            ->all());
+    }
+
+    /**
+     * 明細を会計時点のカテゴリ（写しのカテゴリ ID・カテゴリ名）でまとめる。未分類は category_id・category_name が null。
+     * 金額は商品別と同じく値引き前・オプション込みの明細額で、割引の明細は負の金額で入る。
+     * 並びは金額の降順、同額はカテゴリ ID・カテゴリ名の昇順（未分類が先）
+     *
+     * @return list<CategoryRow>
+     */
+    public function byCategory(int $storeId, string $from, string $to): array
+    {
+        return array_values($this->completed($storeId, $from, $to)
+            ->toBase()
+            ->join('sale_items', fn (JoinClause $join) => $join->on('sale_items.sale_id', '=', 'sales.id'))
+            ->select(['sale_items.category_id', 'sale_items.category_name'])
+            ->selectRaw('SUM(sale_items.quantity) AS quantity, SUM(sale_items.line_total) AS amount')
+            ->groupBy('sale_items.category_id', 'sale_items.category_name')
+            ->orderByDesc('amount')
+            ->orderBy('sale_items.category_id')
+            ->orderBy('sale_items.category_name')
+            ->get()
+            ->map(fn (object $r): array => [
+                'category_id' => $r->category_id === null ? null : (int) $r->category_id,
+                'category_name' => $r->category_name === null ? null : (string) $r->category_name,
                 'quantity' => (int) $r->quantity,
                 'amount' => (int) $r->amount,
             ])

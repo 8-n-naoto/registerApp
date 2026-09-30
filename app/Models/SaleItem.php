@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $product_name
  * @property string $product_code
  * @property string|null $product_memo
+ * @property int|null $category_id 会計時点のカテゴリの写し（外部キーなし。未分類は null）
+ * @property string|null $category_name
  * @property int $unit_price
  * @property int $options_price
  * @property int $quantity
@@ -30,6 +32,8 @@ class SaleItem extends Model
         'product_name',
         'product_code',
         'product_memo',
+        'category_id',
+        'category_name',
         'unit_price',
         'options_price',
         'quantity',
@@ -45,6 +49,7 @@ class SaleItem extends Model
             'quantity' => 'integer',
             'line_total' => 'integer',
             'sort_order' => 'integer',
+            'category_id' => 'integer',
         ];
     }
 

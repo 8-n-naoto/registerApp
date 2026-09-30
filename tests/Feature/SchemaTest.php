@@ -100,6 +100,7 @@ class SchemaTest extends TestCase
                 ['product_name', false, null], ['unit_price', false, null], ['options_price', false, '0'],
                 ['quantity', false, null], ['line_total', false, null], ['sort_order', false, '0'],
                 ['product_code', false, ''], ['product_memo', true, null],
+                ['category_id', true, null], ['category_name', true, null],
             ]],
             'sale_item_options' => ['sale_item_options', [
                 ['id', false, null], ['sale_item_id', false, null], ['product_option_id', false, null],

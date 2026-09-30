@@ -354,6 +354,55 @@ function onCancelled(sale: Sale): void {
 
         <section
           class="adm-panel"
+          aria-labelledby="category-heading"
+        >
+          <h2
+            id="category-heading"
+            class="adm-panel__title"
+          >
+            {{ t.byCategory }}
+          </h2>
+          <p class="adm-help">
+            {{ t.categoryNote }}
+          </p>
+          <div class="table-wrap">
+            <table
+              class="daily-table"
+              data-test="by-category"
+            >
+              <thead>
+                <tr>
+                  <th scope="col">
+                    {{ t.categoryName }}
+                  </th>
+                  <th scope="col">
+                    {{ t.productQuantity }}
+                  </th>
+                  <th scope="col">
+                    {{ t.productAmount }}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="r in report.by_category"
+                  :key="`${r.category_id ?? ''}-${r.category_name ?? ''}`"
+                >
+                  <td>{{ r.category_name ?? ja.products.uncategorized }}</td>
+                  <td class="num">
+                    {{ r.quantity }}
+                  </td>
+                  <td class="num">
+                    <MoneyText :amount="r.amount" />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section
+          class="adm-panel"
           aria-labelledby="product-heading"
         >
           <h2

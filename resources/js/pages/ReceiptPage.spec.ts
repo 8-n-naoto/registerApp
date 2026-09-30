@@ -43,7 +43,7 @@ describe('S03 簡易領収書（08 §5.4）', () => {
   it('会計のスナップショットを表示する', async () => {
     api.fetchSale.mockResolvedValue(makeSale({
       discount_type: 'percent', discount_value: 10, discount_amount: 78, total: 702, tax_amount: 63, received: 1000, change_amount: 298,
-      items: [{ id: 1, product_id: 3, product_name: 'ラテ', product_code: 'P0003', product_memo: null, unit_price: 500, options_price: 50, quantity: 2, line_total: 1100, options: [{ product_option_id: 31, option_name: 'ショット', price: 50 }] }],
+      items: [{ id: 1, product_id: 3, product_name: 'ラテ', product_code: 'P0003', product_memo: null, category_id: null, category_name: null, unit_price: 500, options_price: 50, quantity: 2, line_total: 1100, options: [{ product_option_id: 31, option_name: 'ショット', price: 50 }] }],
     }))
     const { w } = await mountPage('/sales/501/receipt')
     expect(api.fetchSale).toHaveBeenCalledWith(501, null)
@@ -56,7 +56,7 @@ describe('S03 簡易領収書（08 §5.4）', () => {
 
   it('商品のメモを商品名の後ろに括弧で出し、商品コードは出さない', async () => {
     api.fetchSale.mockResolvedValue(makeSale({
-      items: [{ id: 1, product_id: 1, product_name: 'コーヒー', product_code: 'P0011', product_memo: 'アイス', unit_price: 450, options_price: 0, quantity: 1, line_total: 450, options: [] }],
+      items: [{ id: 1, product_id: 1, product_name: 'コーヒー', product_code: 'P0011', product_memo: 'アイス', category_id: null, category_name: null, unit_price: 450, options_price: 0, quantity: 1, line_total: 450, options: [] }],
     }))
     const { w } = await mountPage('/sales/501/receipt')
     expect(w.find('.receipt__name').text()).toBe('コーヒー（アイス）')

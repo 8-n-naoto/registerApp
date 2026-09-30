@@ -190,6 +190,8 @@ final class SaleService
                 'product_name' => $product->name,
                 'product_code' => $product->code,
                 'product_memo' => $product->memo,
+                'category_id' => $product->category?->id,
+                'category_name' => $product->category?->name,
                 'unit_price' => $product->signedPrice(),
                 'options_price' => array_sum($pricingItems[$i]['option_prices']),
                 'quantity' => $item['quantity'],
@@ -242,7 +244,7 @@ final class SaleService
         // 削除済みは SoftDeletes で除かれる
         /** @var array<int, Product> $products */
         $products = Product::query()->where('store_id', $store->id)->where('is_active', true)
-            ->whereIn('id', $productIds)->get()->keyBy('id')->all();
+            ->whereIn('id', $productIds)->with('category:id,name')->get()->keyBy('id')->all();
         /** @var array<int, ProductOption> $options */
         $options = $optionIds === [] ? [] : ProductOption::query()->where('store_id', $store->id)
             ->where('is_active', true)->whereIn('id', $optionIds)->get()->keyBy('id')->all();

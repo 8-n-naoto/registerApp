@@ -3,7 +3,7 @@ import type { Sale } from '@/types/api'
 
 /**
  * 取り消した会計を日次売上から差し引く（08 AC-S05-1：取消 API の応答で差し替え、再取得しない）。
- * 集計の定義は 07 §7.2。行が 0 件になった税区分・支払方法・商品は外す。締め済みなら「締め後に変更あり」にする
+ * 集計の定義は 07 §7.2。行が 0 件になった税区分・支払方法・商品・カテゴリは外す。締め済みなら「締め後に変更あり」にする
  */
 export function applyCancel(report: DailyReport, sale: Sale): DailyReport {
   const row = report.sales.find((s) => s.id === sale.id)
@@ -51,12 +51,27 @@ export function applyCancel(report: DailyReport, sale: Sale): DailyReport {
     .sort((a, b) => b.amount - a.amount || a.product_id - b.product_id || a.product_name.localeCompare(b.product_name)
       || a.product_code.localeCompare(b.product_code) || (a.product_memo ?? '').localeCompare(b.product_memo ?? ''))
 
+  // カテゴリは会計時点の写しでまとめる（未分類は null。並びは未分類を先頭に扱う）
+  let byCategory = report.by_category.map((r) => ({ ...r }))
+  for (const item of sale.items) {
+    const target = byCategory.find((r) => r.category_id === item.category_id && r.category_name === item.category_name)
+    if (target) {
+      target.quantity -= item.quantity
+      target.amount -= item.line_total
+    }
+  }
+  byCategory = byCategory
+    .filter((r) => r.quantity > 0)
+    .sort((a, b) => b.amount - a.amount || (a.category_id ?? -1) - (b.category_id ?? -1)
+      || (a.category_name ?? '').localeCompare(b.category_name ?? ''))
+
   return {
     ...report,
     totals,
     by_tax: byTax,
     by_payment: byPayment,
     by_product: byProduct,
+    by_category: byCategory,
     sales: report.sales.map((s) => (s.id === sale.id ? { ...s, status: 'cancelled' as const } : s)),
     closing: report.closing === null ? null : { ...report.closing, changed_after_close: true },
   }

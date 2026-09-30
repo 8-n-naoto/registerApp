@@ -76,6 +76,7 @@ class ReportController extends Controller
             'totals' => $this->report->totals($store->id, $date, $date),
             'by_tax' => $this->report->byTax($store->id, $date, $date),
             'by_payment' => $this->report->byPayment($store->id, $date, $date),
+            'by_category' => $this->report->byCategory($store->id, $date, $date),
             'by_product' => $this->report->byProduct($store->id, $date, $date),
             'sales' => $sales,
             'closing' => $closing === null ? null : ClosingResource::make($closing),
@@ -98,6 +99,7 @@ class ReportController extends Controller
             'by_hour' => $this->report->byHour($storeId, $from, $to),
             'by_tax' => $this->report->byTax($storeId, $from, $to),
             'by_payment' => $this->report->byPayment($storeId, $from, $to),
+            'by_category' => $this->report->byCategory($storeId, $from, $to),
             'ranking' => $this->report->byProduct($storeId, $from, $to, 20),
         ]);
     }
