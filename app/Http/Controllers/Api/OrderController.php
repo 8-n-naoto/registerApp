@@ -43,7 +43,10 @@ class OrderController extends Controller
             $query->where('order_table_id', $table->id);
         }
 
-        return response()->json(['orders' => OrderResource::collection($query->get())]);
+        $orders = $query->get();
+        Order::attachTakeoutNo($orders);
+
+        return response()->json(['orders' => OrderResource::collection($orders)]);
     }
 
     /** #50 POST /orders（店員の注文）。新規は 201、冪等の再送は 200 */

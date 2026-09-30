@@ -342,7 +342,30 @@ class OrderApiTest extends TestCase
         DB::disableQueryLog();
 
         $orderQueries = array_filter(DB::getQueryLog(), fn (array $q): bool => preg_match('/"(orders|order_items|order_item_options)"/', $q['query']) === 1);
-        $this->assertCount(3, $orderQueries);
+        $this->assertCount(4, $orderQueries, '注文・品目・オプション・テーブルなしの番号');
+    }
+
+    public function test_テーブルなしの注文は営業日ごとに1からの番号を持ちテーブルの注文はnull(): void
+    {
+        $table = OrderTable::factory()->for($this->store)->create(['name' => 'T1']);
+        $this->order($this->other);
+        $first = (int) $this->place($this->payload([[$this->b, 1]], 500))->assertCreated()
+            ->assertJsonPath('order_no', 1)->assertJsonPath('takeout_no', 1)->json('id');
+        $this->place($this->payload([[$this->b, 1]], 500, ['order_table_id' => $table->id]))->assertCreated()
+            ->assertJsonPath('order_no', 2)->assertJsonPath('takeout_no', null);
+        // 取り消した注文も数える（番号を詰めない）
+        $this->postJson("/api/orders/{$first}/cancel")->assertOk()->assertJsonPath('takeout_no', 1);
+        $this->place($this->payload([[$this->b, 1]], 500, ['label' => '田中']))->assertCreated()
+            ->assertJsonPath('order_no', 3)->assertJsonPath('takeout_no', 2);
+
+        $this->assertSame([[1, 1], [2, null], [3, 2]], array_map(
+            fn (array $o): array => [$o['order_no'], $o['takeout_no']],
+            $this->getJson('/api/orders?view=today')->assertOk()->json('orders'),
+        ));
+
+        // 営業日が変われば 1 から
+        $this->travelTo(Carbon::parse('2026-10-01 12:00', 'Asia/Tokyo'));
+        $this->place($this->payload([[$this->b, 1]], 500))->assertCreated()->assertJsonPath('takeout_no', 1);
     }
 
     // ---- #51 accept / #52 cancel / #53 serve-all / #54 served ----

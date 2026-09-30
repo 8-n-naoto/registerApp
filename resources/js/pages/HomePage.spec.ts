@@ -34,7 +34,7 @@ describe('S00 ホーム（08 §5.2）', () => {
     for (const role of ['owner', 'staff'] as const) {
       const card = mountAs(role).findAll('.home-card').find((c) => c.find('.home-card__title').text() === '注文')
       const btns = card?.findAll('.home-card__btn') ?? []
-      expect(btns.map((b) => b.text())).toEqual(['注文を受ける', '会計', '厨房', '注文・テーブル'])
+      expect(btns.map((b) => b.text())).toEqual(['注文を受ける', '会計', '厨房', '注文確認'])
       expect(btns[1]?.attributes('href')).toBe('/register')
     }
   })

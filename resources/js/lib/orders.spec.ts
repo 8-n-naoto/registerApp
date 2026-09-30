@@ -17,9 +17,11 @@ describe('lib/orders', () => {
     expect(canCancelOrder({ status: 'cancelled', sale_id: null })).toBe(false)
   })
 
-  it('置き場所はテーブル名 → 呼び名 → テーブルなし', () => {
-    expect(orderPlace({ table_name: 'T1', label: '窓側' })).toBe('T1')
-    expect(orderPlace({ table_name: null, label: '窓側' })).toBe('窓側')
-    expect(orderPlace({ table_name: null, label: null })).toBe('テーブルなし')
+  it('置き場所はテーブル名 → テーブル未設定#連番（呼び名を添える）→ 呼び名 → テーブルなし', () => {
+    expect(orderPlace({ table_name: 'T1', label: '窓側', takeout_no: null })).toBe('T1')
+    expect(orderPlace({ table_name: null, label: null, takeout_no: 3 })).toBe('テーブル未設定#3')
+    expect(orderPlace({ table_name: null, label: '田中', takeout_no: 1 })).toBe('テーブル未設定#1（田中）')
+    expect(orderPlace({ table_name: null, label: '窓側', takeout_no: null })).toBe('窓側')
+    expect(orderPlace({ table_name: null, label: null, takeout_no: null })).toBe('テーブルなし')
   })
 })

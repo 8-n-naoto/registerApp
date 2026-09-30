@@ -46,6 +46,7 @@ export function makeOrder(extra: Partial<Order> = {}): Order {
     order_table_id: 1,
     table_name: 'T1',
     label: null,
+    takeout_no: null,
     status: 'active',
     note: null,
     subtotal: 400,

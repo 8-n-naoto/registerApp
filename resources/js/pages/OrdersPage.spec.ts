@@ -130,6 +130,41 @@ describe('OrdersPage（S15）', () => {
     expect(router.currentRoute.value.fullPath).toBe('/register?table=2')
   })
 
+  it('テーブル・持ち帰り：テーブルのカードの後に、テーブルなしの未会計の注文を「テーブル未設定#n」で並べ、［会計へ］でその注文を選んだ会計へ', async () => {
+    const takeout = makeOrder({
+      id: 301, order_no: 4, order_table_id: null, table_name: null, takeout_no: 1, subtotal: 1200, created_at: '2026-09-29T12:34:00+09:00',
+    })
+    const labeled = makeOrder({ id: 302, order_no: 6, order_table_id: null, table_name: null, label: '田中', takeout_no: 2 })
+    ordersApi.fetchOrders.mockImplementation((view: string) =>
+      Promise.resolve(view === 'pending' ? [PENDING] : view === 'unpaid' ? [ACTIVE, takeout, labeled] : []))
+    const { router } = await mountPage()
+
+    expect(card('[data-tab="tables"]').textContent?.trim()).toBe('テーブル・持ち帰り')
+    expect([...document.querySelectorAll('.table__name')].map((e) => e.textContent))
+      .toEqual(['T1', 'T2', 'テーブル未設定#1', 'テーブル未設定#2（田中）'])
+    const c = card('[data-takeout="301"]')
+    expect(c.textContent).toContain('注文 #4・12:34')
+    expect(c.textContent).toContain('未会計 ¥1,200')
+    expect(c.textContent).toContain('提供中')
+    card('[data-to-register-order="301"]').click()
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/register?order=301')
+  })
+
+  it('テーブルが無くても持ち帰りの注文があれば出し、どちらも無ければ案内を出す', async () => {
+    tablesApi.fetchOrderTables.mockResolvedValue([])
+    ordersApi.fetchOrders.mockImplementation((view: string) =>
+      Promise.resolve(view === 'unpaid' ? [makeOrder({ id: 301, order_table_id: null, table_name: null, takeout_no: 1 })] : []))
+    await mountPage()
+    expect([...document.querySelectorAll('.table__name')].map((e) => e.textContent)).toEqual(['テーブル未設定#1'])
+
+    document.body.innerHTML = ''
+    ordersApi.fetchOrders.mockResolvedValue([])
+    await mountPage()
+    expect(document.querySelector('.tables')).toBeNull()
+    expect(document.body.textContent).toContain('テーブルと持ち帰りの注文はありません')
+  })
+
   it('確認待ち：［受け付ける］で受け付け、一覧を取り直す', async () => {
     ordersApi.acceptOrder.mockResolvedValue({ ...PENDING, status: 'active' })
     await mountPage()

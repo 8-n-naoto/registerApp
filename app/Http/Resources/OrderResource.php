@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * 12 §4 Order（店員の画面向け）。呼び出し側で Order::WITH_ALL を with() しておく。
+ * 12 §4 Order（店員の画面向け）。呼び出し側で Order::WITH_ALL を with() し、一覧では Order::attachTakeoutNo() も呼んでおく。
  * お客さん向けは PublicOrderResource（内部 ID・client_uuid・sale_id・店員名を含めない）
  *
  * @mixin Order
@@ -28,6 +28,7 @@ class OrderResource extends JsonResource
             'order_table_id' => $this->order_table_id,
             'table_name' => $this->table_name,
             'label' => $this->label,
+            'takeout_no' => $this->resource->takeoutNo(),
             'status' => $this->status->value,
             'note' => $this->note,
             'subtotal' => $this->subtotal,

@@ -139,7 +139,7 @@ class KitchenApiTest extends TestCase
         DB::disableQueryLog();
 
         $own = array_filter(DB::getQueryLog(), fn (array $q): bool => str_contains($q['query'], 'order'));
-        $this->assertCount(4, $own, '店舗と確認待ち・注文・品目・オプション（店員は users を別に数える）');
+        $this->assertCount(5, $own, '店舗と確認待ち・注文・品目・オプション・テーブルなしの番号（店員は users を別に数える）');
     }
 
     public function test_完了は上限の件数までに絞る(): void

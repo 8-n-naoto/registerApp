@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// S15 注文・テーブル（12 §8.5）：タブ［テーブル］［確認待ち n］［未会計］［本日の注文］。
+// S15 注文確認（12 §8.5）：タブ［テーブル・持ち帰り］［確認待ち n］［未会計］［本日の注文］。
+// ［テーブル・持ち帰り］はテーブルのカードの後に、テーブルなしの未会計の注文を 1 件ずつ「テーブル未設定#n」のカードで並べる。
 // 画面を開いたとき・タブを切り替えたとき・［更新］で取得する（自動更新はしない）。確認待ちの件数は毎回取り直す
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
@@ -11,8 +12,9 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import OrderCard from '@/components/orders/OrderCard.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { errorBody, errorStatus, isNetworkError } from '@/lib/apiError'
+import { formatTime } from '@/lib/date'
 import { formatYen } from '@/lib/money'
-import { canCancelOrder, orderPlace } from '@/lib/orders'
+import { canCancelOrder, orderDisplayStatus, orderPlace } from '@/lib/orders'
 import type { Order, OrderTable } from '@/types/api'
 import '@/styles/admin.css'
 
@@ -25,6 +27,8 @@ const TABS: readonly Tab[] = ['tables', 'pending', 'unpaid', 'today']
 const initialTab = useRoute().query.tab
 const tab = ref<Tab>(TABS.find((x) => x === initialTab) ?? 'tables')
 const tables = ref<OrderTable[]>([])
+/** テーブルなしの未会計の注文（［テーブル・持ち帰り］に出す） */
+const takeouts = ref<Order[]>([])
 const orders = ref<Order[]>([])
 const pendingCount = ref(0)
 const loading = ref(true)
@@ -63,8 +67,9 @@ async function load(): Promise<void> {
     const current = tab.value
     const pendingP = fetchOrders('pending')
     if (current === 'tables') {
-      const [list, pending] = await Promise.all([fetchOrderTables(), pendingP])
+      const [list, unpaid, pending] = await Promise.all([fetchOrderTables(), fetchOrders('unpaid'), pendingP])
       tables.value = list
+      takeouts.value = unpaid.filter((o) => o.order_table_id === null)
       pendingCount.value = pending.length
     } else if (current === 'pending') {
       const pending = await pendingP
@@ -255,7 +260,7 @@ async function runConfirm(): Promise<void> {
 
       <template v-else-if="tab === 'tables'">
         <p
-          v-if="visibleTables.length === 0"
+          v-if="visibleTables.length === 0 && takeouts.length === 0"
           class="adm-help"
         >
           {{ t.noTables }}
@@ -316,6 +321,32 @@ async function runConfirm(): Promise<void> {
                 class="adm-btn adm-btn--on"
                 :data-to-register="table.id"
                 :to="{ name: 'register', query: { table: table.id } }"
+              >
+                {{ t.toRegister }}
+              </RouterLink>
+            </div>
+          </li>
+          <li
+            v-for="order in takeouts"
+            :key="`o${order.id}`"
+            class="table table--takeout"
+            :data-takeout="order.id"
+          >
+            <div class="table__head">
+              <span class="table__name">{{ orderPlace(order) }}</span>
+              <span class="table__state">{{ t.status[orderDisplayStatus(order)] }}</span>
+            </div>
+            <p class="table__line">
+              {{ fmt(t.takeoutOrder, { no: order.order_no, time: formatTime(order.created_at) }) }}
+            </p>
+            <p class="table__line table__line--unpaid">
+              {{ fmt(t.takeoutUnpaid, { amount: formatYen(order.subtotal) }) }}
+            </p>
+            <div class="table__actions">
+              <RouterLink
+                class="adm-btn adm-btn--on"
+                :data-to-register-order="order.id"
+                :to="{ name: 'register', query: { order: order.id } }"
               >
                 {{ t.toRegister }}
               </RouterLink>
@@ -413,11 +444,11 @@ async function runConfirm(): Promise<void> {
   border-radius: var(--radius-card);
   background: var(--c-surface);
 }
-.table--open { border-color: var(--c-primary); }
+.table--open, .table--takeout { border-color: var(--c-primary); }
 .table__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .table__name { font-size: 22px; font-weight: 800; overflow-wrap: anywhere; }
 .table__state { flex-shrink: 0; color: var(--c-text-sub); font-weight: 700; }
-.table--open .table__state { color: var(--c-primary); }
+.table--open .table__state, .table--takeout .table__state { color: var(--c-primary); }
 .table__line { margin: 0; color: var(--c-text-sub); }
 .table__line--unpaid { color: var(--c-money); font-weight: 700; }
 .table__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }

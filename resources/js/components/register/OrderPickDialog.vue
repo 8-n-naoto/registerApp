@@ -9,6 +9,7 @@ import BottomSheet from '@/components/BottomSheet.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { formatYen } from '@/lib/money'
+import { orderPlace } from '@/lib/orders'
 import { useRegisterStore } from '@/stores/register'
 import type { Order } from '@/types/api'
 
@@ -40,7 +41,7 @@ const groups = computed<Group[]>(() => {
       }
       result.push({ key, place: order.table_name ?? '', orders: [order], subtotal: order.subtotal })
     } else {
-      result.push({ key: `o${order.id}`, place: order.label ?? t.ordersNoTable, orders: [order], subtotal: order.subtotal })
+      result.push({ key: `o${order.id}`, place: orderPlace(order), orders: [order], subtotal: order.subtotal })
     }
   }
   return result

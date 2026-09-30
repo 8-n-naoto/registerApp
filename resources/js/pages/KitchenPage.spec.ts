@@ -127,7 +127,7 @@ describe('KitchenPage（S14）', () => {
     expect(elapsed.classList.contains('kcard__elapsed--late')).toBe(true)
   })
 
-  it('AC-S14-8：確認待ちは件数だけを出し、注文・テーブルの確認待ちタブへ移れる', async () => {
+  it('AC-S14-8：確認待ちは件数だけを出し、注文確認の確認待ちタブへ移れる', async () => {
     const { router } = await mountPage()
     const link = [...document.querySelectorAll('a')].find((a) => a.textContent?.trim() === '確認待ち 2 件')
     if (!link) throw new Error('link not found')

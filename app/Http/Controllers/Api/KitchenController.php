@@ -52,6 +52,7 @@ class KitchenController extends Controller
             ->orderByDesc('served_at')->orderByDesc('id')->limit(self::MAX_DONE);
         /** @var Collection<int, Order> $orders */
         $orders = $inProgress->unionAll($done)->get()->load(Order::WITH_ALL);
+        Order::attachTakeoutNo($orders);
 
         $inProgressOrders = $orders->whereNull('served_at');
         $doneOrders = $orders->whereNotNull('served_at');

@@ -171,6 +171,8 @@ export interface Order {
   order_table_id: number | null
   table_name: string | null
   label: string | null
+  /** テーブルなしの注文の営業日ごとの連番（テーブルの注文は null） */
+  takeout_no: number | null
   status: OrderStatus
   note: string | null
   subtotal: number
