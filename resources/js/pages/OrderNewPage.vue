@@ -259,7 +259,10 @@ async function send(checkout = false): Promise<void> {
       :title="t.order"
       @close="orderSheet = false"
     >
-      <DraftPanel @send="openSend" />
+      <DraftPanel
+        in-sheet
+        @send="openSend"
+      />
     </BottomSheet>
 
     <BottomSheet

@@ -11,7 +11,8 @@ import { formatYen } from '@/lib/money'
 import { useRegisterStore } from '@/stores/register'
 
 // unpaidCount：未会計の注文の件数（12 §8.6。取れていなければ null）
-defineProps<{ unpaidCount: number | null }>()
+// inSheet：スマホのシートに置くとき。明細を内側でスクロールさせず、シート全体でスクロールする
+defineProps<{ unpaidCount: number | null; inSheet?: boolean }>()
 const emit = defineEmits<{ checkout: []; discount: []; held: []; orders: [] }>()
 
 const t = ja.register
@@ -79,7 +80,10 @@ function clear(): void {
 </script>
 
 <template>
-  <div class="order">
+  <div
+    class="order"
+    :class="{ 'order--sheet': inSheet }"
+  >
     <button
       type="button"
       class="order__from"
@@ -288,6 +292,10 @@ function clear(): void {
   min-height: 0;
   height: 100%;
 }
+
+/* シートの中では高さを中身に合わせる（シートの高さに合わせると明細が 1 行分まで潰れ、残りの行が見えなくなる） */
+.order--sheet { flex-shrink: 0; height: auto; }
+.order--sheet .order__lines { flex: none; min-height: 0; overflow-y: visible; }
 
 .order__from {
   flex-shrink: 0;

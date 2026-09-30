@@ -302,6 +302,7 @@ async function undo(): Promise<void> {
     >
       <OrderPanel
         :unpaid-count="unpaidCount"
+        in-sheet
         @checkout="openCheckout"
         @discount="discountOpen = true"
         @held="heldOpen = true"

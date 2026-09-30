@@ -8,6 +8,8 @@ import MoneyText from '@/components/MoneyText.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { charCount, LINE_MEMO_MAX, useOrderDraftStore } from '@/stores/orderDraft'
 
+// inSheet：スマホのシートに置くとき。品目を内側でスクロールさせず、シート全体でスクロールする
+defineProps<{ inSheet?: boolean }>()
 const emit = defineEmits<{ send: [] }>()
 
 const t = ja.orderNew
@@ -44,7 +46,10 @@ function clear(): void {
 </script>
 
 <template>
-  <div class="draft">
+  <div
+    class="draft"
+    :class="{ 'draft--sheet': inSheet }"
+  >
     <div class="draft__tools">
       <span class="draft__count">{{ fmt(t.count, { n: draft.itemCount }) }}</span>
       <button
@@ -204,6 +209,10 @@ function clear(): void {
   min-height: 0;
   height: 100%;
 }
+
+/* シートの中では高さを中身に合わせる（シートの高さに合わせると品目が 1 行分まで潰れ、残りの行が見えなくなる） */
+.draft--sheet { flex-shrink: 0; height: auto; }
+.draft--sheet .draft__lines { flex: none; min-height: 0; overflow-y: visible; }
 
 .draft__tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .draft__count { font-weight: 700; }
