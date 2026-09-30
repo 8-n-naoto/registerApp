@@ -19,6 +19,10 @@ const ordersApi = vi.hoisted(() => ({ createOrder: vi.fn() }))
 vi.mock('@/api/orders', () => ordersApi)
 
 async function mountPage(path = '/orders/new') {
+  return (await mountWithRouter(path)).w
+}
+
+async function mountWithRouter(path = '/orders/new') {
   const pinia = createPinia()
   setActivePinia(pinia)
   useAuthStore().me = makeMe('staff')
@@ -27,12 +31,13 @@ async function mountPage(path = '/orders/new') {
     routes: [
       { path: '/orders/new', name: 'order-new', component: OrderNewPage },
       { path: '/', name: 'home', component: { template: '<p>home</p>' } },
+      { path: '/register', name: 'register', component: { template: '<p>register</p>' } },
     ],
   })
   await router.push(path)
   const w = mount(OrderNewPage, { global: { plugins: [pinia, router] }, attachTo: document.body })
   await flushPromises()
-  return w
+  return { w, router }
 }
 
 function tile(id: number): HTMLButtonElement {
@@ -119,6 +124,30 @@ describe('OrderNewPage（S13）', () => {
     expect(document.querySelector('.order-new__notice')?.textContent).toContain('#7 を送信しました')
     expect(document.querySelectorAll('.line')).toHaveLength(0)
     expect(select().value).toBe('1')
+  })
+
+  it('［送信して会計へ］は送信に成功したら S02 を ?order=<注文 ID> で開く', async () => {
+    const { router } = await mountWithRouter()
+    await click(tile(1))
+    await click(buttons('厨房へ送信')[0])
+    ordersApi.createOrder.mockResolvedValue(makeOrder({ id: 55, order_no: 8 }))
+    await click(buttons('送信して会計へ')[0])
+
+    expect(ordersApi.createOrder).toHaveBeenCalledTimes(1)
+    expect(router.currentRoute.value.name).toBe('register')
+    expect(router.currentRoute.value.query).toEqual({ order: '55' })
+  })
+
+  it('［送信して会計へ］が失敗したら画面に残り、品目を残してエラーを出す', async () => {
+    const { router } = await mountWithRouter()
+    await click(tile(1))
+    await click(buttons('厨房へ送信')[0])
+    ordersApi.createOrder.mockRejectedValue(new AxiosError('Network Error', 'ERR_NETWORK'))
+    await click(buttons('送信して会計へ')[0])
+
+    expect(router.currentRoute.value.name).toBe('order-new')
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain('注文は送信されていません')
+    expect(document.querySelectorAll('.line')).toHaveLength(1)
   })
 
   it('AC-S13-2：通信断は品目を残してエラーを出し、送り直しは同じ client_uuid', async () => {

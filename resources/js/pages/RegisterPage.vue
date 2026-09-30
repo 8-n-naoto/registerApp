@@ -33,10 +33,16 @@ useWakeLock()
 
 onMounted(() => {
   void register.load()
-  // S15［会計へ］（?table=ID）：そのテーブルの注文を選んだ状態で開き、URL から外す
+  // S15［会計へ］（?table=ID）：そのテーブルの注文を選んだ状態で開き、URL から外す。
+  // S13［送信して会計へ］（?order=ID）：その注文だけを選んだ状態で開く
   const table = Number(route.query.table)
+  const order = Number(route.query.order)
   if (Number.isSafeInteger(table) && table > 0) {
     pickTable.value = table
+    pickOpen.value = true
+    void router.replace({ name: 'register' })
+  } else if (Number.isSafeInteger(order) && order > 0) {
+    pickOrder.value = order
     pickOpen.value = true
     void router.replace({ name: 'register' })
   } else {
@@ -48,6 +54,7 @@ onMounted(() => {
 const unpaidCount = ref<number | null>(null)
 const pickOpen = ref(false)
 const pickTable = ref<number | null>(null)
+const pickOrder = ref<number | null>(null)
 
 async function refreshUnpaid(): Promise<void> {
   try {
@@ -59,6 +66,7 @@ async function refreshUnpaid(): Promise<void> {
 
 function openPick(): void {
   pickTable.value = null
+  pickOrder.value = null
   orderSheet.value = false
   pickOpen.value = true
 }
@@ -66,6 +74,7 @@ function openPick(): void {
 function closePick(): void {
   pickOpen.value = false
   pickTable.value = null
+  pickOrder.value = null
 }
 
 const stale = ref<StaleOrders | null>(null)
@@ -318,6 +327,7 @@ async function undo(): Promise<void> {
     <OrderPickDialog
       :open="pickOpen && register.bootstrap !== null"
       :preselect-table="pickTable"
+      :preselect-order="pickOrder"
       @loaded="unpaidCount = $event"
       @close="closePick"
     />

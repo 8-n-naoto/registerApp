@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // S13 注文入力（店員、12 §8.4）。商品エリアは S02 と同じ部品。タブレット横は右に注文、スマホは下の固定バーからシートで開く。
-// 商品のタップから小計の表示までは通信しない。［厨房へ送信］の前のシートで注文メモを入れる
+// 商品のタップから小計の表示までは通信しない。［厨房へ送信］の前のシートで注文メモを入れる。
+// ［送信して会計へ］は送信に成功したら S02 を開き、その注文をカートに入れるダイアログを出す（持ち帰りなどすぐ会計する注文用）
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import BigButton from '@/components/BigButton.vue'
 import BottomSheet from '@/components/BottomSheet.vue'
 import MoneyText from '@/components/MoneyText.vue'
@@ -18,6 +19,7 @@ const SENT_MS = 3000
 
 const t = ja.orderNew
 const route = useRoute()
+const router = useRouter()
 const draft = useOrderDraftStore()
 const isTablet = useIsTablet()
 
@@ -91,11 +93,18 @@ function openSend(): void {
   sendSheet.value = true
 }
 
-async function send(): Promise<void> {
+async function send(checkout = false): Promise<void> {
   const outcome = await draft.send()
   sendSheet.value = false
-  if (outcome.ok) showNotice({ kind: 'info', text: fmt(t.sent, { no: outcome.order.order_no }) }, SENT_MS)
-  else showNotice({ kind: 'error', text: outcome.message })
+  if (!outcome.ok) {
+    showNotice({ kind: 'error', text: outcome.message })
+    return
+  }
+  if (checkout) {
+    await router.push({ name: 'register', query: { order: outcome.order.id } })
+    return
+  }
+  showNotice({ kind: 'info', text: fmt(t.sent, { no: outcome.order.order_no }) }, SENT_MS)
 }
 </script>
 
@@ -289,9 +298,19 @@ async function send(): Promise<void> {
           block
           :disabled="!draft.canSend"
           :loading="draft.submitting"
-          @click="send"
+          @click="send()"
         >
           {{ t.send }}
+        </BigButton>
+        <BigButton
+          variant="secondary"
+          size="lg"
+          block
+          :disabled="!draft.canSend"
+          :loading="draft.submitting"
+          @click="send(true)"
+        >
+          {{ t.sendAndCheckout }}
         </BigButton>
       </div>
     </BottomSheet>

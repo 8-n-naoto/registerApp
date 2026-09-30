@@ -23,6 +23,8 @@ const allCards: HomeCard[] = [
     title: ja.home.card.orders,
     links: [
       { label: ja.home.btn.orderNew, to: '/orders/new', roles: BOTH },
+      // 注文を受けた端末からも会計を開けるように（S02 と同じ遷移先）
+      { label: ja.home.btn.orderCheckout, to: '/register', roles: BOTH },
       { label: ja.home.btn.kitchen, to: '/kitchen', roles: BOTH },
       { label: ja.home.btn.orders, to: '/orders', roles: BOTH },
     ],

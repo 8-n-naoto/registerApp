@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // S02［注文から会計］（12 §8.6）：未会計の注文をテーブルごとにまとめて出す。テーブルを選ぶとその注文をすべて選び、
-// 注文ごとに外せる。［カートに入れる］でカートに足す（カートが空でなければ確認）。開くたびに取り直す
+// 注文ごとに外せる。［カートに入れる］でカートに足す（カートが空でなければ確認）。開くたびに取り直す。
+// preselectOrder は S13［送信して会計へ］から来たときの 1 件の注文
 import { computed, ref, watch } from 'vue'
 import { fetchOrders } from '@/api/orders'
 import BigButton from '@/components/BigButton.vue'
@@ -11,7 +12,7 @@ import { formatYen } from '@/lib/money'
 import { useRegisterStore } from '@/stores/register'
 import type { Order } from '@/types/api'
 
-const props = defineProps<{ open: boolean; preselectTable?: number | null }>()
+const props = defineProps<{ open: boolean; preselectTable?: number | null; preselectOrder?: number | null }>()
 const emit = defineEmits<{ close: []; loaded: [count: number] }>()
 
 const t = ja.register
@@ -93,6 +94,9 @@ async function load(): Promise<void> {
     selected.value = selected.value.filter((id) => ids.has(id))
     if (props.preselectTable != null) {
       selected.value = orders.value.filter((o) => o.order_table_id === props.preselectTable && !linked(o)).map((o) => o.id)
+    }
+    if (props.preselectOrder != null) {
+      selected.value = orders.value.filter((o) => o.id === props.preselectOrder && !linked(o)).map((o) => o.id)
     }
   } catch {
     failed.value = true

@@ -24,10 +24,19 @@ function mountAs(role: Role) {
 }
 
 describe('S00 ホーム（08 §5.2）', () => {
-  it('owner はカード 5 枚とボタン 13 個', () => {
+  it('owner はカード 5 枚とボタン 14 個', () => {
     const w = mountAs('owner')
     expect(w.findAll('.home-card__title').map((e) => e.text())).toEqual(['レジ操作', '注文', '商品管理', '売上管理', '設定'])
-    expect(w.findAll('.home-card__btn')).toHaveLength(13)
+    expect(w.findAll('.home-card__btn')).toHaveLength(14)
+  })
+
+  it('注文のカードに［会計］があり、S02 を開く（owner / staff とも）', () => {
+    for (const role of ['owner', 'staff'] as const) {
+      const card = mountAs(role).findAll('.home-card').find((c) => c.find('.home-card__title').text() === '注文')
+      const btns = card?.findAll('.home-card__btn') ?? []
+      expect(btns.map((b) => b.text())).toEqual(['注文を受ける', '会計', '厨房', '注文・テーブル'])
+      expect(btns[1]?.attributes('href')).toBe('/register')
+    }
   })
 
   it('AC-S00-2：staff はレジ操作・注文・売上管理の 3 枚で、売上管理は売上確認・レジ締めのみ', () => {

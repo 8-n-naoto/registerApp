@@ -443,6 +443,17 @@ describe('S02 注文から会計（12 §8.6）', () => {
     expect(checkbox('[data-pick-submit]').textContent?.trim()).toBe('カートに入れる（2 件）')
   })
 
+  it('?order= で開くと、その注文だけを選んだ状態でダイアログを出し、URL から外す（S13［送信して会計へ］）', async () => {
+    ordersApi.fetchOrders.mockResolvedValue([O1, O2, O4])
+    const { router } = await mountPage('/register?order=104')
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull()
+    expect(checkbox('[data-order="104"]').getAttribute('aria-checked')).toBe('true')
+    expect(checkbox('[data-order="101"]').getAttribute('aria-checked')).toBe('false')
+    expect(router.currentRoute.value.query).toEqual({})
+    await click(checkbox('[data-pick-submit]'))
+    expect(document.querySelector('[data-linked-orders]')?.textContent).toContain('#4')
+  })
+
   it('件数が取れなければ件数なしで出す', async () => {
     ordersApi.fetchOrders.mockRejectedValue(apiError(500, { message: 'x' }))
     await mountPage()
