@@ -17,6 +17,12 @@ Route::middleware(['throttle:public-order', 'table.token'])->prefix('/public/tab
     Route::get('/orders', [Api\PublicOrderController::class, 'index']);                            // #48
 });
 
+// 66〜67 ─ 端末の担当者（13 §6.2）。ログアウト後も端末の店舗（セッション）で使うため auth:sanctum を通さない
+Route::middleware('throttle:operators')->group(function () {
+    Route::get('/operators', [Api\OperatorController::class, 'index']);                              // #66
+    Route::post('/operators/switch', [Api\OperatorController::class, 'switch']);                     // #67
+});
+
 Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(function () {
 
     // 2〜4 ─ 自分のアカウント（全役割）
@@ -44,6 +50,15 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
         Route::get('/order-tables', [Api\OrderTableController::class, 'index']);                   // #56
         Route::post('/order-tables/{orderTable}/open', [Api\OrderTableController::class, 'open'])->whereNumber('orderTable');   // #62
         Route::post('/order-tables/{orderTable}/close', [Api\OrderTableController::class, 'close'])->whereNumber('orderTable'); // #63
+
+        // 打刻・勤怠・勤務表（13 §5）。staff は本人の勤怠と公開済みの勤務表だけ
+        Route::post('/attendance/clock-in', [Api\AttendanceController::class, 'clockIn']);            // #68
+        Route::post('/attendance/break-start', [Api\AttendanceController::class, 'breakStart']);      // #69
+        Route::post('/attendance/break-end', [Api\AttendanceController::class, 'breakEnd']);          // #70
+        Route::get('/attendances', [Api\AttendanceController::class, 'index']);                       // #71
+        Route::get('/shifts', [Api\ShiftController::class, 'index']);                                 // #81
+        Route::get('/shift-requests/mine', [Api\ShiftController::class, 'myRequests']);               // #86
+        Route::put('/shift-requests/mine', [Api\ShiftController::class, 'submitRequests']);           // #87
     });
 
     // owner / staff / admin（admin は ?store_id 必須）
@@ -103,6 +118,21 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
         Route::post('/staff', [Api\StaffController::class, 'store']);                               // #39
         Route::put('/staff/{staff}', [Api\StaffController::class, 'update'])->whereNumber('staff');               // #40
         Route::put('/staff/{staff}/password', [Api\StaffController::class, 'updatePassword'])->whereNumber('staff'); // #41
+
+        // 勤怠の修正・集計、労働条件、勤務表の作成（13 §5）。/summary・/export は /{id} より先
+        Route::post('/attendances', [Api\AttendanceController::class, 'store']);                      // #72
+        Route::get('/attendances/summary', [Api\AttendanceController::class, 'summary']);             // #75
+        Route::get('/attendances/export', [Api\AttendanceController::class, 'export']);               // #76
+        Route::put('/attendances/{attendance}', [Api\AttendanceController::class, 'update'])->whereNumber('attendance');     // #73
+        Route::delete('/attendances/{attendance}', [Api\AttendanceController::class, 'destroy'])->whereNumber('attendance'); // #74
+        Route::get('/settings/labor', [Api\LaborController::class, 'showSettings']);                  // #77
+        Route::put('/settings/labor', [Api\LaborController::class, 'updateSettings']);                // #78
+        Route::get('/labor-members', [Api\LaborController::class, 'members']);                        // #79
+        Route::put('/labor-members/{member}', [Api\LaborController::class, 'updateMember'])->whereNumber('member'); // #80
+        Route::put('/shift-months', [Api\ShiftController::class, 'updateMonth']);                     // #82
+        Route::post('/shifts', [Api\ShiftController::class, 'store']);                                // #83
+        Route::put('/shifts/{shift}', [Api\ShiftController::class, 'update'])->whereNumber('shift');      // #84
+        Route::delete('/shifts/{shift}', [Api\ShiftController::class, 'destroy'])->whereNumber('shift');  // #85
 
         // テーブル・QR（12 §5.12）
         Route::post('/order-tables', [Api\OrderTableController::class, 'store']);                  // #57

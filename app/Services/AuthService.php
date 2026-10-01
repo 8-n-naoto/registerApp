@@ -27,6 +27,7 @@ final class AuthService
     public function __construct(
         private readonly AuditLogger $audit,
         private readonly StoreInitializer $initializer,
+        private readonly AttendanceService $attendance,
     ) {}
 
     public function login(Request $request, string $loginId, string $password, bool $remember): User
@@ -85,14 +86,26 @@ final class AuthService
         $user->forceFill(['last_login_at' => now()])->save();
         $this->audit->log(AuditAction::LoginSucceeded, $user, storeId: $user->store_id);
 
+        // 7. ログイン = 出勤（13 §6.1-1）。端末の店舗を覚える（13 §6.2）
+        $this->attendance->clockInOnLogin($user);
+        OperatorService::rememberDevice($request, $user);
+
         return $user;
     }
 
+    /** ログアウト = 退勤（13 §6.1-4）。ログアウト後も端末の店舗は残す */
     public function logout(Request $request): void
     {
+        $user = $request->user();
+        if ($user instanceof User) {
+            $this->attendance->clockOutOnLogout($user);
+        }
         Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+        if ($user instanceof User) {
+            OperatorService::rememberDevice($request, $user);
+        }
     }
 
     private static function dummyHash(): string

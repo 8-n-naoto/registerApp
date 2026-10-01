@@ -26,10 +26,12 @@ class SchemaTest extends TestCase
             ->all();
 
         $this->assertSame([
+            'attendance_breaks', 'attendances',
             'audit_logs', 'cache', 'cache_locks', 'categories', 'failed_jobs', 'job_batches', 'jobs',
             'migrations', 'order_item_options', 'order_items', 'order_tables', 'orders',
             'payment_methods', 'product_options', 'products', 'register_closings',
-            'sale_item_options', 'sale_items', 'sales', 'sessions', 'stores', 'tax_types', 'users',
+            'sale_item_options', 'sale_items', 'sales', 'sessions', 'shift_months', 'shift_requests', 'shifts',
+            'stores', 'tax_types', 'users',
         ], $tables);
     }
 
@@ -49,12 +51,17 @@ class SchemaTest extends TestCase
                 ['stock_enabled', false, '1'], ['customer_order_enabled', false, '0'],
                 ['customer_order_approval', false, '0'], ['customer_session_minutes', false, '180'],
                 ['polling_mode', false, 'always'], ['polling_windows', true, null], ['order_rev', false, '0'],
+                // 13 §3.2
+                ['weekly_hours_limit', true, null], ['week_start_day', true, null],
+                ['legal_holiday_day', true, null], ['minimum_wage', true, null],
             ]],
             'users' => ['users', [
                 ['id', false, null], ['store_id', true, null], ['role', false, null], ['login_id', false, null],
                 ['name', false, null], ['password', false, null], ['is_active', false, '1'],
                 ['remember_token', true, null], ['last_login_at', true, null],
                 ['created_at', true, null], ['updated_at', true, null],
+                // 13 §3.1
+                ['hourly_wage', true, null], ['overtime_exempt', false, '0'],
             ]],
             'tax_types' => ['tax_types', [
                 ['id', false, null], ['store_id', false, null], ['name', false, null], ['rate_permille', false, null],
@@ -140,6 +147,30 @@ class SchemaTest extends TestCase
                 ['id', false, null], ['order_item_id', false, null], ['product_option_id', false, null],
                 ['option_name', false, null], ['price', false, null],
             ]],
+            // 13 §3.3〜§3.5
+            'attendances' => ['attendances', [
+                ['id', false, null], ['store_id', false, null], ['user_id', false, null], ['business_date', false, null],
+                ['clock_in_at', false, null], ['clock_out_at', true, null], ['hourly_wage', true, null],
+                ['edited_by', true, null], ['created_at', true, null], ['updated_at', true, null],
+            ]],
+            'attendance_breaks' => ['attendance_breaks', [
+                ['id', false, null], ['attendance_id', false, null], ['started_at', false, null], ['ended_at', true, null],
+                ['created_at', true, null], ['updated_at', true, null],
+            ]],
+            'shift_months' => ['shift_months', [
+                ['id', false, null], ['store_id', false, null], ['month', false, null], ['request_deadline', true, null],
+                ['published_at', true, null], ['memo', true, null], ['created_at', true, null], ['updated_at', true, null],
+            ]],
+            'shift_requests' => ['shift_requests', [
+                ['id', false, null], ['store_id', false, null], ['user_id', false, null], ['date', false, null],
+                ['kind', false, null], ['start_time', true, null], ['end_time', true, null], ['note', true, null],
+                ['created_at', true, null], ['updated_at', true, null],
+            ]],
+            'shifts' => ['shifts', [
+                ['id', false, null], ['store_id', false, null], ['user_id', false, null], ['date', false, null],
+                ['start_time', false, null], ['end_time', false, null], ['break_minutes', false, '0'], ['note', true, null],
+                ['created_at', true, null], ['updated_at', true, null],
+            ]],
             'audit_logs' => ['audit_logs', [
                 ['id', false, null], ['store_id', true, null], ['user_id', true, null], ['action', false, null],
                 ['target_type', true, null], ['target_id', true, null], ['before', true, null], ['after', true, null],
@@ -202,6 +233,14 @@ class SchemaTest extends TestCase
             'order_items_order_id_index',
             'order_items_product_id_index',
             'order_item_options_order_item_id_index',
+            'attendances_store_id_business_date_index',
+            'attendances_user_id_clock_in_at_index',
+            'attendance_breaks_attendance_id_started_at_index',
+            'shift_months_store_id_month_unique',
+            'shift_requests_user_id_date_unique',
+            'shift_requests_store_id_date_index',
+            'shifts_store_id_date_index',
+            'shifts_user_id_date_index',
         ] as $name) {
             $this->assertContains($name, $indexes);
         }

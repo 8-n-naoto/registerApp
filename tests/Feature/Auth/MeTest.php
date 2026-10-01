@@ -52,6 +52,8 @@ class MeTest extends TestCase
                     'stock_enabled' => true,
                 ],
                 'current_business_date' => '2026-09-30',
+                'attendance' => null,
+                'labor_warnings' => [],
             ]);
     }
 

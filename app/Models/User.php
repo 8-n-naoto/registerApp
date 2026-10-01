@@ -11,7 +11,8 @@ use Illuminate\Support\Carbon;
 
 /**
  * 05 §3.2。BelongsToStore は付けない（ログインで全店舗から検索するため。staff の範囲は明示バインドで絞る）。
- * role と store_id は $fillable に入れず、作成する処理が明示して設定する
+ * role と store_id は $fillable に入れず、作成する処理が明示して設定する。
+ * hourly_wage・overtime_exempt は勤怠（13 §3.1）。owner だけが #80 で変える
  *
  * @property int $id
  * @property int|null $store_id
@@ -21,6 +22,8 @@ use Illuminate\Support\Carbon;
  * @property string $password
  * @property bool $is_active
  * @property Carbon|null $last_login_at
+ * @property int|null $hourly_wage
+ * @property bool $overtime_exempt
  * @property string|null $remember_token
  * @property-read Store|null $store
  */
@@ -37,6 +40,8 @@ class User extends Authenticatable
         'name',
         'password',
         'is_active',
+        'hourly_wage',
+        'overtime_exempt',
     ];
 
     /**
@@ -56,6 +61,8 @@ class User extends Authenticatable
             'role' => Role::class,
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
+            'hourly_wage' => 'integer',
+            'overtime_exempt' => 'boolean',
             'password' => 'hashed',
         ];
     }

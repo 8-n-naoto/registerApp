@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// S01 ログイン（08 §5.1）
+// S01 ログイン（08 §5.1）。端末の店舗に勤務中の人がいれば、その人への切替も出す（13 §7）
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import BigButton from '@/components/BigButton.vue'
+import OperatorPicker from '@/components/OperatorPicker.vue'
 import WaveBackground from '@/components/WaveBackground.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { errorBody, errorStatus, fieldErrors, isNetworkError, retryAfterSeconds } from '@/lib/apiError'
@@ -37,6 +38,11 @@ function startWait(sec: number): void {
 onBeforeUnmount(() => clearInterval(timer))
 
 const message = computed(() => (waitSec.value > 0 ? fmt(ja.login.throttled, { sec: waitSec.value }) : ui.loginNotice))
+
+async function afterSwitch(): Promise<void> {
+  ui.loginNotice = null
+  await router.replace(safeRedirect(route.query.redirect) ?? auth.homeRoute)
+}
 
 async function submit(): Promise<void> {
   if (submitting.value || waitSec.value > 0) return
@@ -162,6 +168,14 @@ async function submit(): Promise<void> {
           {{ ja.login.submit }}
         </BigButton>
       </form>
+      <div class="login-card login-card--operators">
+        <OperatorPicker
+          hide-when-empty
+          :heading="ja.loginOperators.heading"
+          :help="ja.loginOperators.help"
+          @switched="afterSwitch"
+        />
+      </div>
     </main>
   </div>
 </template>
@@ -198,6 +212,8 @@ async function submit(): Promise<void> {
   background: var(--c-surface);
   box-shadow: 0 8px 32px rgba(15, 46, 122, 0.25);
 }
+
+.login-card--operators:not(:has(.op-pick)) { display: none; }
 
 .login-card__notice {
   padding: 12px 16px;

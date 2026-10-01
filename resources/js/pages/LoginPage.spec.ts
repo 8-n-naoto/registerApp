@@ -8,6 +8,8 @@ import { apiError, makeMe } from '@/test/helpers'
 
 const login = vi.fn()
 vi.mock('@/api/auth', () => ({ login: (...args: unknown[]) => login(...args), fetchMe: vi.fn(), logout: vi.fn(), updatePassword: vi.fn() }))
+// 端末の店舗に勤務中の人がいなければ切替の欄は出ない（13 §7）
+vi.mock('@/api/attendance', () => ({ fetchOperators: vi.fn(() => Promise.resolve([])) }))
 
 const Blank = { template: '<div />' }
 let router: Router

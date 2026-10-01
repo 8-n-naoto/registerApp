@@ -67,7 +67,7 @@ class DatabaseSeeder extends Seeder
     private function user(Role $role, string $loginId, string $name, ?Store $store): void
     {
         $user = new User(['login_id' => $loginId, 'name' => $name, 'password' => 'password', 'is_active' => true]);
-        $user->forceFill(['role' => $role, 'store_id' => $store?->id])->save();
+        $user->forceFill(['role' => $role, 'store_id' => $store?->id, 'overtime_exempt' => $role === Role::Owner])->save();
     }
 
     private function catalog(Store $store): void

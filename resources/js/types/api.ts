@@ -28,6 +28,8 @@ export interface Me {
   user: User
   store: StoreSettings | null  // admin は null
   current_business_date: string | null  // owner/staff のみ。07 §3 で計算
+  attendance: MeAttendance | null  // 13 §4：勤務中なら出勤の行（勤務中でなければ null）
+  labor_warnings: LaborWarning[]  // owner だけ。未入力の労働条件（13 §6.6）
 }
 
 export interface TaxType { id: number; name: string; rate_permille: number; sort_order: number; is_default: boolean; is_active: boolean }
@@ -237,3 +239,120 @@ export interface ApiErrorBody {
   errors?: Record<string, string[]>
   details?: Record<string, unknown>
 }
+
+// 13 §4 勤怠・勤務表
+
+export interface MeAttendance { id: number; clock_in_at: string; on_break: boolean }
+export type LaborWarning = 'weekly_hours_limit' | 'week_start_day' | 'legal_holiday_day' | 'minimum_wage' | 'hourly_wage'
+export type AttendanceStatus = 'closed' | 'stale' | 'on_break' | 'working'
+
+export interface AttendanceBreak { id: number; started_at: string; ended_at: string | null }
+
+export interface Attendance {
+  id: number
+  user_id: number
+  user_name: string
+  business_date: string
+  clock_in_at: string
+  clock_out_at: string | null
+  breaks: AttendanceBreak[]
+  break_minutes: number
+  work_minutes: number | null  // 勤務中・退勤未打刻は null
+  status: AttendanceStatus
+  edited: boolean
+  hourly_wage?: number | null  // owner にだけ返る
+}
+
+export interface AttendanceList { month: string; attendances: Attendance[] }
+
+export type SummaryWarning = 'wage_missing' | 'below_minimum_wage' | 'overtime_45h' | 'break_shortage' | 'open_attendance'
+
+export interface AttendanceSummaryRow {
+  user_id: number
+  name: string
+  role: Role
+  is_active: boolean
+  hourly_wage: number | null
+  overtime_exempt: boolean
+  days: number
+  work_minutes: number
+  overtime_minutes: number
+  overtime_over60_minutes: number
+  night_minutes: number
+  holiday_minutes: number
+  scheduled_minutes: number
+  open_count: number
+  base_pay: number | null
+  premium_pay: number | null
+  total_pay: number | null
+  break_shortage_dates: string[]
+  warnings: SummaryWarning[]
+}
+
+export interface AttendanceSummaryTotals {
+  days: number
+  work_minutes: number
+  overtime_minutes: number
+  night_minutes: number
+  holiday_minutes: number
+  scheduled_minutes: number
+  base_pay: number | null
+  premium_pay: number | null
+  total_pay: number | null
+}
+
+export interface LaborSettingsValues {
+  weekly_hours_limit: number | null
+  week_start_day: number | null
+  legal_holiday_day: number | null
+  minimum_wage: number | null
+}
+
+export interface AttendanceSummary {
+  month: string
+  settings: LaborSettingsValues
+  warnings: LaborWarning[]
+  rows: AttendanceSummaryRow[]
+  totals: AttendanceSummaryTotals
+}
+
+export interface LaborSettings extends LaborSettingsValues { warnings: LaborWarning[] }
+
+export interface LaborMember { id: number; name: string; role: Role; is_active: boolean; hourly_wage: number | null; overtime_exempt: boolean }
+
+export interface Operator { id: number; name: string; role: Role; on_break: boolean }
+
+export interface ShiftMonth {
+  month: string
+  request_deadline: string | null
+  published_at: string | null
+  memo: string | null
+  accepting_requests: boolean
+}
+
+/** 時刻は 'HH:MM'。日をまたぐ予定は 24 時を超えて書く（例 '26:00'） */
+export interface Shift {
+  id: number
+  user_id: number
+  date: string
+  start_time: string
+  end_time: string
+  break_minutes: number
+  note: string | null
+  planned_minutes: number
+}
+
+export type ShiftRequestKind = 'available' | 'unavailable'
+
+export interface ShiftRequest {
+  user_id: number
+  date: string
+  kind: ShiftRequestKind
+  start_time: string | null
+  end_time: string | null
+  note: string | null
+}
+
+export interface ShiftMember { id: number; name: string; role: Role; is_active: boolean }
+
+export interface ShiftBoard { month: ShiftMonth; shifts: Shift[]; requests: ShiftRequest[]; members: ShiftMember[] }

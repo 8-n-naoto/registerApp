@@ -11,6 +11,7 @@ declare module 'vue-router' {
     guest?: boolean // 未ログインのときだけ開ける（ログイン済みなら役割のホームへ）
     roles?: Role[] // 開ける役割（省略時はログイン済みなら誰でも）
     customer?: boolean // お客さんの画面（C01）。ログイン状態を調べない（GET /me を呼ばない）
+    attendanceFree?: boolean // 勤務中でなくても開ける（13 §7。S22 出勤）
   }
 }
 
@@ -29,6 +30,10 @@ const routes: RouteRecordRaw[] = [
   { path: '/kitchen', name: 'kitchen', component: () => import('@/pages/KitchenPage.vue'), meta: { roles: ['owner', 'staff'] } },
   { path: '/closing', name: 'closing', component: () => import('@/pages/ClosingPage.vue'), meta: { roles: ['owner', 'staff'] } },
   { path: '/account', name: 'account', component: () => import('@/pages/AccountPage.vue') },
+  // 13 §7 勤怠：S22 出勤・S20 勤怠・S21 勤務表
+  { path: '/clock-in', name: 'clock-in', component: () => import('@/pages/ClockInPage.vue'), meta: { roles: ['owner', 'staff'], attendanceFree: true } },
+  { path: '/attendance', name: 'attendance', component: () => import('@/pages/AttendancePage.vue'), meta: { roles: ['owner', 'staff'] } },
+  { path: '/shifts', name: 'shifts', component: () => import('@/pages/ShiftsPage.vue'), meta: { roles: ['owner', 'staff'] } },
   { path: '/products', name: 'products', component: () => import('@/pages/ProductsPage.vue'), meta: { roles: ['owner'] } },
   { path: '/settings/store', name: 'settings-store', component: () => import('@/pages/StoreSettingsPage.vue'), meta: { roles: ['owner'] } },
   { path: '/settings/staff', name: 'settings-staff', component: () => import('@/pages/StaffPage.vue'), meta: { roles: ['owner'] } },
@@ -73,5 +78,10 @@ router.beforeEach(async (to) => {
     return { name: 'login', query: to.fullPath === '/' ? {} : { redirect: to.fullPath } }
   }
   if (to.meta.roles && !to.meta.roles.includes(auth.me.user.role)) return auth.homeRoute
+  // 13 §7：ログインしたままの端末でも、勤務中でない人は出勤（S22）してから使う
+  if (to.name === 'clock-in') return auth.needsClockIn ? true : auth.homeRoute
+  if (auth.needsClockIn && to.meta.roles && !to.meta.attendanceFree) {
+    return { name: 'clock-in', query: to.fullPath === '/' ? {} : { redirect: to.fullPath } }
+  }
   return true
 })

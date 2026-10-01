@@ -33,7 +33,7 @@ class StoreCreate extends Command
         [$store, $owner] = DB::transaction(function () use ($storeName, $loginId, $name, $password): array {
             $store = Store::query()->create(['name' => $storeName]);
             $owner = new User(['login_id' => $loginId, 'name' => $name, 'password' => $password, 'is_active' => true]);
-            $owner->forceFill(['role' => Role::Owner, 'store_id' => $store->id])->save();
+            $owner->forceFill(['role' => Role::Owner, 'store_id' => $store->id, 'overtime_exempt' => true])->save();
 
             return [$store, $owner];
         });

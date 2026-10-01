@@ -3,6 +3,8 @@
 import { computed } from 'vue'
 import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import AccountMenu from '@/components/AccountMenu.vue'
+import LaborWarningBanner from '@/components/LaborWarningBanner.vue'
+import OperatorBar from '@/components/OperatorBar.vue'
 import WaveBackground from '@/components/WaveBackground.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { formatBusinessDate } from '@/lib/date'
@@ -47,6 +49,14 @@ const allCards: HomeCard[] = [
     ],
   },
   {
+    key: 'labor',
+    title: ja.home.card.labor,
+    links: [
+      { label: ja.home.btn.attendance, to: '/attendance', roles: BOTH },
+      { label: ja.home.btn.shifts, to: '/shifts', roles: BOTH },
+    ],
+  },
+  {
     key: 'settings',
     title: ja.home.card.settings,
     links: [
@@ -74,6 +84,7 @@ const businessDate = computed(() => {
   const date = auth.me?.current_business_date
   return date ? fmt(ja.home.businessDate, { date: formatBusinessDate(date) }) : ''
 })
+const laborWarnings = computed(() => (auth.isOwner ? (auth.me?.labor_warnings ?? []) : []))
 </script>
 
 <template>
@@ -91,6 +102,12 @@ const businessDate = computed(() => {
       </div>
       <AccountMenu />
     </header>
+    <OperatorBar v-if="auth.isOwner || auth.isStaff" />
+    <LaborWarningBanner
+      v-if="laborWarnings.length > 0"
+      class="home__warn"
+      :warnings="laborWarnings"
+    />
     <main class="home__cards">
       <section
         v-for="card in cards"
@@ -145,6 +162,8 @@ const businessDate = computed(() => {
   font-size: 18px;
   font-weight: 700;
 }
+
+.home__warn { margin-bottom: 16px; }
 
 .home__cards {
   display: grid;

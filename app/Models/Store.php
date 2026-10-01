@@ -29,6 +29,10 @@ use Illuminate\Support\Carbon;
  * @property PollingMode $polling_mode
  * @property list<array{start: string, end: string}>|null $polling_windows
  * @property int $order_rev
+ * @property int|null $weekly_hours_limit
+ * @property int|null $week_start_day
+ * @property int|null $legal_holiday_day
+ * @property int|null $minimum_wage
  */
 class Store extends Model
 {
@@ -56,6 +60,10 @@ class Store extends Model
         'customer_session_minutes',
         'polling_mode',
         'polling_windows',
+        'weekly_hours_limit',
+        'week_start_day',
+        'legal_holiday_day',
+        'minimum_wage',
     ];
 
     protected function casts(): array
@@ -72,6 +80,10 @@ class Store extends Model
             'polling_mode' => PollingMode::class,
             'polling_windows' => 'array',
             'order_rev' => 'integer',
+            'weekly_hours_limit' => 'integer',
+            'week_start_day' => 'integer',
+            'legal_holiday_day' => 'integer',
+            'minimum_wage' => 'integer',
         ];
     }
 

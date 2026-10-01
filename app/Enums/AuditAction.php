@@ -46,6 +46,23 @@ enum AuditAction: string
     case OrderTableClosed = 'order_table_closed';
     case OrderSettingsUpdated = 'order_settings_updated';
 
+    // 13 §5（勤怠）
+    case AttendanceClockedIn = 'attendance_clocked_in';
+    case AttendanceClockedOut = 'attendance_clocked_out';
+    case AttendanceBreakStarted = 'attendance_break_started';
+    case AttendanceBreakEnded = 'attendance_break_ended';
+    case OperatorSwitched = 'operator_switched';
+    case AttendanceCreated = 'attendance_created';
+    case AttendanceUpdated = 'attendance_updated';
+    case AttendanceDeleted = 'attendance_deleted';
+    case LaborSettingsUpdated = 'labor_settings_updated';
+    case LaborMemberUpdated = 'labor_member_updated';
+    case ShiftMonthUpdated = 'shift_month_updated';
+    case ShiftCreated = 'shift_created';
+    case ShiftUpdated = 'shift_updated';
+    case ShiftDeleted = 'shift_deleted';
+    case ShiftRequestsSubmitted = 'shift_requests_submitted';
+
     public function label(): string
     {
         return match ($this) {
@@ -87,6 +104,21 @@ enum AuditAction: string
             self::OrderTableOpened => 'テーブルの利用開始',
             self::OrderTableClosed => 'テーブルの利用終了',
             self::OrderSettingsUpdated => '注文の設定の変更',
+            self::AttendanceClockedIn => '出勤',
+            self::AttendanceClockedOut => '退勤',
+            self::AttendanceBreakStarted => '休憩開始',
+            self::AttendanceBreakEnded => '休憩終了',
+            self::OperatorSwitched => '担当者の切替',
+            self::AttendanceCreated => '打刻の追加',
+            self::AttendanceUpdated => '打刻の修正',
+            self::AttendanceDeleted => '打刻の削除',
+            self::LaborSettingsUpdated => '労働条件の変更',
+            self::LaborMemberUpdated => '時給・区分の変更',
+            self::ShiftMonthUpdated => '勤務表の締切・公開',
+            self::ShiftCreated => '勤務の予定の追加',
+            self::ShiftUpdated => '勤務の予定の変更',
+            self::ShiftDeleted => '勤務の予定の削除',
+            self::ShiftRequestsSubmitted => '勤務の希望の提出',
         };
     }
 }

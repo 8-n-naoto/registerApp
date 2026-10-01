@@ -23,4 +23,11 @@ enum ErrorCode: string
     case OrderAlreadyPaid = 'ORDER_ALREADY_PAID';
     case TableHasUnpaidOrders = 'TABLE_HAS_UNPAID_ORDERS';
     case OrderLimitExceeded = 'ORDER_LIMIT_EXCEEDED';
+
+    // 13 §5（勤怠）
+    case AttendanceOverlap = 'ATTENDANCE_OVERLAP';
+    case AttendanceState = 'ATTENDANCE_STATE';
+    case ShiftOverlap = 'SHIFT_OVERLAP';
+    case ShiftRequestClosed = 'SHIFT_REQUEST_CLOSED';
+    case OperatorUnavailable = 'OPERATOR_UNAVAILABLE';
 }

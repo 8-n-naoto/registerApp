@@ -1,7 +1,8 @@
 <script setup lang="ts">
-// 右上のアカウントメニュー（08 §3.1・§3.2）。パスワード変更 / 端末名の設定 / ログアウト
+// 右上のアカウントメニュー（08 §3.1・§3.2）。パスワード変更 / 端末名の設定 / ログアウト（勤務中なら退勤。13 §6.1）
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { useAuthStore } from '@/stores/auth'
 
@@ -9,6 +10,7 @@ const auth = useAuthStore()
 const router = useRouter()
 const open = ref(false)
 const loggingOut = ref(false)
+const confirming = ref(false)
 const root = ref<HTMLElement | null>(null)
 
 const name = computed(() => auth.me?.user.name ?? '')
@@ -35,6 +37,16 @@ onBeforeUnmount(() => {
   open.value = false
 })
 
+/** 勤務中ならログアウト = 退勤になることを確かめる */
+function requestLogout(): void {
+  if (auth.working) {
+    open.value = false
+    confirming.value = true
+    return
+  }
+  void logout()
+}
+
 async function logout(): Promise<void> {
   loggingOut.value = true
   try {
@@ -45,6 +57,7 @@ async function logout(): Promise<void> {
     loggingOut.value = false
   }
   open.value = false
+  confirming.value = false
   // replace にして、戻る操作でログイン後の画面に戻らないようにする（AC-S00-5）
   await router.replace({ name: 'login' })
 }
@@ -110,11 +123,21 @@ async function logout(): Promise<void> {
         class="account-menu__item account-menu__item--danger"
         role="menuitem"
         :disabled="loggingOut"
-        @click="logout"
+        @click="requestLogout"
       >
         {{ ja.menu.logout }}
       </button>
     </div>
+    <ConfirmDialog
+      :open="confirming"
+      :title="ja.menu.logoutWorkingTitle"
+      :message="fmt(ja.menu.logoutWorkingMessage, { name })"
+      :confirm-label="ja.menu.logoutWorkingConfirm"
+      danger
+      :loading="loggingOut"
+      @confirm="logout"
+      @cancel="confirming = false"
+    />
   </div>
 </template>
 

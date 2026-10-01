@@ -39,9 +39,19 @@ class AppServiceProvider extends ServiceProvider
                 ->findOrFail((int) $value);
         });
 
+        // 13 #80 {member} は自店舗の owner / staff（停止中も含む）。他店舗・admin は 404
+        Route::bind('member', function (string $value): User {
+            return User::query()
+                ->where('store_id', app(CurrentStore::class)->requireId())
+                ->whereIn('role', [Role::Owner, Role::Staff])
+                ->findOrFail((int) $value);
+        });
+
         // 回数制限（06 §1.6）。login は AuthService で RateLimiter を直接使う（失敗だけ数えるため。04 §4.9）
         RateLimiter::for('api', fn (Request $r) => Limit::perMinute(240)->by('u:'.$r->user()?->id));
         RateLimiter::for('backup', fn (Request $r) => Limit::perMinute(1)->by('backup:'.$r->user()?->id));
+        // 13 #66・#67 端末の担当者（未ログインでも呼べるので IP で数える）
+        RateLimiter::for('operators', fn (Request $r) => Limit::perMinute(60)->by('op:'.$r->ip()));
         RateLimiter::for('import', fn (Request $r) => Limit::perMinute(10)->by('import:'.$r->user()?->id));
 
         // 12 §5.14 お客さんの公開 API。table.token より前に通し、無効なトークンへの要求も IP で数える

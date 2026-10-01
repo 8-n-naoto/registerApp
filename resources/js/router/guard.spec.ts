@@ -61,4 +61,31 @@ describe('ナビゲーションガード（08 §4）', () => {
     expect(router.currentRoute.value.name).toBe('table-order')
     expect(fetchMe).not.toHaveBeenCalled()
   })
+
+  it('13 §7：勤務中でない owner / staff は出勤（S22）へ。アカウントは開ける', async () => {
+    fetchMe.mockResolvedValue({ ...makeMe('staff'), attendance: null })
+    const router = await freshRouter()
+    await router.push('/')
+    expect(router.currentRoute.value.name).toBe('clock-in')
+    expect(router.currentRoute.value.query.redirect).toBeUndefined()
+
+    await router.push('/sales/daily')
+    expect(router.currentRoute.value.name).toBe('clock-in')
+    expect(router.currentRoute.value.query.redirect).toBe('/sales/daily')
+
+    await router.push('/account')
+    expect(router.currentRoute.value.name).toBe('account')
+  })
+
+  it('13 §7：勤務中なら出勤（S22）は開かずホームへ。admin は出勤しない', async () => {
+    fetchMe.mockResolvedValue(makeMe('owner'))
+    let router = await freshRouter()
+    await router.push('/clock-in')
+    expect(router.currentRoute.value.name).toBe('home')
+
+    fetchMe.mockResolvedValue(makeMe('admin'))
+    router = await freshRouter()
+    await router.push('/sales/daily')
+    expect(router.currentRoute.value.name).toBe('sales-daily')
+  })
 })

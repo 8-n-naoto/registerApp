@@ -4,12 +4,14 @@ namespace Tests\Feature\Authorization;
 
 use App\Enums\OrderSource;
 use App\Enums\OrderStatus;
+use App\Models\Attendance;
 use App\Models\Category;
 use App\Models\Order;
 use App\Models\OrderTable;
 use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\ProductOption;
+use App\Models\Shift;
 use App\Models\Store;
 use App\Models\TaxType;
 use App\Models\User;
@@ -109,6 +111,29 @@ class RoleMatrixTest extends TestCase
         63 => ['POST', '/order-tables/{id}/close', ['owner', 'staff'], null, 'orderTable'],
         64 => ['GET', '/settings/orders', ['owner'], null, null],
         65 => ['PUT', '/settings/orders', ['owner'], null, null],
+        // 13 §5 勤怠・勤務表
+        66 => ['GET', '/operators', ['*'], null, null],
+        67 => ['POST', '/operators/switch', ['*'], null, null],
+        68 => ['POST', '/attendance/clock-in', ['owner', 'staff'], null, null],
+        69 => ['POST', '/attendance/break-start', ['owner', 'staff'], null, null],
+        70 => ['POST', '/attendance/break-end', ['owner', 'staff'], null, null],
+        71 => ['GET', '/attendances', ['owner', 'staff'], null, null],
+        72 => ['POST', '/attendances', ['owner'], null, null],
+        73 => ['PUT', '/attendances/{id}', ['owner'], null, 'attendance'],
+        74 => ['DELETE', '/attendances/{id}', ['owner'], null, 'attendance'],
+        75 => ['GET', '/attendances/summary', ['owner'], null, null],
+        76 => ['GET', '/attendances/export', ['owner'], null, null],
+        77 => ['GET', '/settings/labor', ['owner'], null, null],
+        78 => ['PUT', '/settings/labor', ['owner'], null, null],
+        79 => ['GET', '/labor-members', ['owner'], null, null],
+        80 => ['PUT', '/labor-members/{id}', ['owner'], null, 'staff'],
+        81 => ['GET', '/shifts', ['owner', 'staff'], null, null],
+        82 => ['PUT', '/shift-months', ['owner'], null, null],
+        83 => ['POST', '/shifts', ['owner'], null, null],
+        84 => ['PUT', '/shifts/{id}', ['owner'], null, 'shift'],
+        85 => ['DELETE', '/shifts/{id}', ['owner'], null, 'shift'],
+        86 => ['GET', '/shift-requests/mine', ['owner', 'staff'], null, null],
+        87 => ['PUT', '/shift-requests/mine', ['owner', 'staff'], null, null],
     ];
 
     /** 本文以外で必要な検索条件（期間の集計は from / to が先に検証されるため、store_id の検証を確かめられるよう正しい期間を付ける） */
@@ -173,6 +198,18 @@ class RoleMatrixTest extends TestCase
 
         $table = OrderTable::factory()->for($store)->opened()->create();
 
+        // 退勤済みの打刻と勤務の予定（13 §3）
+        $worker = User::factory()->staff($store)->create();
+        $attendance = new Attendance([
+            'user_id' => $worker->id,
+            'business_date' => '2026-09-28',
+            'clock_in_at' => '2026-09-28 10:00:00',
+            'clock_out_at' => '2026-09-28 15:00:00',
+        ]);
+        $attendance->forceFill(['store_id' => $store->id])->save();
+        $shift = new Shift(['user_id' => $worker->id, 'date' => '2026-09-30', 'start_time' => '10:00', 'end_time' => '15:00']);
+        $shift->forceFill(['store_id' => $store->id])->save();
+
         return [
             'sale' => $sale->id,
             'product' => $product->id,
@@ -186,6 +223,8 @@ class RoleMatrixTest extends TestCase
             'token' => $table->plainToken(),
             'order' => $order->id,
             'orderItem' => $orderItem->id,
+            'attendance' => $attendance->id,
+            'shift' => $shift->id,
         ];
     }
 
