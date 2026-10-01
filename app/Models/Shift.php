@@ -18,6 +18,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $end_time
  * @property int $break_minutes
  * @property string|null $note
+ * @property int|null $shift_pattern_id
+ * @property string|null $pattern_name
+ * @property list<array{start: string, end: string}>|null $segments
  */
 class Shift extends Model
 {
@@ -30,12 +33,17 @@ class Shift extends Model
         'end_time',
         'break_minutes',
         'note',
+        'shift_pattern_id',
+        'pattern_name',
+        'segments',
     ];
 
     protected function casts(): array
     {
         return [
             'user_id' => 'integer',
+            'shift_pattern_id' => 'integer',
+            'segments' => 'array',
             'break_minutes' => 'integer',
         ];
     }

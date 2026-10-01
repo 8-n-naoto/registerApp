@@ -1,29 +1,27 @@
 <script setup lang="ts">
-// 13 §6.8 S21［希望を出す］：日ごとに 出られる / 出られない を選び、その月の分をまとめて送る（#86・#87）
+// 13 §6.8 S21［希望を出す］：日ごとに 区分 / その他（メモ）/ 出られない を選び、その月の分をまとめて送る（#86・#87）
 import { computed, onMounted, ref, watch } from 'vue'
 import { fetchMyShiftRequests, submitMyShiftRequests, type ShiftRequestInput } from '@/api/shifts'
 import BigButton from '@/components/BigButton.vue'
 import SegmentedControl from '@/components/SegmentedControl.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { errorBody, errorStatus, fieldErrors, isNetworkError } from '@/lib/apiError'
-import { formatDay, monthDays, normalizeShiftTime, weekdayOf } from '@/lib/labor'
-import type { ShiftMonth, ShiftRequestKind } from '@/types/api'
+import { formatDay, formatMinutes, monthDays, segmentsText, weekdayOf } from '@/lib/labor'
+import type { ShiftMonth, ShiftPattern, ShiftSegment } from '@/types/api'
 
 const props = defineProps<{ month: string }>()
 const emit = defineEmits<{ submitted: [] }>()
 
 const t = ja.shifts
 
-type Kind = ShiftRequestKind | 'none'
-interface DayForm { date: string; kind: Kind; start_time: string; end_time: string; note: string }
-
-const kindOptions = [
-  { value: 'none', label: t.kind.none },
-  { value: 'available', label: t.kind.available },
-  { value: 'unavailable', label: t.kind.unavailable },
-] as const satisfies readonly { value: Kind; label: string }[]
+/** 区分は `p:<id>`。区分に合わないときは memo（メモ必須） */
+type Choice = 'none' | 'memo' | 'unavailable' | `p:${number}`
+/** 使わなくなった区分でも、その日にすでに出していたものはそのまま選べる */
+interface OwnPattern { id: number; name: string; segments: ShiftSegment[] }
+interface DayForm { date: string; choice: Choice; note: string; own: OwnPattern | null }
 
 const info = ref<ShiftMonth | null>(null)
+const patterns = ref<ShiftPattern[]>([])
 const days = ref<DayForm[]>([])
 const loading = ref(true)
 const loadFailed = ref<string | null>(null)
@@ -33,6 +31,30 @@ const notice = ref<string | null>(null)
 const submitting = ref(false)
 
 const accepting = computed(() => info.value?.accepting_requests ?? false)
+const patternChoices = computed(() => patterns.value.map((p) => ({ value: `p:${p.id}` as Choice, label: p.name })))
+
+function optionsFor(d: DayForm): { value: Choice; label: string }[] {
+  const own = d.own !== null && !patterns.value.some((p) => p.id === d.own?.id)
+    ? [{ value: `p:${d.own.id}` as Choice, label: d.own.name }]
+    : []
+  return [
+    { value: 'none', label: t.choice.none },
+    ...patternChoices.value,
+    ...own,
+    { value: 'memo', label: t.choice.memo },
+    { value: 'unavailable', label: t.choice.unavailable },
+  ]
+}
+
+function patternIdOf(choice: Choice): number | null {
+  return choice.startsWith('p:') ? Number(choice.slice(2)) : null
+}
+
+function chosenSegments(d: DayForm): ShiftSegment[] | null {
+  const id = patternIdOf(d.choice)
+  if (id === null) return null
+  return patterns.value.find((p) => p.id === id)?.segments ?? (d.own?.id === id ? d.own.segments : null)
+}
 
 async function load(): Promise<void> {
   loading.value = true
@@ -43,10 +65,19 @@ async function load(): Promise<void> {
   try {
     const res = await fetchMyShiftRequests(props.month)
     info.value = res.month
+    patterns.value = res.patterns
     const byDate = new Map(res.requests.map((r) => [r.date, r]))
     days.value = monthDays(props.month).map((date) => {
       const r = byDate.get(date)
-      return { date, kind: r?.kind ?? 'none', start_time: r?.start_time ?? '', end_time: r?.end_time ?? '', note: r?.note ?? '' }
+      if (!r) return { date, choice: 'none', note: '', own: null }
+      if (r.kind === 'unavailable') return { date, choice: 'unavailable', note: r.note ?? '', own: null }
+      if (r.pattern_id !== null) {
+        const own = { id: r.pattern_id, name: r.pattern_name ?? '', segments: r.segments ?? [] }
+        return { date, choice: `p:${r.pattern_id}`, note: r.note ?? '', own }
+      }
+      // 区分の導入前に時間で出した希望はメモとして残す
+      const legacy = r.start_time && r.end_time ? `${r.start_time}〜${r.end_time}` : ''
+      return { date, choice: 'memo', note: r.note ?? legacy, own: null }
     })
   } catch (err) {
     loadFailed.value = isNetworkError(err) ? ja.error.network : (errorBody(err)?.message ?? t.loadFailed)
@@ -75,16 +106,21 @@ async function submit(): Promise<void> {
   failed.value = null
   notice.value = null
   const sent: ShiftRequestInput[] = []
+  const missing: Record<string, string> = {}
   for (const d of days.value) {
-    if (d.kind === 'none') continue
-    const available = d.kind === 'available'
-    const start = available ? normalizeShiftTime(d.start_time) : ''
-    const end = available ? normalizeShiftTime(d.end_time) : ''
-    if (available) {
-      d.start_time = start
-      d.end_time = end
-    }
-    sent.push({ date: d.date, kind: d.kind, start_time: start === '' ? null : start, end_time: end === '' ? null : end, note: d.note.trim() === '' ? null : d.note.trim() })
+    if (d.choice === 'none') continue
+    const note = d.note.trim() === '' ? null : d.note.trim()
+    if (d.choice === 'memo' && note === null) missing[d.date] = t.memoRequired
+    sent.push({
+      date: d.date,
+      kind: d.choice === 'unavailable' ? 'unavailable' : 'available',
+      pattern_id: patternIdOf(d.choice),
+      note,
+    })
+  }
+  if (Object.keys(missing).length > 0) {
+    errors.value = missing
+    return
   }
   submitting.value = true
   try {
@@ -164,6 +200,34 @@ async function submit(): Promise<void> {
       >
         {{ t.requestHelp }}
       </p>
+      <section
+        v-if="patterns.length > 0"
+        class="req-legend"
+        aria-labelledby="req-legend-heading"
+      >
+        <h3
+          id="req-legend-heading"
+          class="req-legend__title"
+        >
+          {{ t.patternLegend }}
+        </h3>
+        <dl class="req-legend__list">
+          <div
+            v-for="p in patterns"
+            :key="p.id"
+            class="req-legend__row"
+          >
+            <dt class="req-legend__name">
+              {{ p.name }}
+            </dt>
+            <dd class="req-legend__time">
+              {{ segmentsText(p.segments) }}<template v-if="p.break_minutes > 0">
+                （{{ fmt(t.patternBreak, { time: formatMinutes(p.break_minutes) }) }}）
+              </template>
+            </dd>
+          </div>
+        </dl>
+      </section>
       <ol class="req-days">
         <li
           v-for="d in days"
@@ -175,52 +239,19 @@ async function submit(): Promise<void> {
             {{ formatDay(d.date) }}
           </h3>
           <SegmentedControl
-            v-model="d.kind"
-            :options="kindOptions"
+            v-model="d.choice"
+            :options="optionsFor(d)"
             :label="formatDay(d.date)"
             :disabled="!accepting"
           />
-          <div
-            v-if="d.kind === 'available'"
-            class="req-day__times"
+          <p
+            v-if="chosenSegments(d)"
+            class="req-day__segments"
           >
-            <div class="adm-field">
-              <label
-                :for="`req-start-${d.date}`"
-                class="adm-field__label"
-              >{{ t.start }}</label>
-              <input
-                :id="`req-start-${d.date}`"
-                v-model="d.start_time"
-                class="adm-input"
-                inputmode="numeric"
-                placeholder="10:00"
-                maxlength="5"
-                autocomplete="off"
-                :disabled="!accepting"
-                @blur="d.start_time = normalizeShiftTime(d.start_time)"
-              >
-            </div>
-            <div class="adm-field">
-              <label
-                :for="`req-end-${d.date}`"
-                class="adm-field__label"
-              >{{ t.end }}</label>
-              <input
-                :id="`req-end-${d.date}`"
-                v-model="d.end_time"
-                class="adm-input"
-                inputmode="numeric"
-                placeholder="15:00"
-                maxlength="5"
-                autocomplete="off"
-                :disabled="!accepting"
-                @blur="d.end_time = normalizeShiftTime(d.end_time)"
-              >
-            </div>
-          </div>
+            {{ segmentsText(chosenSegments(d) ?? []) }}
+          </p>
           <div
-            v-if="d.kind !== 'none'"
+            v-if="d.choice !== 'none'"
             class="adm-field"
           >
             <label
@@ -234,6 +265,7 @@ async function submit(): Promise<void> {
               maxlength="100"
               autocomplete="off"
               :disabled="!accepting"
+              :aria-invalid="errors[d.date] ? 'true' : undefined"
             >
           </div>
           <p
@@ -274,6 +306,12 @@ async function submit(): Promise<void> {
 </template>
 
 <style scoped>
+.req-legend { padding: 12px 16px; border-radius: var(--radius); background: var(--c-surface-alt); }
+.req-legend__title { margin-bottom: 4px; font-size: 16px; }
+.req-legend__list { display: flex; flex-direction: column; gap: 4px; margin: 0; }
+.req-legend__row { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.req-legend__name { min-width: 3em; font-weight: 700; }
+.req-legend__time { margin: 0; font-variant-numeric: tabular-nums; }
 .req-days { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
 
 .req-day {
@@ -288,8 +326,7 @@ async function submit(): Promise<void> {
 .req-day__date { font-size: 18px; }
 .req-day--sun .req-day__date { color: var(--c-danger); }
 .req-day--sat .req-day__date { color: var(--c-primary); }
-.req-day__times { display: flex; flex-wrap: wrap; gap: 12px; }
-.req-day__times .adm-field { flex: 1 1 140px; }
+.req-day__segments { font-variant-numeric: tabular-nums; font-weight: 700; }
 
 .req-submit {
   position: sticky;

@@ -30,7 +30,7 @@ class SchemaTest extends TestCase
             'audit_logs', 'cache', 'cache_locks', 'categories', 'failed_jobs', 'job_batches', 'jobs',
             'migrations', 'order_item_options', 'order_items', 'order_tables', 'orders',
             'payment_methods', 'product_option_groups', 'product_options', 'products', 'register_closings',
-            'sale_item_options', 'sale_items', 'sales', 'sessions', 'shift_months', 'shift_requests', 'shifts',
+            'sale_item_options', 'sale_items', 'sales', 'sessions', 'shift_months', 'shift_patterns', 'shift_requests', 'shifts',
             'stores', 'tax_types', 'users',
         ], $tables);
     }
@@ -173,11 +173,17 @@ class SchemaTest extends TestCase
                 ['id', false, null], ['store_id', false, null], ['user_id', false, null], ['date', false, null],
                 ['kind', false, null], ['start_time', true, null], ['end_time', true, null], ['note', true, null],
                 ['created_at', true, null], ['updated_at', true, null],
+                ['shift_pattern_id', true, null], ['pattern_name', true, null], ['segments', true, null],
             ]],
             'shifts' => ['shifts', [
                 ['id', false, null], ['store_id', false, null], ['user_id', false, null], ['date', false, null],
                 ['start_time', false, null], ['end_time', false, null], ['break_minutes', false, '0'], ['note', true, null],
                 ['created_at', true, null], ['updated_at', true, null],
+                ['shift_pattern_id', true, null], ['pattern_name', true, null], ['segments', true, null],
+            ]],
+            'shift_patterns' => ['shift_patterns', [
+                ['id', false, null], ['store_id', false, null], ['name', false, null], ['segments', false, null],
+                ['is_active', false, '1'], ['created_at', true, null], ['updated_at', true, null],
             ]],
             'audit_logs' => ['audit_logs', [
                 ['id', false, null], ['store_id', true, null], ['user_id', true, null], ['action', false, null],
@@ -249,6 +255,7 @@ class SchemaTest extends TestCase
             'shift_requests_store_id_date_index',
             'shifts_store_id_date_index',
             'shifts_user_id_date_index',
+            'shift_patterns_store_id_name_unique',
         ] as $name) {
             $this->assertContains($name, $indexes);
         }

@@ -13,6 +13,7 @@ use App\Models\Product;
 use App\Models\ProductOption;
 use App\Models\ProductOptionGroup;
 use App\Models\Shift;
+use App\Models\ShiftPattern;
 use App\Models\Store;
 use App\Models\TaxType;
 use App\Models\User;
@@ -135,6 +136,10 @@ class RoleMatrixTest extends TestCase
         85 => ['DELETE', '/shifts/{id}', ['owner'], null, 'shift'],
         86 => ['GET', '/shift-requests/mine', ['owner', 'staff'], null, null],
         87 => ['PUT', '/shift-requests/mine', ['owner', 'staff'], null, null],
+        // 13 §5 勤務の区分
+        91 => ['GET', '/shift-patterns', ['owner'], null, null],
+        92 => ['POST', '/shift-patterns', ['owner'], null, null],
+        93 => ['PUT', '/shift-patterns/{id}', ['owner'], null, 'shiftPattern'],
         // docs/10「オプションのグループ」
         88 => ['POST', '/products/{id}/option-groups', ['owner'], null, 'product'],
         89 => ['PUT', '/option-groups/{id}', ['owner'], null, 'optionGroup'],
@@ -216,6 +221,8 @@ class RoleMatrixTest extends TestCase
         $attendance->forceFill(['store_id' => $store->id])->save();
         $shift = new Shift(['user_id' => $worker->id, 'date' => '2026-09-30', 'start_time' => '10:00', 'end_time' => '15:00']);
         $shift->forceFill(['store_id' => $store->id])->save();
+        $shiftPattern = new ShiftPattern(['name' => 'A', 'segments' => [['start' => '09:00', 'end' => '12:00']]]);
+        $shiftPattern->forceFill(['store_id' => $store->id])->save();
 
         return [
             'sale' => $sale->id,
@@ -233,6 +240,7 @@ class RoleMatrixTest extends TestCase
             'orderItem' => $orderItem->id,
             'attendance' => $attendance->id,
             'shift' => $shift->id,
+            'shiftPattern' => $shiftPattern->id,
         ];
     }
 

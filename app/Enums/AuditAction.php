@@ -65,6 +65,8 @@ enum AuditAction: string
     case ShiftUpdated = 'shift_updated';
     case ShiftDeleted = 'shift_deleted';
     case ShiftRequestsSubmitted = 'shift_requests_submitted';
+    case ShiftPatternCreated = 'shift_pattern_created';
+    case ShiftPatternUpdated = 'shift_pattern_updated';
 
     public function label(): string
     {
@@ -125,6 +127,8 @@ enum AuditAction: string
             self::ShiftUpdated => '勤務の予定の変更',
             self::ShiftDeleted => '勤務の予定の削除',
             self::ShiftRequestsSubmitted => '勤務の希望の提出',
+            self::ShiftPatternCreated => '勤務の区分の追加',
+            self::ShiftPatternUpdated => '勤務の区分の変更',
         };
     }
 }

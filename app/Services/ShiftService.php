@@ -7,6 +7,7 @@ use App\Enums\ErrorCode;
 use App\Exceptions\BusinessException;
 use App\Models\Shift;
 use App\Models\ShiftMonth;
+use App\Models\ShiftPattern;
 use App\Models\ShiftRequest;
 use App\Models\Store;
 use App\Models\User;
@@ -16,7 +17,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
- * 13 §6.5 勤務表：月の締切・公開（#82）、予定（#83〜#85）、希望の提出（#87）
+ * 13 §6.5 勤務表：月の締切・公開（#82）、予定（#83〜#85）、希望の提出（#87）、区分（#92・#93）
  */
 final class ShiftService
 {
@@ -50,7 +51,7 @@ final class ShiftService
         });
     }
 
-    /** @param  array{user_id: int, date: string, start_time: string, end_time: string, break_minutes: int, note: string|null}  $data */
+    /** @param  array{user_id: int, date: string, start_time: string, end_time: string, break_minutes: int, note: string|null, shift_pattern_id: int|null, pattern_name: string|null, segments: list<array{start: string, end: string}>|null}  $data */
     public function create(array $data): Shift
     {
         return DB::transaction(function () use ($data): Shift {
@@ -63,7 +64,7 @@ final class ShiftService
         });
     }
 
-    /** @param  array{user_id: int, date: string, start_time: string, end_time: string, break_minutes: int, note: string|null}  $data */
+    /** @param  array{user_id: int, date: string, start_time: string, end_time: string, break_minutes: int, note: string|null, shift_pattern_id: int|null, pattern_name: string|null, segments: list<array{start: string, end: string}>|null}  $data */
     public function update(Shift $shift, array $data): Shift
     {
         return DB::transaction(function () use ($shift, $data): Shift {
@@ -71,7 +72,10 @@ final class ShiftService
             self::month(substr($data['date'], 0, 7));
             $before = $shift->attributesToArray();
             $shift->fill($data)->save();
-            [$b, $a] = AuditLogger::diffModel($before, $shift);
+            [$b, $a] = array_map(
+                fn (array $d): array => array_key_exists('segments', $d) ? [...$d, 'segments' => self::segmentsText($d['segments'])] : $d,
+                AuditLogger::diffModel($before, $shift),
+            );
             if ($a !== []) {
                 $this->audit->log(AuditAction::ShiftUpdated, $shift, $b, $a);
             }
@@ -91,7 +95,7 @@ final class ShiftService
     /**
      * #87 本人の希望をその月の分だけ置き換える。公開後・締切後は 422
      *
-     * @param  list<array{date: string, kind: string, start_time: string|null, end_time: string|null, note: string|null}>  $requests
+     * @param  list<array{date: string, kind: string, start_time: string|null, end_time: string|null, note: string|null, shift_pattern_id: int|null, pattern_name: string|null, segments: list<array{start: string, end: string}>|null}>  $requests
      */
     public function submitRequests(Store $store, User $user, string $month, array $requests): void
     {
@@ -111,16 +115,53 @@ final class ShiftService
                     'start_time' => $r['start_time'],
                     'end_time' => $r['end_time'],
                     'note' => $r['note'],
+                    'shift_pattern_id' => $r['shift_pattern_id'],
+                    'pattern_name' => $r['pattern_name'],
+                    'segments' => $r['segments'],
                 ]);
                 $req->forceFill(['user_id' => $user->id])->save();
             }
             $this->audit->log(AuditAction::ShiftRequestsSubmitted, $row, after: [
                 'month' => $month,
                 'requests' => array_map(
-                    fn (array $r): string => $r['date'].' '.$r['kind'].($r['start_time'] !== null ? ' '.$r['start_time'].'〜'.($r['end_time'] ?? '') : ''),
+                    fn (array $r): string => $r['date'].' '.$r['kind']
+                        .($r['pattern_name'] !== null ? ' '.$r['pattern_name'] : '')
+                        .($r['start_time'] !== null ? ' '.$r['start_time'].'〜'.($r['end_time'] ?? '') : ''),
                     $requests,
                 ),
             ]);
+        });
+    }
+
+    /** @param  array{name: string, segments: list<array{start: string, end: string}>, is_active: bool}  $data */
+    public function createPattern(array $data): ShiftPattern
+    {
+        return DB::transaction(function () use ($data): ShiftPattern {
+            $pattern = ShiftPattern::query()->create($data);
+            $this->audit->log(AuditAction::ShiftPatternCreated, $pattern, after: self::patternSnapshot($pattern));
+
+            return $pattern;
+        });
+    }
+
+    /** @param  array{name: string, segments: list<array{start: string, end: string}>, is_active: bool}  $data */
+    public function updatePattern(ShiftPattern $pattern, array $data): ShiftPattern
+    {
+        return DB::transaction(function () use ($pattern, $data): ShiftPattern {
+            $before = self::patternSnapshot($pattern);
+            $pattern->fill($data)->save();
+            $after = self::patternSnapshot($pattern);
+            $changed = array_keys(array_filter($after, fn ($v, $k): bool => $before[$k] !== $v, ARRAY_FILTER_USE_BOTH));
+            if ($changed !== []) {
+                $this->audit->log(
+                    AuditAction::ShiftPatternUpdated,
+                    $pattern,
+                    ['name' => $before['name'], ...array_intersect_key($before, array_flip($changed))],
+                    ['name' => $after['name'], ...array_intersect_key($after, array_flip($changed))],
+                );
+            }
+
+            return $pattern;
         });
     }
 
@@ -160,6 +201,30 @@ final class ShiftService
             'end_time' => $s->end_time,
             'break_minutes' => $s->break_minutes,
             'note' => $s->note,
+            'pattern_name' => $s->pattern_name,
+        ];
+    }
+
+    /** 操作ログ用：'09:00〜12:00 / 13:00〜15:00' */
+    private static function segmentsText(mixed $segments): ?string
+    {
+        if (! is_array($segments)) {
+            return null;
+        }
+
+        return implode(' / ', array_map(
+            fn (mixed $seg): string => is_array($seg) ? ($seg['start'] ?? '').'〜'.($seg['end'] ?? '') : '',
+            $segments,
+        ));
+    }
+
+    /** @return array{name: string, segments: string, is_active: bool} */
+    private static function patternSnapshot(ShiftPattern $p): array
+    {
+        return [
+            'name' => $p->name,
+            'segments' => (string) self::segmentsText($p->segments),
+            'is_active' => $p->is_active,
         ];
     }
 }

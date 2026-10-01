@@ -360,6 +360,10 @@ export interface Shift {
   break_minutes: number
   note: string | null
   planned_minutes: number
+  /** 区分を選んだ予定は、その時点の区分の名前と時間帯を写す */
+  pattern_id: number | null
+  pattern_name: string | null
+  segments: ShiftSegment[] | null
 }
 
 export type ShiftRequestKind = 'available' | 'unavailable'
@@ -371,8 +375,24 @@ export interface ShiftRequest {
   start_time: string | null
   end_time: string | null
   note: string | null
+  pattern_id: number | null
+  pattern_name: string | null
+  segments: ShiftSegment[] | null
+}
+
+/** 13 §3.6 区分の時間帯。間は休憩 */
+export interface ShiftSegment { start: string; end: string }
+
+export interface ShiftPattern {
+  id: number
+  name: string
+  segments: ShiftSegment[]
+  is_active: boolean
+  start_time: string
+  end_time: string
+  break_minutes: number
 }
 
 export interface ShiftMember { id: number; name: string; role: Role; is_active: boolean }
 
-export interface ShiftBoard { month: ShiftMonth; shifts: Shift[]; requests: ShiftRequest[]; members: ShiftMember[] }
+export interface ShiftBoard { month: ShiftMonth; shifts: Shift[]; requests: ShiftRequest[]; members: ShiftMember[]; patterns: ShiftPattern[] }

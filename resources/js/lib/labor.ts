@@ -64,3 +64,8 @@ export function formatDay(ymd: string): string {
   const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(ymd)
   return m ? `${Number(m[1])}/${Number(m[2])}（${weekdayLabel(weekdayOf(ymd))}）` : ymd
 }
+
+/** 区分の時間帯 → '09:00〜12:00・13:00〜15:00' */
+export function segmentsText(segments: readonly { start: string; end: string }[]): string {
+  return segments.map((s) => `${s.start}〜${s.end}`).join('・')
+}

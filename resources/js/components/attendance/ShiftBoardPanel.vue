@@ -1,14 +1,15 @@
 <script setup lang="ts">
-// 13 §6.7 S21 勤務表：日ごとの予定（自分を強調）。owner は希望も並べ、予定を追加・修正・削除（#83〜#85）
+// 13 §6.7 S21 勤務表：日ごとの予定（自分を強調）。owner は希望も並べ、予定を追加・修正・削除（#83〜#85）。区分（13 §3.6）を選べる
 import { computed, ref } from 'vue'
 import { createShift, deleteShift, updateShift } from '@/api/shifts'
 import BigButton from '@/components/BigButton.vue'
 import BottomSheet from '@/components/BottomSheet.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import SegmentedControl from '@/components/SegmentedControl.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { errorBody, errorStatus, fieldErrors, isNetworkError } from '@/lib/apiError'
-import { formatDay, formatMinutes, monthDays, normalizeShiftTime, weekdayOf } from '@/lib/labor'
-import type { Shift, ShiftBoard, ShiftRequest } from '@/types/api'
+import { formatDay, formatMinutes, monthDays, normalizeShiftTime, segmentsText, weekdayOf } from '@/lib/labor'
+import type { Shift, ShiftBoard, ShiftPattern, ShiftRequest, ShiftSegment } from '@/types/api'
 
 const props = defineProps<{ board: ShiftBoard; isOwner: boolean; myId: number | null }>()
 const emit = defineEmits<{ changed: [] }>()
@@ -31,9 +32,48 @@ function nameOf(userId: number): string {
   return names.value.get(userId) ?? ''
 }
 
-function requestLabel(r: ShiftRequest): string {
+function requestText(r: ShiftRequest): string {
+  if (r.kind === 'unavailable') return t.kind.unavailable
+  if (r.pattern_name !== null) return `${r.pattern_name} ${segmentsText(r.segments ?? [])}`
   const time = r.start_time && r.end_time ? ` ${r.start_time}〜${r.end_time}` : ''
-  return `${nameOf(r.user_id)}：${t.kind[r.kind]}${time}${r.note ? `（${r.note}）` : ''}`
+  return `${t.kind.available}${time}`
+}
+
+function requestLabel(r: ShiftRequest): string {
+  return `${nameOf(r.user_id)}：${requestText(r)}${r.note ? `（${r.note}）` : ''}`
+}
+
+/** 時間帯が 2 つ以上なら区分の時間帯で見せる（間は休憩） */
+function shiftTime(s: Shift): string {
+  return s.segments !== null && s.segments.length > 1 ? segmentsText(s.segments) : `${s.start_time}〜${s.end_time}`
+}
+
+// 区分：選ぶと時刻と休憩を区分のとおりに入れる。時刻を直したら［時間を入れる］に戻る
+type PatternChoice = 'custom' | `p:${number}`
+const patternOptions = computed(() => [
+  ...props.board.patterns.map((p) => ({ value: `p:${p.id}` as PatternChoice, label: p.name })),
+  { value: 'custom' as PatternChoice, label: t.patternCustom },
+])
+const patternChoice = ref<PatternChoice>('custom')
+const chosenPattern = computed<ShiftPattern | null>(() =>
+  patternChoice.value === 'custom' ? null : (props.board.patterns.find((p) => `p:${p.id}` === patternChoice.value) ?? null),
+)
+
+function sameSegments(a: readonly ShiftSegment[] | null, b: readonly ShiftSegment[]): boolean {
+  return a !== null && a.length === b.length && a.every((x, i) => x.start === b[i]?.start && x.end === b[i]?.end)
+}
+
+function choosePattern(choice: PatternChoice): void {
+  patternChoice.value = choice
+  const p = chosenPattern.value
+  if (p === null) return
+  form.value.start_time = p.start_time
+  form.value.end_time = p.end_time
+  form.value.break_minutes = String(p.break_minutes)
+}
+
+function onTimeEdited(): void {
+  patternChoice.value = 'custom'
 }
 
 // 予定の追加・修正
@@ -49,11 +89,17 @@ const deleteError = ref<string | null>(null)
 const editingShift = computed(() => (editing.value !== null && editing.value !== 'new' ? editing.value : null))
 const sheetTitle = computed(() => (editing.value === 'new' ? t.addTitle : t.editTitle))
 
-function startNew(date: string): void {
+function startNew(date: string, from: ShiftRequest | null = null): void {
   errors.value = {}
   failed.value = null
   notice.value = null
-  form.value = { user_id: activeMembers.value[0]?.id ?? 0, date, start_time: '', end_time: '', break_minutes: '0', note: '' }
+  form.value = { user_id: from?.user_id ?? activeMembers.value[0]?.id ?? 0, date, start_time: '', end_time: '', break_minutes: '0', note: '' }
+  patternChoice.value = 'custom'
+  if (from?.pattern_id != null && props.board.patterns.some((p) => p.id === from.pattern_id)) choosePattern(`p:${from.pattern_id}`)
+  else if (from?.start_time && from.end_time) {
+    form.value.start_time = from.start_time
+    form.value.end_time = from.end_time
+  }
   editing.value = 'new'
 }
 
@@ -63,6 +109,9 @@ function startEdit(s: Shift): void {
   failed.value = null
   notice.value = null
   form.value = { user_id: s.user_id, date: s.date, start_time: s.start_time, end_time: s.end_time, break_minutes: String(s.break_minutes), note: s.note ?? '' }
+  // 区分を後から直したときは、予定の時刻を変えないよう［時間を入れる］で開く
+  const current = props.board.patterns.find((p) => p.id === s.pattern_id)
+  patternChoice.value = current && sameSegments(s.segments, current.segments) ? `p:${current.id}` : 'custom'
   editing.value = s
 }
 
@@ -84,6 +133,7 @@ async function save(): Promise<void> {
     end_time: form.value.end_time,
     break_minutes: breakMinutes,
     note: form.value.note.trim() === '' ? null : form.value.note.trim(),
+    pattern_id: chosenPattern.value?.id ?? null,
   }
   saving.value = true
   try {
@@ -206,7 +256,11 @@ async function remove(): Promise<void> {
               @click="startEdit(s)"
             >
               <span class="shift-item__name">{{ nameOf(s.user_id) }}<template v-if="s.user_id === myId">（{{ t.mine }}）</template></span>
-              <span class="shift-item__time">{{ s.start_time }}〜{{ s.end_time }}</span>
+              <span
+                v-if="s.pattern_name"
+                class="shift-item__pattern"
+              >{{ s.pattern_name }}</span>
+              <span class="shift-item__time">{{ shiftTime(s) }}</span>
               <span
                 v-if="s.break_minutes > 0"
                 class="shift-item__sub"
@@ -229,7 +283,18 @@ async function remove(): Promise<void> {
             class="shift-request"
             :class="`shift-request--${r.kind}`"
           >
-            {{ requestLabel(r) }}
+            <button
+              v-if="r.kind === 'available'"
+              type="button"
+              class="shift-request__btn"
+              :aria-label="fmt(t.fromRequest, { name: nameOf(r.user_id), label: requestText(r) })"
+              @click="startNew(day.date, r)"
+            >
+              {{ requestLabel(r) }}
+            </button>
+            <template v-else>
+              {{ requestLabel(r) }}
+            </template>
           </li>
         </ul>
       </li>
@@ -291,6 +356,27 @@ async function remove(): Promise<void> {
             {{ errors.date }}
           </p>
         </div>
+        <div
+          v-if="board.patterns.length > 0"
+          class="adm-field"
+        >
+          <span class="adm-field__label">{{ t.pattern }}</span>
+          <SegmentedControl
+            :model-value="patternChoice"
+            :options="patternOptions"
+            :label="t.pattern"
+            @update:model-value="choosePattern"
+          />
+          <p class="adm-help">
+            {{ chosenPattern ? `${segmentsText(chosenPattern.segments)}　${t.patternHelp}` : t.patternHelp }}
+          </p>
+          <p
+            v-if="errors.pattern_id"
+            class="adm-error"
+          >
+            {{ errors.pattern_id }}
+          </p>
+        </div>
         <div class="shift-form__times">
           <div class="adm-field">
             <label
@@ -307,6 +393,7 @@ async function remove(): Promise<void> {
               autocomplete="off"
               aria-describedby="shift-time-help"
               :aria-invalid="errors.start_time ? 'true' : undefined"
+              @input="onTimeEdited"
               @blur="form.start_time = normalizeShiftTime(form.start_time)"
             >
             <p
@@ -331,6 +418,7 @@ async function remove(): Promise<void> {
               autocomplete="off"
               aria-describedby="shift-time-help"
               :aria-invalid="errors.end_time ? 'true' : undefined"
+              @input="onTimeEdited"
               @blur="form.end_time = normalizeShiftTime(form.end_time)"
             >
             <p
@@ -360,6 +448,7 @@ async function remove(): Promise<void> {
             maxlength="3"
             autocomplete="off"
             :aria-invalid="errors.break_minutes ? 'true' : undefined"
+            @input="onTimeEdited"
           >
           <p
             v-if="errors.break_minutes"
@@ -472,6 +561,7 @@ async function remove(): Promise<void> {
 .shift-item--btn { cursor: pointer; }
 .shift-item--mine { border: 2px solid var(--c-primary); background: var(--pc-blue-bg); }
 .shift-item__name { font-weight: 700; }
+.shift-item__pattern { padding: 0 8px; border: 1px solid var(--c-primary); border-radius: 999px; color: var(--c-primary); font-weight: 700; }
 .shift-item__time { font-variant-numeric: tabular-nums; font-weight: 700; }
 .shift-item__sub { color: var(--c-text-sub); }
 .shift-requests { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
@@ -485,6 +575,20 @@ async function remove(): Promise<void> {
 
 .shift-request--available { border-color: var(--c-success); color: var(--c-success); }
 .shift-request--unavailable { border-color: var(--c-danger); color: var(--c-danger); }
+
+.shift-request:has(.shift-request__btn) { padding: 0; }
+
+.shift-request__btn {
+  min-height: var(--tap-min);
+  padding: 4px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+}
 .shift-form__short { max-width: 240px; }
 .shift-form__times { display: flex; flex-wrap: wrap; gap: 12px; }
 .shift-form__times .adm-field { flex: 1 1 140px; }

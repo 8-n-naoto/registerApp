@@ -136,6 +136,9 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
         Route::post('/shifts', [Api\ShiftController::class, 'store']);                                // #83
         Route::put('/shifts/{shift}', [Api\ShiftController::class, 'update'])->whereNumber('shift');      // #84
         Route::delete('/shifts/{shift}', [Api\ShiftController::class, 'destroy'])->whereNumber('shift');  // #85
+        Route::get('/shift-patterns', [Api\ShiftPatternController::class, 'index']);                       // #91
+        Route::post('/shift-patterns', [Api\ShiftPatternController::class, 'store']);                      // #92
+        Route::put('/shift-patterns/{shiftPattern}', [Api\ShiftPatternController::class, 'update'])->whereNumber('shiftPattern'); // #93
 
         // テーブル・QR（12 §5.12）
         Route::post('/order-tables', [Api\OrderTableController::class, 'store']);                  // #57

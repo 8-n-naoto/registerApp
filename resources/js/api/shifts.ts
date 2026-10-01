@@ -1,7 +1,7 @@
 import { http } from '@/api/client'
-import type { Shift, ShiftBoard, ShiftMonth, ShiftRequest, ShiftRequestKind } from '@/types/api'
+import type { Shift, ShiftBoard, ShiftMonth, ShiftPattern, ShiftRequest, ShiftRequestKind, ShiftSegment } from '@/types/api'
 
-// 13 §5 勤務表（予定・締切・公開・希望）
+// 13 §5 勤務表（予定・締切・公開・希望・区分）
 
 export interface ShiftMonthInput {
   month: string
@@ -17,17 +17,21 @@ export interface ShiftInput {
   end_time: string
   break_minutes: number
   note: string | null
+  /** 区分を選んだときはサーバーが時刻と休憩を区分から決める */
+  pattern_id: number | null
 }
 
 export interface ShiftRequestInput {
   date: string
   kind: ShiftRequestKind
-  start_time: string | null
-  end_time: string | null
+  /** 出られる日は区分かメモのどちらかが要る */
+  pattern_id: number | null
   note: string | null
 }
 
-export interface MyShiftRequests { month: ShiftMonth; requests: ShiftRequest[] }
+export interface MyShiftRequests { month: ShiftMonth; requests: ShiftRequest[]; patterns: ShiftPattern[] }
+
+export interface ShiftPatternInput { name: string; segments: ShiftSegment[]; is_active: boolean }
 
 /** #81 owner は予定と全員の希望、staff は公開済みの予定 */
 export async function fetchShiftBoard(month: string): Promise<ShiftBoard> {
@@ -62,4 +66,19 @@ export async function fetchMyShiftRequests(month: string): Promise<MyShiftReques
 /** #87 その月の分を置き換える */
 export async function submitMyShiftRequests(month: string, requests: ShiftRequestInput[]): Promise<MyShiftRequests> {
   return (await http.put<MyShiftRequests>('/shift-requests/mine', { month, requests })).data
+}
+
+/** #91 使わない区分も含む（owner） */
+export async function fetchShiftPatterns(): Promise<ShiftPattern[]> {
+  return (await http.get<{ patterns: ShiftPattern[] }>('/shift-patterns')).data.patterns
+}
+
+/** #92 */
+export async function createShiftPattern(input: ShiftPatternInput): Promise<ShiftPattern> {
+  return (await http.post<ShiftPattern>('/shift-patterns', input)).data
+}
+
+/** #93 */
+export async function updateShiftPattern(id: number, input: ShiftPatternInput): Promise<ShiftPattern> {
+  return (await http.put<ShiftPattern>(`/shift-patterns/${id}`, input)).data
 }
