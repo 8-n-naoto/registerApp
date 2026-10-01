@@ -98,6 +98,9 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
         Route::put('/products/{product}/options/order', [Api\ProductOptionController::class, 'reorder'])->whereNumber('product');    // #29
         Route::put('/options/{option}', [Api\ProductOptionController::class, 'update'])->whereNumber('option');                      // #27
         Route::delete('/options/{option}', [Api\ProductOptionController::class, 'destroy'])->whereNumber('option');                  // #28
+        Route::post('/products/{product}/option-groups', [Api\ProductOptionGroupController::class, 'store'])->whereNumber('product');    // #88
+        Route::put('/option-groups/{optionGroup}', [Api\ProductOptionGroupController::class, 'update'])->whereNumber('optionGroup');       // #89
+        Route::delete('/option-groups/{optionGroup}', [Api\ProductOptionGroupController::class, 'destroy'])->whereNumber('optionGroup');  // #90
 
         // 店舗設定・税区分・支払方法
         Route::get('/settings/store', [Api\StoreSettingsController::class, 'show']);                // #30

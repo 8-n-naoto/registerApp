@@ -68,7 +68,7 @@ class RegisterBootstrapApiTest extends TestCase
         $this->assertStringEndsWith('+09:00', $res->json('server_time'));
     }
 
-    public function test_マスタのクエリは5本以内(): void
+    public function test_マスタのクエリは6本以内(): void
     {
         $category = Category::factory()->for($this->store)->create();
         foreach (range(1, 5) as $i) {
@@ -85,7 +85,8 @@ class RegisterBootstrapApiTest extends TestCase
 
         // 認証まわり（ユーザー・店舗）を除いたマスタの取得
         $master = array_filter($tables, fn (string $sql) => ! preg_match('/from "(users|stores)"/', $sql));
-        $this->assertLessThanOrEqual(5, count($master), implode("\n", $master));
+        // オプションのグループ（docs/10「オプションのグループ」）で 1 本増えた
+        $this->assertLessThanOrEqual(6, count($master), implode("\n", $master));
     }
 
     public function test_adminは使えない(): void

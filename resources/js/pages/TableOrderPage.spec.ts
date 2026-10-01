@@ -13,7 +13,7 @@ vi.mock('@/api/publicTable', () => api)
 const TOKEN = 'tokenAAAA-0123456789abcdefghijklmnop'
 
 function product(extra: Partial<PublicMenuProduct> = {}): PublicMenuProduct {
-  return { id: 1, category_id: 10, name: 'コーヒー', memo: 'ホット', price: 400, color: 'blue', sold_out: false, options: [{ id: 5, name: '大盛り', price: 100 }], ...extra }
+  return { id: 1, category_id: 10, name: 'コーヒー', memo: 'ホット', price: 400, color: 'blue', sold_out: false, options: [{ id: 5, name: '大盛り', price: 100, group_id: null, is_default: false }], option_groups: [], ...extra }
 }
 
 function menu(extra: Partial<PublicMenu> = {}): PublicMenu {
@@ -128,6 +128,34 @@ describe('TableOrderPage（C01）', () => {
     expect(document.querySelector('[data-add]')).toBeNull()
     expect(el('[data-cart]').textContent?.trim()).toBe('注文内容を見る（2 点 ¥1,000）')
     expect(document.querySelector('.c01__notice')?.textContent).toContain('コーヒー をカートに入れました')
+  })
+
+  it('グループのある商品：「1つ選ぶ」は最初に選ぶを選んだ状態で横並び、選び直すと金額とカートに反映する', async () => {
+    const udon = product({
+      id: 4,
+      name: '味噌煮込みうどん',
+      memo: null,
+      price: 830,
+      option_groups: [{ id: 1, name: '麺の固さ', selection: 'single' }, { id: 2, name: '追加', selection: 'multi' }],
+      options: [
+        { id: 11, name: '固め', price: 0, group_id: 1, is_default: false },
+        { id: 12, name: '普通', price: 0, group_id: 1, is_default: true },
+        { id: 21, name: '麺大盛り', price: 150, group_id: 2, is_default: false },
+      ],
+    })
+    api.fetchMenu.mockResolvedValue(menu({ products: [udon] }))
+    await mountPage()
+    await click(el('[data-product="4"]'))
+    const radios = [...document.querySelectorAll<HTMLElement>('.seg [role="radio"]')]
+    expect(radios.map((r) => r.getAttribute('aria-checked'))).toEqual(['false', 'true'])
+    expect(el('[data-unit-price]').textContent).toBe('¥830')
+    await click(radios[0] as HTMLElement)
+    await click(el('.opt[role="checkbox"]'))
+    expect(el('[data-unit-price]').textContent).toBe('¥980')
+    expect(el('[data-add]').textContent?.trim()).toBe('カートに入れる（¥980）')
+    await click(el('[data-add]'))
+    await click(el('[data-cart]'))
+    expect(document.body.textContent).toContain('固め・麺大盛り')
   })
 
   it('確認してから送る。［やめる］では送らない。送ったら番号を出してカートを空にする', async () => {

@@ -11,6 +11,7 @@ use App\Models\OrderTable;
 use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\ProductOption;
+use App\Models\ProductOptionGroup;
 use App\Models\Store;
 use App\Models\TaxType;
 use App\Models\User;
@@ -159,6 +160,30 @@ class OrderApiTest extends TestCase
         $order = Order::query()->findOrFail((int) $res->json('id'));
         $this->assertSame('ホール 1', $order->device_name);
         $this->assertSame(0, AuditLog::query()->count(), '店員の注文は操作ログを記録しない');
+    }
+
+    public function test_オプションのグループは1つ選ぶから2つは422でキッチン用に最初に選ぶと1つ選ぶを写す(): void
+    {
+        $size = ProductOptionGroup::factory()->for($this->b)->create(['name' => 'サイズ']);
+        $normal = ProductOption::factory()->for($this->b)->create(['name' => '普通', 'price' => 0, 'group_id' => $size->id, 'is_default' => true]);
+        $big = ProductOption::factory()->for($this->b)->create(['name' => '大', 'price' => 100, 'group_id' => $size->id]);
+        $topping = ProductOptionGroup::factory()->for($this->b)->multi()->create(['name' => 'トッピング']);
+        $cheese = ProductOption::factory()->for($this->b)->create(['name' => 'チーズ', 'price' => 50, 'group_id' => $topping->id]);
+        $egg = ProductOption::factory()->for($this->b)->create(['name' => '卵', 'price' => 50, 'group_id' => $topping->id]);
+
+        $this->place($this->payload([[$this->a, 1], [$this->b, 1, [$normal->id, $big->id]]], 1000))
+            ->assertUnprocessable()->assertJsonPath('code', 'VALIDATION')
+            ->assertJsonPath('errors', ['items.1.option_ids' => ['「サイズ」は 1 つだけ選べます']]);
+
+        $this->place($this->payload([[$this->b, 1, [$normal->id, $cheese->id, $egg->id]], [$this->b, 1, [$big->id]]], 1200))
+            ->assertCreated()
+            ->assertJsonPath('items.0.options.0.is_default', true)
+            ->assertJsonPath('items.0.options.0.is_choice', true)
+            ->assertJsonPath('items.0.options.1.is_default', false)
+            ->assertJsonPath('items.0.options.1.is_choice', false)
+            ->assertJsonPath('items.1.options.0.option_name', '大')
+            ->assertJsonPath('items.1.options.0.is_default', false)
+            ->assertJsonPath('items.1.options.0.is_choice', true);
     }
 
     public function test_o16_空席のテーブルに注文すると利用中にする(): void

@@ -90,7 +90,7 @@ describe('S02 会計（08 §5.3）', () => {
   it('オプションのある商品は選んでから追加し、オプション違いは別の行', async () => {
     await mountPage()
     await click(tile(3))
-    const option = document.querySelector<HTMLButtonElement>('.option')
+    const option = document.querySelector<HTMLButtonElement>('.opt')
     if (!option) throw new Error('option')
     await click(option)
     await click(button('追加'))

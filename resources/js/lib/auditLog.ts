@@ -9,7 +9,7 @@ import type { AuditLogRow } from '@/types/api'
 const HIDDEN_KEYS = new Set(['password', 'password_hash', 'current_password', 'new_password', 'remember_token', 'token'])
 
 /** 値を表示名に置き換える項目（商品名などの自由入力は置き換えない） */
-const ENUM_KEYS = new Set(['price_mode', 'rounding', 'status'])
+const ENUM_KEYS = new Set(['price_mode', 'rounding', 'status', 'selection'])
 
 const t = ja.auditLog
 
@@ -65,6 +65,7 @@ export const AUDIT_ACTIONS = [
   'category_created', 'category_updated', 'category_deleted',
   'product_created', 'product_updated', 'product_deleted', 'product_stock_changed', 'products_imported',
   'option_created', 'option_updated', 'option_deleted',
+  'option_group_created', 'option_group_updated', 'option_group_deleted',
   'sale_cancelled', 'closing_saved', 'staff_created', 'staff_updated', 'staff_password_reset',
   'store_suspended', 'store_resumed', 'backup_downloaded',
   // 12 §5.19（注文）

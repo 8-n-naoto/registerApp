@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\ProductOption;
+use App\Models\ProductOptionGroup;
 use App\Models\RegisterClosing;
 use App\Models\Sale;
 use App\Models\Store;
@@ -437,6 +438,22 @@ class SaleStoreApiTest extends TestCase
             ->assertUnprocessable()->assertJsonPath('code', 'ITEM_UNAVAILABLE')->assertJsonPath('details.product_ids', []);
         $this->sell($this->payload([[$this->b, 1]], 500, ['payment_method_id' => $foreignPay->id]))
             ->assertUnprocessable()->assertJsonPath('code', 'ITEM_UNAVAILABLE');
+    }
+
+    public function test_1つ選ぶグループから2つ選んだ明細は422でグループなしと異なるグループは選べる(): void
+    {
+        $size = ProductOptionGroup::factory()->for($this->b)->create(['name' => 'サイズ']);
+        $normal = ProductOption::factory()->for($this->b)->create(['price' => 0, 'group_id' => $size->id, 'is_default' => true]);
+        $big = ProductOption::factory()->for($this->b)->create(['price' => 100, 'group_id' => $size->id]);
+        $loose = ProductOption::factory()->for($this->b)->create(['price' => 50]);
+
+        $this->sell($this->payload([[$this->b, 1, [$normal->id, $big->id]]], 600))
+            ->assertUnprocessable()->assertJsonPath('code', 'VALIDATION')
+            ->assertJsonValidationErrors(['items.0.option_ids']);
+        $this->assertSame(0, Sale::query()->withoutGlobalScopes()->count());
+
+        $this->sell($this->payload([[$this->b, 1, [$big->id, $loose->id]]], 650))->assertCreated()
+            ->assertJsonPath('items.0.options_price', 150);
     }
 
     public function test_オプション込みの単価が0円未満なら明細のオプション欄に422(): void

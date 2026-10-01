@@ -336,7 +336,8 @@ class PublicOrderApiTest extends TestCase
             'price' => 400,
             'color' => $this->x->color->value,
             'sold_out' => false,
-            'options' => [['id' => $this->large->id, 'name' => '大盛り', 'price' => 50]],
+            'options' => [['id' => $this->large->id, 'name' => '大盛り', 'price' => 50, 'group_id' => null, 'is_default' => false]],
+            'option_groups' => [],
         ], $res->json('products.0'));
         $this->assertStringNotContainsString('stock', (string) $res->getContent());
         $res->assertHeader('Referrer-Policy', 'no-referrer');
@@ -362,8 +363,8 @@ class PublicOrderApiTest extends TestCase
         DB::flushQueryLog();
         DB::enableQueryLog();
         $this->getJson($this->url('/menu'))->assertOk()->assertJsonCount(13, 'products');
-        // テーブル・店舗・商品・オプション・引当・分類
-        $this->assertCount(6, DB::getQueryLog());
+        // テーブル・店舗・商品・オプション・オプションのグループ・引当・分類
+        $this->assertCount(7, DB::getQueryLog());
     }
 
     // ---- #48 GET orders ----

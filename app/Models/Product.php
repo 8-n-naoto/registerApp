@@ -129,4 +129,10 @@ class Product extends Model
     {
         return $this->hasMany(ProductOption::class)->orderBy('sort_order')->orderBy('id');
     }
+
+    /** @return HasMany<ProductOptionGroup, $this> */
+    public function optionGroups(): HasMany
+    {
+        return $this->hasMany(ProductOptionGroup::class)->orderBy('sort_order')->orderBy('id');
+    }
 }

@@ -23,6 +23,11 @@ const t = ja.kitchen
 const minutes = computed(() => Math.max(0, Math.floor((props.now - Date.parse(props.order.created_at)) / 60000)))
 const late = computed(() => props.order.served_at === null && minutes.value > LATE_MINUTES)
 const unserved = computed(() => props.order.items.filter((i) => i.served_at === null).length)
+
+/** 「最初に選ぶ」のままのオプションは出さない（docs/10「オプションのグループ」）。「1つ選ぶ」の選択は目立たせる */
+function kitchenOptions(item: OrderItem): OrderItem['options'] {
+  return item.options.filter((o) => !o.is_default)
+}
 </script>
 
 <template>
@@ -61,9 +66,21 @@ const unserved = computed(() => props.order.items.filter((i) => i.served_at === 
             class="kitem__sub"
           >{{ item.product_memo }}</span>
           <span
-            v-if="item.options.length > 0"
+            v-if="kitchenOptions(item).length > 0"
             class="kitem__sub"
-          >{{ item.options.map((o) => o.option_name).join('・') }}</span>
+            data-options
+          ><template
+            v-for="(option, index) in kitchenOptions(item)"
+            :key="option.product_option_id"
+          ><template v-if="index > 0">・</template><em
+            v-if="option.is_choice"
+            class="kitem__choice"
+          >{{ option.option_name }}</em><template v-else>{{ option.option_name }}</template></template></span>
+          <span
+            v-else-if="item.options.length > 0"
+            class="kitem__sub"
+            data-options
+          >{{ t.optionsNone }}</span>
           <span
             v-if="item.memo"
             class="kitem__memo"
@@ -144,6 +161,7 @@ const unserved = computed(() => props.order.items.filter((i) => i.served_at === 
 .kitem__body { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
 .kitem__name { font-size: 20px; font-weight: 700; }
 .kitem__sub { color: var(--c-text-sub); font-size: 16px; }
+.kitem__choice { font-style: normal; font-weight: 700; color: var(--c-danger); }
 .kitem__memo { color: var(--c-change); font-size: 18px; font-weight: 800; }
 .kitem__qty { font-size: 24px; font-weight: 800; }
 .kitem__btn {
@@ -162,7 +180,8 @@ const unserved = computed(() => props.order.items.filter((i) => i.served_at === 
 .kitem--served .kitem__name,
 .kitem--served .kitem__qty { color: var(--c-soldout); text-decoration: line-through; }
 .kitem--served .kitem__sub,
-.kitem--served .kitem__memo { color: var(--c-soldout); }
+.kitem--served .kitem__memo,
+.kitem--served .kitem__choice { color: var(--c-soldout); }
 
 .kcard__note { margin: 0; padding: 8px; border-radius: var(--radius); background: #FEF3C7; font-size: 18px; white-space: pre-line; overflow-wrap: anywhere; }
 

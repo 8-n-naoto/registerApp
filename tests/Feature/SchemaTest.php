@@ -29,7 +29,7 @@ class SchemaTest extends TestCase
             'attendance_breaks', 'attendances',
             'audit_logs', 'cache', 'cache_locks', 'categories', 'failed_jobs', 'job_batches', 'jobs',
             'migrations', 'order_item_options', 'order_items', 'order_tables', 'orders',
-            'payment_methods', 'product_options', 'products', 'register_closings',
+            'payment_methods', 'product_option_groups', 'product_options', 'products', 'register_closings',
             'sale_item_options', 'sale_items', 'sales', 'sessions', 'shift_months', 'shift_requests', 'shifts',
             'stores', 'tax_types', 'users',
         ], $tables);
@@ -87,6 +87,13 @@ class SchemaTest extends TestCase
             'product_options' => ['product_options', [
                 ['id', false, null], ['store_id', false, null], ['product_id', false, null], ['name', false, null],
                 ['price', false, '0'], ['sort_order', false, '0'], ['is_active', false, '1'],
+                ['created_at', true, null], ['updated_at', true, null], ['deleted_at', true, null],
+                // docs/10「オプションのグループ」
+                ['group_id', true, null], ['is_default', false, '0'],
+            ]],
+            'product_option_groups' => ['product_option_groups', [
+                ['id', false, null], ['store_id', false, null], ['product_id', false, null], ['name', false, null],
+                ['selection', false, 'multi'], ['sort_order', false, '0'],
                 ['created_at', true, null], ['updated_at', true, null], ['deleted_at', true, null],
             ]],
             'sales' => ['sales', [
@@ -146,6 +153,7 @@ class SchemaTest extends TestCase
             'order_item_options' => ['order_item_options', [
                 ['id', false, null], ['order_item_id', false, null], ['product_option_id', false, null],
                 ['option_name', false, null], ['price', false, null],
+                ['is_default', false, '0'], ['is_choice', false, '0'],
             ]],
             // 13 §3.3〜§3.5
             'attendances' => ['attendances', [

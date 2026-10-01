@@ -38,7 +38,7 @@ class RegisterController extends Controller
             ->orderBy('sort_order')->orderBy('id')->get();
         $products = Product::query()
             ->where('is_active', true)
-            ->with(['options' => fn (Relation $q) => $q->where('is_active', true)])
+            ->with(['options' => fn (Relation $q) => $q->where('is_active', true), 'optionGroups'])
             ->orderBy('sort_order')->orderBy('id')->get();
 
         return response()->json([

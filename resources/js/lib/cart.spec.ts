@@ -5,15 +5,15 @@ import type { Product } from '@/types/api'
 function product(id: number, extra: Partial<Product> = {}): Product {
   return {
     id, category_id: null, code: `P${id}`, name: `商品${id}`, memo: null, price: 400, color: 'gray', sort_order: id, is_active: true,
-    track_stock: false, stock_qty: 0, customer_visible: true, is_discount: false, options: [], ...extra,
+    track_stock: false, stock_qty: 0, customer_visible: true, is_discount: false, options: [], option_groups: [], ...extra,
   }
 }
 
 const withOptions = product(3, {
   price: 500,
   options: [
-    { id: 11, product_id: 3, name: 'ショット', price: 50, sort_order: 1, is_active: true },
-    { id: 12, product_id: 3, name: 'オーツ', price: 60, sort_order: 2, is_active: true },
+    { id: 11, product_id: 3, name: 'ショット', price: 50, sort_order: 1, is_active: true, group_id: null, is_default: false },
+    { id: 12, product_id: 3, name: 'オーツ', price: 60, sort_order: 2, is_active: true, group_id: null, is_default: false },
   ],
 })
 

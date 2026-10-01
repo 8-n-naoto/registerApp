@@ -6,9 +6,11 @@ import { useRoute } from 'vue-router'
 import BigButton from '@/components/BigButton.vue'
 import BottomSheet from '@/components/BottomSheet.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import OptionChoices from '@/components/OptionChoices.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { formatTime } from '@/lib/date'
 import { formatYen } from '@/lib/money'
+import { buildSections, initialSelection, missingGroups, orderedSelection } from '@/lib/optionGroups'
 import { LINE_MEMO_MAX, NOTE_MAX, TOTAL_QUANTITY_MAX, useTableOrderStore } from '@/stores/tableOrder'
 import type { PublicMenuProduct } from '@/types/api'
 
@@ -91,20 +93,22 @@ onMounted(async () => {
 function openProduct(product: PublicMenuProduct): void {
   if (product.sold_out) return
   picking.value = product
-  pickOptions.value = []
+  pickOptions.value = initialSelection(buildSections(product.options, product.option_groups))
   pickQuantity.value = 1
   pickMemo.value = ''
   pickError.value = null
 }
 
-function toggleOption(id: number): void {
-  pickOptions.value = pickOptions.value.includes(id) ? pickOptions.value.filter((v) => v !== id) : [...pickOptions.value, id]
-}
-
 function addToCart(): void {
   const p = picking.value
   if (!p) return
-  const error = store.add(p, pickOptions.value, pickQuantity.value, pickMemo.value)
+  const sections = buildSections(p.options, p.option_groups)
+  const missing = missingGroups(sections, pickOptions.value)[0]
+  if (missing) {
+    pickError.value = fmt(ja.optionChoices.missing, { name: missing.name })
+    return
+  }
+  const error = store.add(p, orderedSelection(sections, pickOptions.value), pickQuantity.value, pickMemo.value)
   if (error !== null) {
     pickError.value = error
     return
@@ -329,19 +333,13 @@ function openHistory(): void {
           <legend class="pick__label">
             {{ t.options }}
           </legend>
-          <button
-            v-for="o in picking.options"
-            :key="o.id"
-            type="button"
-            role="checkbox"
-            class="pick__option"
-            :class="{ 'pick__option--on': pickOptions.includes(o.id) }"
-            :aria-checked="pickOptions.includes(o.id)"
-            @click="toggleOption(o.id)"
-          >
-            <span>{{ o.name }}</span>
-            <span class="tabular">＋{{ formatYen(o.price) }}</span>
-          </button>
+          <OptionChoices
+            v-model="pickOptions"
+            :options="picking.options"
+            :groups="picking.option_groups"
+            :base-price="picking.price"
+            :price-suffix="priceSuffix"
+          />
         </fieldset>
 
         <div class="pick__group">
@@ -736,22 +734,6 @@ function openHistory(): void {
 .pick__price { margin: 0; font-size: 20px; font-weight: 800; }
 .pick__group { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; border: 0; }
 .pick__label { font-weight: 700; }
-.pick__option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 56px;
-  padding: 0 16px;
-  border: 2px solid var(--c-border);
-  border-radius: var(--radius);
-  background: var(--c-surface);
-  color: var(--c-text);
-  font-size: 16px;
-  font-weight: 700;
-  text-align: left;
-}
-.pick__option--on { border-color: var(--c-primary); background: #EEF3FF; color: var(--c-primary); }
 
 .stepper { display: flex; align-items: center; gap: 8px; }
 .stepper__btn {

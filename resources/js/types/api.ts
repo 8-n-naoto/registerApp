@@ -35,7 +35,19 @@ export interface Me {
 export interface TaxType { id: number; name: string; rate_permille: number; sort_order: number; is_default: boolean; is_active: boolean }
 export interface PaymentMethod { id: number; name: string; is_cash: boolean; sort_order: number; is_active: boolean }
 export interface Category { id: number; name: string; sort_order: number; product_count: number }
-export interface ProductOption { id: number; product_id: number; name: string; price: number; sort_order: number; is_active: boolean }
+/** docs/10「オプションのグループ」：single は 1 つ選ぶ（is_default を最初に選んでおく）、multi はいくつでも */
+export type OptionSelection = 'single' | 'multi'
+export interface ProductOptionGroup { id: number; product_id: number; name: string; selection: OptionSelection; sort_order: number }
+export interface ProductOption {
+  id: number
+  product_id: number
+  name: string
+  price: number
+  sort_order: number
+  is_active: boolean
+  group_id: number | null  // null はグループなし（最後に並べ、いくつでも選べる）
+  is_default: boolean
+}
 export interface Product {
   id: number
   category_id: number | null
@@ -51,6 +63,7 @@ export interface Product {
   customer_visible: boolean    // 12 §3.7：お客さんのメニュー（C01）に出すか
   is_discount: boolean         // 割引の商品（price は正の数。計算では −price。docs/10）
   options: ProductOption[]
+  option_groups: ProductOptionGroup[]
 }
 
 export type DiscountType = 'amount' | 'percent'
@@ -149,7 +162,13 @@ export interface OrderSettings {
   polling_windows: PollingWindow[]
 }
 export interface PollingState { interval_sec: number; active: boolean; next_change_at: string | null }
-export interface OrderItemOption { product_option_id: number; option_name: string; price: number }
+export interface OrderItemOption {
+  product_option_id: number
+  option_name: string
+  price: number
+  is_default: boolean  // 注文時点の「最初に選ぶ」（キッチンでは出さない）
+  is_choice: boolean   // 「1つ選ぶ」グループの選択（キッチンで目立たせる）
+}
 export interface OrderItem {
   id: number
   product_id: number
@@ -203,7 +222,8 @@ export interface PublicMenuProduct {
   price: number
   color: ProductColor
   sold_out: boolean
-  options: { id: number; name: string; price: number }[]
+  options: { id: number; name: string; price: number; group_id: number | null; is_default: boolean }[]
+  option_groups: { id: number; name: string; selection: OptionSelection }[]
 }
 export interface PublicMenu {
   store_name: string

@@ -72,7 +72,7 @@ class ProductApiTest extends TestCase
             ->assertJsonPath('products.1.options.0.name', '大盛り')
             ->assertJsonPath('products.1.options.0.product_id', $b->id);
         $this->assertSame(
-            ['id', 'category_id', 'code', 'name', 'memo', 'price', 'color', 'sort_order', 'is_active', 'track_stock', 'stock_qty', 'customer_visible', 'is_discount', 'options'],
+            ['id', 'category_id', 'code', 'name', 'memo', 'price', 'color', 'sort_order', 'is_active', 'track_stock', 'stock_qty', 'customer_visible', 'is_discount', 'options', 'option_groups'],
             array_keys($res->json('products.0')),
         );
     }

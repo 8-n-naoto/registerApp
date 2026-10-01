@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\AuditAction;
 use App\Enums\ErrorCode;
+use App\Enums\OptionSelection;
 use App\Enums\OrderSource;
 use App\Enums\OrderStatus;
 use App\Exceptions\BusinessException;
@@ -428,7 +429,7 @@ final class OrderService
             ->whereIn('id', $productIds)->get()->keyBy('id')->all();
         /** @var array<int, ProductOption> $options */
         $options = $optionIds === [] ? [] : ProductOption::query()->where('store_id', $store->id)
-            ->where('is_active', true)->whereIn('id', $optionIds)->get()->keyBy('id')->all();
+            ->where('is_active', true)->whereIn('id', $optionIds)->with('group')->get()->keyBy('id')->all();
 
         $unavailable = [];
         foreach ($items as $item) {
@@ -453,6 +454,8 @@ final class OrderService
                 details: ['product_ids' => $ids],
             );
         }
+
+        OptionChoices::assertValid(array_column($items, 'option_ids'), $options);
 
         return [$products, $options];
     }
@@ -572,6 +575,8 @@ final class OrderService
                     'product_option_id' => $option->id,
                     'option_name' => $option->name,
                     'price' => $option->price,
+                    'is_default' => $option->is_default,
+                    'is_choice' => $option->group?->selection === OptionSelection::Single,
                 ]);
             }
         }

@@ -31,7 +31,7 @@ vi.mock('@/api/catalog', () => api)
 function product(id: number, name: string, categoryId: number | null, extra: Partial<Product> = {}): Product {
   return {
     id, code: `P000${id}`, name, memo: null, category_id: categoryId, price: 400, color: 'gray', sort_order: id,
-    is_active: true, track_stock: false, stock_qty: 0, customer_visible: true, is_discount: false, options: [], ...extra,
+    is_active: true, track_stock: false, stock_qty: 0, customer_visible: true, is_discount: false, options: [], option_groups: [], ...extra,
   }
 }
 

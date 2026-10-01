@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * 06 §2.2 Product。options は削除されていないもの全て（呼び出し側で with('options') しておく）
+ * 06 §2.2 Product。options は削除されていないもの全て（呼び出し側で with('options', 'optionGroups') しておく）
  *
  * @mixin Product
  */
@@ -31,6 +31,7 @@ class ProductResource extends JsonResource
             'customer_visible' => $this->customer_visible,
             'is_discount' => $this->is_discount,
             'options' => ProductOptionResource::collection($this->whenLoaded('options', fn () => $this->options, [])),
+            'option_groups' => ProductOptionGroupResource::collection($this->whenLoaded('optionGroups', fn () => $this->optionGroups, [])),
         ];
     }
 }

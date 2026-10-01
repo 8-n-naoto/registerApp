@@ -35,7 +35,7 @@ final class StockService
                 throw new BusinessException(ErrorCode::Validation, $message, 422, errors: ['value' => [$message]]);
             }
 
-            $product->refresh()->load('options');
+            $product->refresh()->load(['options', 'optionGroups']);
             $this->audit->log(
                 AuditAction::ProductStockChanged,
                 $product,

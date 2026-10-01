@@ -2,53 +2,45 @@
 
 namespace App\Models;
 
+use App\Enums\OptionSelection;
 use App\Models\Concerns\BelongsToStore;
-use Database\Factories\ProductOptionFactory;
+use Database\Factories\ProductOptionGroupFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * 05 §3.7。product_id は親の商品から設定する（$product->options()->create(...)）
+ * オプションのグループ（docs/10「オプションのグループ」）。product_id は親の商品から設定する
  *
  * @property int $id
  * @property int $store_id
  * @property int $product_id
  * @property string $name
- * @property int $price
+ * @property OptionSelection $selection
  * @property int $sort_order
- * @property bool $is_active
- * @property int|null $group_id
- * @property bool $is_default
- * @property-read ProductOptionGroup|null $group
  */
-class ProductOption extends Model
+class ProductOptionGroup extends Model
 {
     use BelongsToStore;
 
-    /** @use HasFactory<ProductOptionFactory> */
+    /** @use HasFactory<ProductOptionGroupFactory> */
     use HasFactory;
 
     use SoftDeletes;
 
     protected $fillable = [
         'name',
-        'price',
+        'selection',
         'sort_order',
-        'is_active',
-        'group_id',
-        'is_default',
     ];
 
     protected function casts(): array
     {
         return [
-            'price' => 'integer',
+            'selection' => OptionSelection::class,
             'sort_order' => 'integer',
-            'is_active' => 'boolean',
-            'group_id' => 'integer',
-            'is_default' => 'boolean',
         ];
     }
 
@@ -58,9 +50,9 @@ class ProductOption extends Model
         return $this->belongsTo(Product::class);
     }
 
-    /** @return BelongsTo<ProductOptionGroup, $this> */
-    public function group(): BelongsTo
+    /** @return HasMany<ProductOption, $this> */
+    public function options(): HasMany
     {
-        return $this->belongsTo(ProductOptionGroup::class, 'group_id');
+        return $this->hasMany(ProductOption::class, 'group_id');
     }
 }

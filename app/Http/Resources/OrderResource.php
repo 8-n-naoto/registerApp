@@ -52,6 +52,8 @@ class OrderResource extends JsonResource
                     'product_option_id' => $option->product_option_id,
                     'option_name' => $option->option_name,
                     'price' => $option->price,
+                    'is_default' => $option->is_default,
+                    'is_choice' => $option->is_choice,
                 ])->all(),
             ])->all(),
         ];

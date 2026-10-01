@@ -274,7 +274,7 @@ describe('registerStore（08 §7.2）', () => {
     // T1：コーヒー ×2 とラテ（ショット）×1、T2：コーヒー ×1
     const T1 = makeOrder({ id: 101, order_no: 1, items: [
       makeOrderItem({ product_id: 1, quantity: 2 }),
-      makeOrderItem({ id: 1002, product_id: 3, product_name: 'ラテ', quantity: 1, options: [{ product_option_id: 31, option_name: 'ショット', price: 50 }] }),
+      makeOrderItem({ id: 1002, product_id: 3, product_name: 'ラテ', quantity: 1, options: [{ product_option_id: 31, option_name: 'ショット', price: 50, is_default: false, is_choice: false }] }),
     ] })
     const T2 = makeOrder({ id: 102, order_no: 2, order_table_id: 2, table_name: 'T2', items: [makeOrderItem({ product_id: 1, quantity: 1 })] })
 

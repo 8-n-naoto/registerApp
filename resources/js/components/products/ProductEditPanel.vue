@@ -10,7 +10,7 @@ import { errorBody, errorStatus, fieldErrors, isNetworkError } from '@/lib/apiEr
 import { parseNonNegativeInt } from '@/lib/numberInput'
 import { PRODUCT_COLORS } from '@/lib/productColors'
 import { useAuthStore } from '@/stores/auth'
-import type { Category, Product, ProductColor, ProductOption } from '@/types/api'
+import type { Category, Product, ProductColor, ProductOption, ProductOptionGroup } from '@/types/api'
 
 const PRICE_MAX = 9_999_999
 const STOCK_MAX = 999_999
@@ -43,6 +43,8 @@ const customerVisible = ref(props.product?.customer_visible ?? true)
 const isDiscount = ref(props.product?.is_discount ?? false)
 const initialStock = ref('0')
 const options = ref<ProductOption[]>(props.product ? [...props.product.options] : [])
+const optionGroups = ref<ProductOptionGroup[]>(props.product ? [...props.product.option_groups] : [])
+const hasOptions = computed(() => options.value.length > 0 || optionGroups.value.length > 0)
 
 const saving = ref(false)
 const errors = ref<Record<string, string>>({})
@@ -99,6 +101,7 @@ async function save(): Promise<void> {
     trackStock.value = saved.track_stock
     customerVisible.value = saved.customer_visible
     options.value = [...saved.options]
+    optionGroups.value = [...saved.option_groups]
     savedMessage.value = ja.common.saved
     emit('saved', saved)
   } catch (err) {
@@ -136,6 +139,14 @@ function onOptionsChange(next: ProductOption[]): void {
   options.value = next
   if (current.value) {
     current.value = { ...current.value, options: next }
+    emit('saved', current.value)
+  }
+}
+
+function onGroupsChange(next: ProductOptionGroup[]): void {
+  optionGroups.value = next
+  if (current.value) {
+    current.value = { ...current.value, option_groups: next }
     emit('saved', current.value)
   }
 }
@@ -274,14 +285,14 @@ async function confirmDelete(): Promise<void> {
             <label class="adm-check"><input
               v-model="isDiscount"
               type="checkbox"
-              :disabled="options.length > 0"
+              :disabled="hasOptions"
               aria-describedby="is-discount-help"
             >{{ t.isDiscount }}</label>
             <p
               id="is-discount-help"
               class="adm-help"
             >
-              {{ options.length > 0 ? t.isDiscountHasOptions : t.isDiscountHelp }}
+              {{ hasOptions ? t.isDiscountHasOptions : t.isDiscountHelp }}
             </p>
             <p
               v-if="errors.is_discount"
@@ -525,8 +536,10 @@ async function confirmDelete(): Promise<void> {
           <OptionEditor
             v-if="current"
             :product-id="current.id"
-            :model-value="options"
-            @update:model-value="onOptionsChange"
+            :options="options"
+            :groups="optionGroups"
+            @update:options="onOptionsChange"
+            @update:groups="onGroupsChange"
           />
           <p
             v-else

@@ -11,6 +11,7 @@ use App\Models\OrderTable;
 use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\ProductOption;
+use App\Models\ProductOptionGroup;
 use App\Models\Shift;
 use App\Models\Store;
 use App\Models\TaxType;
@@ -134,6 +135,10 @@ class RoleMatrixTest extends TestCase
         85 => ['DELETE', '/shifts/{id}', ['owner'], null, 'shift'],
         86 => ['GET', '/shift-requests/mine', ['owner', 'staff'], null, null],
         87 => ['PUT', '/shift-requests/mine', ['owner', 'staff'], null, null],
+        // docs/10「オプションのグループ」
+        88 => ['POST', '/products/{id}/option-groups', ['owner'], null, 'product'],
+        89 => ['PUT', '/option-groups/{id}', ['owner'], null, 'optionGroup'],
+        90 => ['DELETE', '/option-groups/{id}', ['owner'], null, 'optionGroup'],
     ];
 
     /** 本文以外で必要な検索条件（期間の集計は from / to が先に検証されるため、store_id の検証を確かめられるよう正しい期間を付ける） */
@@ -173,6 +178,8 @@ class RoleMatrixTest extends TestCase
         $pay = PaymentMethod::factory()->for($store)->create(['is_cash' => true]);
         $product = Product::factory()->for($store)->create(['category_id' => $category->id, 'price' => 400]);
         $option = ProductOption::factory()->for($product)->create();
+        $optionGroup = new ProductOptionGroup(['name' => 'サイズ', 'selection' => 'single']);
+        $optionGroup->forceFill(['store_id' => $store->id, 'product_id' => $product->id])->save();
         $date = BusinessDate::current($store);
         $sale = $this->sale('x', '2026-09-29 11:00', $date, $tax, $pay, [[$product, '商品', 400, 0, 1]], 0, 400, 36, null, store: $store);
         // 確認待ちの注文（staff の受付が 200、owner の受付は 409 になる）
@@ -215,6 +222,7 @@ class RoleMatrixTest extends TestCase
             'product' => $product->id,
             'category' => $category->id,
             'option' => $option->id,
+            'optionGroup' => $optionGroup->id,
             'taxType' => $tax->id,
             'paymentMethod' => $pay->id,
             'staff' => User::factory()->staff($store)->create()->id,

@@ -5,7 +5,7 @@ import type { Product, Sale } from '@/types/api'
 export function makeProduct(id: number, name: string, extra: Partial<Product> = {}): Product {
   return {
     id, category_id: null, code: `P${String(id).padStart(4, '0')}`, name, memo: null, price: 400, color: 'gray', sort_order: id, is_active: true,
-    track_stock: false, stock_qty: 0, customer_visible: true, is_discount: false, options: [], ...extra,
+    track_stock: false, stock_qty: 0, customer_visible: true, is_discount: false, options: [], option_groups: [], ...extra,
   }
 }
 
@@ -33,7 +33,7 @@ export function makeBootstrap(extra: Partial<RegisterBootstrap> = {}): RegisterB
       makeProduct(3, 'ラテ', {
         category_id: 10,
         price: 500,
-        options: [{ id: 31, product_id: 3, name: 'ショット', price: 50, sort_order: 1, is_active: true }],
+        options: [{ id: 31, product_id: 3, name: 'ショット', price: 50, sort_order: 1, is_active: true, group_id: null, is_default: false }],
       }),
     ],
     ...extra,

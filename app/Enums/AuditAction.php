@@ -25,6 +25,9 @@ enum AuditAction: string
     case OptionCreated = 'option_created';
     case OptionUpdated = 'option_updated';
     case OptionDeleted = 'option_deleted';
+    case OptionGroupCreated = 'option_group_created';
+    case OptionGroupUpdated = 'option_group_updated';
+    case OptionGroupDeleted = 'option_group_deleted';
     case SaleCancelled = 'sale_cancelled';
     case ClosingSaved = 'closing_saved';
     case StaffCreated = 'staff_created';
@@ -86,6 +89,9 @@ enum AuditAction: string
             self::OptionCreated => 'オプションの追加',
             self::OptionUpdated => 'オプションの変更',
             self::OptionDeleted => 'オプションの削除',
+            self::OptionGroupCreated => 'オプションのグループの追加',
+            self::OptionGroupUpdated => 'オプションのグループの変更',
+            self::OptionGroupDeleted => 'オプションのグループの削除',
             self::SaleCancelled => '会計の取消',
             self::ClosingSaved => 'レジ締め',
             self::StaffCreated => 'スタッフの追加',

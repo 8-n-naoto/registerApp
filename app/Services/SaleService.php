@@ -247,7 +247,7 @@ final class SaleService
             ->whereIn('id', $productIds)->with('category:id,name')->get()->keyBy('id')->all();
         /** @var array<int, ProductOption> $options */
         $options = $optionIds === [] ? [] : ProductOption::query()->where('store_id', $store->id)
-            ->where('is_active', true)->whereIn('id', $optionIds)->get()->keyBy('id')->all();
+            ->where('is_active', true)->whereIn('id', $optionIds)->with('group')->get()->keyBy('id')->all();
 
         $unavailable = [];
         foreach ($input['items'] as $item) {
@@ -272,6 +272,8 @@ final class SaleService
                 details: ['product_ids' => $ids],
             );
         }
+
+        OptionChoices::assertValid(array_column($input['items'], 'option_ids'), $options);
 
         return [$taxType, $paymentMethod, $products, $options];
     }

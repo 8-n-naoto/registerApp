@@ -13,6 +13,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $product_option_id
  * @property string $option_name
  * @property int $price
+ * @property bool $is_default 「最初に選ぶ」オプションだった（キッチンでは出さない）
+ * @property bool $is_choice 「1つ選ぶ」グループのオプションだった（キッチンで目立たせる）
  */
 class OrderItemOption extends Model
 {
@@ -22,12 +24,16 @@ class OrderItemOption extends Model
         'product_option_id',
         'option_name',
         'price',
+        'is_default',
+        'is_choice',
     ];
 
     protected function casts(): array
     {
         return [
             'price' => 'integer',
+            'is_default' => 'boolean',
+            'is_choice' => 'boolean',
         ];
     }
 

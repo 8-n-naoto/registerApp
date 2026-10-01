@@ -13,7 +13,7 @@ const TOKEN = 'tokenAAAA-0123456789abcdefghijklmnop'
 const OTHER = 'tokenBBBB-0123456789abcdefghijklmnop'
 
 function product(extra: Partial<PublicMenuProduct> = {}): PublicMenuProduct {
-  return { id: 1, category_id: 10, name: 'コーヒー', memo: null, price: 400, color: 'blue', sold_out: false, options: [{ id: 5, name: '大盛り', price: 100 }], ...extra }
+  return { id: 1, category_id: 10, name: 'コーヒー', memo: null, price: 400, color: 'blue', sold_out: false, options: [{ id: 5, name: '大盛り', price: 100, group_id: null, is_default: false }], option_groups: [], ...extra }
 }
 
 function menu(products: PublicMenuProduct[] = [product(), product({ id: 2, name: 'ケーキ', price: 500, options: [] })]): PublicMenu {

@@ -21,7 +21,7 @@ class ProductController extends Controller
     public function index(): JsonResponse
     {
         $categories = Category::query()->withCount('products')->orderBy('sort_order')->orderBy('id')->get();
-        $products = Product::query()->with('options')->orderBy('sort_order')->orderBy('id')->get();
+        $products = Product::query()->with(['options', 'optionGroups'])->orderBy('sort_order')->orderBy('id')->get();
 
         return response()->json([
             'categories' => CategoryResource::collection($categories),

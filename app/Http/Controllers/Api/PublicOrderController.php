@@ -10,6 +10,7 @@ use App\Models\Category;
 use App\Models\OrderTable;
 use App\Models\Product;
 use App\Models\ProductOption;
+use App\Models\ProductOptionGroup;
 use App\Models\Store;
 use App\Services\OrderService;
 use Illuminate\Http\JsonResponse;
@@ -35,7 +36,7 @@ class PublicOrderController extends Controller
             ->where('is_active', true)
             ->where('customer_visible', true)
             ->where('is_discount', false)
-            ->with(['options' => fn ($q) => $q->where('is_active', true)])
+            ->with(['options' => fn ($q) => $q->where('is_active', true), 'optionGroups'])
             ->orderBy('sort_order')->orderBy('id')
             ->get();
 
@@ -69,7 +70,12 @@ class PublicOrderController extends Controller
                 'price' => $p->price,
                 'color' => $p->color->value,
                 'sold_out' => $soldOut[$p->id] ?? false,
-                'options' => $p->options->map(fn (ProductOption $o): array => ['id' => $o->id, 'name' => $o->name, 'price' => $o->price])->values()->all(),
+                'options' => $p->options->map(fn (ProductOption $o): array => [
+                    'id' => $o->id, 'name' => $o->name, 'price' => $o->price, 'group_id' => $o->group_id, 'is_default' => $o->is_default,
+                ])->values()->all(),
+                'option_groups' => $p->optionGroups->map(fn (ProductOptionGroup $g): array => [
+                    'id' => $g->id, 'name' => $g->name, 'selection' => $g->selection->value,
+                ])->values()->all(),
             ])->all(),
             'limits' => [
                 'max_items' => CustomerOrderRequest::MAX_ITEMS,

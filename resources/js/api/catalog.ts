@@ -1,5 +1,5 @@
 import { http } from '@/api/client'
-import type { Category, Product, ProductColor, ProductOption } from '@/types/api'
+import type { Category, OptionSelection, Product, ProductColor, ProductOption, ProductOptionGroup } from '@/types/api'
 
 // 06 §7 商品・カテゴリ・オプション（owner のみ）
 
@@ -26,6 +26,13 @@ export interface OptionInput {
   name: string
   price: number
   is_active: boolean
+  group_id: number | null  // docs/10「オプションのグループ」。null はグループなし
+  is_default: boolean      // 「1つ選ぶ」グループで最初に選ぶ（同じグループのほかは外れる）
+}
+
+export interface OptionGroupInput {
+  name: string
+  selection: OptionSelection
 }
 
 export interface ImportRow {
@@ -116,4 +123,17 @@ export async function deleteOption(id: number): Promise<void> {
 
 export async function reorderOptions(productId: number, ids: number[]): Promise<void> {
   await http.put(`/products/${productId}/options/order`, { ids })
+}
+
+// docs/10「オプションのグループ」#88〜#90
+export async function createOptionGroup(productId: number, input: OptionGroupInput): Promise<ProductOptionGroup> {
+  return (await http.post<ProductOptionGroup>(`/products/${productId}/option-groups`, input)).data
+}
+
+export async function updateOptionGroup(id: number, input: OptionGroupInput): Promise<ProductOptionGroup> {
+  return (await http.put<ProductOptionGroup>(`/option-groups/${id}`, input)).data
+}
+
+export async function deleteOptionGroup(id: number): Promise<void> {
+  await http.delete(`/option-groups/${id}`)
 }

@@ -20,7 +20,7 @@ const TWO_ITEMS = makeOrder({
   user_name: null,
   note: 'アレルギー：卵',
   items: [
-    makeOrderItem({ id: 1, product_name: 'コーヒー', quantity: 2, memo: '氷なし', options: [{ product_option_id: 9, option_name: '大盛り', price: 100 }] }),
+    makeOrderItem({ id: 1, product_name: 'コーヒー', quantity: 2, memo: '氷なし', options: [{ product_option_id: 9, option_name: '大盛り', price: 100, is_default: false, is_choice: false }] }),
     makeOrderItem({ id: 2, product_name: 'ケーキ' }),
   ],
 })
