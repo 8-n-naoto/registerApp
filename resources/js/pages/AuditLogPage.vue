@@ -89,7 +89,7 @@ function onFilter(event: Event): void {
           <label class="adm-field log-filter">
             <span class="adm-field__label">{{ t.filter }}</span>
             <select
-              class="adm-select"
+              class="adm-select r-input"
               :value="action ?? ''"
               data-test="filter"
               @change="onFilter"
@@ -120,7 +120,7 @@ function onFilter(event: Event): void {
         </p>
         <ol
           v-else
-          class="log-list"
+          class="log-list r-list"
         >
           <li
             v-for="row in rows"
@@ -133,7 +133,7 @@ function onFilter(event: Event): void {
                 class="log-row__at tabular"
                 :datetime="row.created_at"
               >{{ formatDateTime(row.created_at) }}</time>
-              <span class="log-row__action">{{ row.action_label }}</span>
+              <span class="log-row__action r-chip r-chip--neutral r-chip--plain">{{ row.action_label }}</span>
               <span class="log-row__target">{{ describeTarget(row) }}</span>
             </div>
             <div class="log-row__meta">
@@ -188,12 +188,14 @@ function onFilter(event: Event): void {
 
 <style scoped>
 .log-filter { flex-direction: row; align-items: center; gap: 12px; }
-.log-list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
-.log-row { display: flex; flex-direction: column; gap: 4px; padding: 12px 0; border-bottom: 1px solid var(--c-border); }
-.log-row__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
-.log-row__at { color: var(--c-text-sub); }
+.log-filter .r-input { width: auto; min-width: 0; }
+.log-list { display: flex; flex-direction: column; }
+.log-row { display: flex; flex-direction: column; gap: 4px; padding: 12px 16px; border-top: 1px solid var(--c-border-soft); }
+.log-row:first-child { border-top: 0; }
+.log-row__head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-width: 0; }
+.log-row__at { color: var(--c-text-sub); white-space: nowrap; }
 .log-row__action { font-weight: 800; }
-.log-row__target { color: var(--c-text-sub); }
+.log-row__target { min-width: 0; color: var(--c-text-sub); overflow-wrap: anywhere; }
 .log-row__meta { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--c-text-sub); font-size: 16px; }
 .log-row__changes { overflow-wrap: anywhere; }
 </style>

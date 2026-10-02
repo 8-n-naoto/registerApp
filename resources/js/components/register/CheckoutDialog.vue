@@ -1,8 +1,11 @@
 <script setup lang="ts">
-// お会計ダイアログ（08 §5.3）：合計、現金なら預かり金（即入力・数字キー）とお釣り / 「あと ¥N」、客数、メモ、［確定］［戻る］。
+// お会計ダイアログ（08 §5.3）：詳細（明細・小計・値引き・税・点数）、合計、支払方法、現金なら預かり金（即入力・数字キー）とお釣り / 「あと ¥N」、
+// 客数、メモ、［確定］［戻る］。
 // タブレットは中央、スマホは全画面。通信エラーで閉じずに残るよう、入力は開き直したときだけ初期化する
 import { computed, nextTick, ref, watch } from 'vue'
+import AppIcon from '@/components/AppIcon.vue'
 import BigButton from '@/components/BigButton.vue'
+import CheckoutDetail from '@/components/register/CheckoutDetail.vue'
 import MoneyText from '@/components/MoneyText.vue'
 import NumericKeypad from '@/components/NumericKeypad.vue'
 import { fmt, ja } from '@/i18n/ja'
@@ -19,11 +22,12 @@ const props = defineProps<{
   open: boolean
   total: number
   paymentMethod: PaymentMethod
+  paymentMethods: PaymentMethod[]
   submitting: boolean
   error: string | null
 }>()
 
-const emit = defineEmits<{ confirm: [extra: ConfirmExtra]; back: [] }>()
+const emit = defineEmits<{ confirm: [extra: ConfirmExtra]; back: []; pay: [id: number] }>()
 
 const t = ja.register
 const received = ref<number | null>(null)
@@ -83,7 +87,7 @@ function back(): void {
   <Teleport to="body">
     <div
       v-if="open"
-      class="checkout-backdrop"
+      class="checkout-backdrop r-scrim"
       @keydown.esc="back"
     >
       <section
@@ -94,123 +98,162 @@ function back(): void {
         aria-labelledby="checkout-title"
         tabindex="-1"
       >
-        <header class="checkout__head">
-          <h2
-            id="checkout-title"
-            class="checkout__label"
-          >
-            {{ t.total }}・{{ paymentMethod.name }}
-          </h2>
-          <MoneyText
-            :amount="total"
-            size="total"
-            tone="money"
-          />
-        </header>
-
-        <template v-if="paymentMethod.is_cash">
-          <div class="checkout__received">
-            <span class="checkout__label">{{ t.received }}</span>
-            <span
-              class="checkout__received-value tabular"
-              aria-live="polite"
-            >{{ received === null ? '¥—' : formatYen(received) }}</span>
-          </div>
-          <div class="checkout__quick">
-            <button
-              type="button"
-              class="quick"
-              :disabled="submitting"
-              @click="received = total"
-            >
-              {{ t.exact }}
-            </button>
-            <button
-              v-for="q in QUICK"
-              :key="q"
-              type="button"
-              class="quick tabular"
-              :disabled="submitting"
-              @click="received = q"
-            >
-              {{ q.toLocaleString('ja-JP') }}
-            </button>
-          </div>
-          <NumericKeypad
-            v-model="received"
-            :max="MAX_RECEIVED"
-            :disabled="submitting"
-          />
-          <div
-            class="checkout__change"
-            aria-live="polite"
-          >
-            <template v-if="cash.change !== null">
-              <span class="checkout__label">{{ t.change }}</span>
+        <div class="checkout__cols">
+          <div class="checkout__main">
+            <CheckoutDetail />
+            <header class="checkout__head">
+              <h2
+                id="checkout-title"
+                class="checkout__label r-sum__l"
+              >
+                {{ t.total }}
+              </h2>
               <MoneyText
-                :amount="cash.change"
-                size="change"
-                tone="change"
+                :amount="total"
+                size="total"
+                tone="money"
               />
-            </template>
-            <span
-              v-else-if="cash.shortage !== null"
-              class="checkout__shortage tabular"
-            >{{ fmt(t.shortage, { amount: formatYen(cash.shortage) }) }}</span>
-          </div>
-        </template>
+            </header>
 
-        <div class="checkout__row">
-          <span class="checkout__label">{{ t.customerCount }}</span>
-          <div class="checkout__stepper">
-            <button
-              type="button"
-              class="step"
-              :aria-label="t.customerDecrease"
-              :disabled="submitting || customerCount === null"
-              @click="stepCustomers(-1)"
+            <div
+              class="checkout__pay"
+              role="radiogroup"
+              :aria-label="t.paymentMethod"
             >
-              −
-            </button>
-            <span class="step__value tabular">{{ customerCount === null ? t.customerCountEmpty : fmt(t.customerCountValue, { n: customerCount }) }}</span>
-            <button
-              type="button"
-              class="step"
-              :aria-label="t.customerIncrease"
+              <button
+                v-for="method in paymentMethods"
+                :key="method.id"
+                type="button"
+                role="radio"
+                class="pay r-btn"
+                :class="paymentMethod.id === method.id ? 'pay--on r-btn--primary' : 'r-btn--secondary'"
+                :aria-checked="paymentMethod.id === method.id"
+                :disabled="submitting"
+                @click="emit('pay', method.id)"
+              >
+                {{ method.name }}
+              </button>
+            </div>
+
+            <template v-if="paymentMethod.is_cash">
+              <div class="checkout__received">
+                <span class="checkout__label r-sum__l">{{ t.received }}</span>
+                <span
+                  class="checkout__received-value tabular"
+                  aria-live="polite"
+                >{{ received === null ? '¥—' : formatYen(received) }}</span>
+              </div>
+              <div
+                class="checkout__change"
+                aria-live="polite"
+              >
+                <template v-if="cash.change !== null">
+                  <span class="checkout__label r-sum__l">{{ t.change }}</span>
+                  <MoneyText
+                    :amount="cash.change"
+                    size="change"
+                    tone="change"
+                  />
+                </template>
+                <span
+                  v-else-if="cash.shortage !== null"
+                  class="checkout__shortage tabular"
+                >{{ fmt(t.shortage, { amount: formatYen(cash.shortage) }) }}</span>
+              </div>
+            </template>
+
+            <div class="checkout__row">
+              <span class="checkout__label r-sum__l">{{ t.customerCount }}</span>
+              <div class="checkout__stepper r-qty">
+                <button
+                  type="button"
+                  class="step r-qty__b"
+                  :aria-label="t.customerDecrease"
+                  :disabled="submitting || customerCount === null"
+                  @click="stepCustomers(-1)"
+                >
+                  <AppIcon
+                    name="minus"
+                    :size="24"
+                  />
+                </button>
+                <span class="step__value r-qty__v num tabular">{{ customerCount === null ? t.customerCountEmpty : fmt(t.customerCountValue, { n: customerCount }) }}</span>
+                <button
+                  type="button"
+                  class="step r-qty__b"
+                  :aria-label="t.customerIncrease"
+                  :disabled="submitting"
+                  @click="stepCustomers(1)"
+                >
+                  <AppIcon
+                    name="plus"
+                    :size="24"
+                  />
+                </button>
+              </div>
+            </div>
+            <label class="checkout__memo r-field">
+              <span class="checkout__label r-label">{{ t.memo }}</span>
+              <input
+                v-model="memo"
+                class="r-input"
+                type="text"
+                :maxlength="MEMO_MAX"
+                :disabled="submitting"
+              >
+            </label>
+          </div>
+
+          <div
+            v-if="paymentMethod.is_cash"
+            class="checkout__pad"
+          >
+            <div class="checkout__quick r-quick">
+              <button
+                type="button"
+                class="quick"
+                :disabled="submitting"
+                @click="received = total"
+              >
+                {{ t.exact }}
+              </button>
+              <button
+                v-for="q in QUICK"
+                :key="q"
+                type="button"
+                class="quick tabular"
+                :disabled="submitting"
+                @click="received = q"
+              >
+                {{ q.toLocaleString('ja-JP') }}
+              </button>
+            </div>
+            <NumericKeypad
+              v-model="received"
+              :max="MAX_RECEIVED"
               :disabled="submitting"
-              @click="stepCustomers(1)"
-            >
-              ＋
-            </button>
+            />
           </div>
         </div>
-        <label class="checkout__memo">
-          <span class="checkout__label">{{ t.memo }}</span>
-          <input
-            v-model="memo"
-            type="text"
-            :maxlength="MEMO_MAX"
-            :disabled="submitting"
-          >
-        </label>
 
         <p
           v-if="error"
-          class="checkout__error"
+          class="checkout__error r-banner r-banner--danger"
           role="alert"
         >
           {{ error }}
         </p>
 
         <div class="checkout__actions">
-          <button
-            type="button"
+          <BigButton
+            variant="secondary"
+            size="xl"
             class="checkout__back"
             :disabled="submitting"
             @click="back"
           >
             {{ t.back }}
-          </button>
+          </BigButton>
           <BigButton
             size="xl"
             class="checkout__confirm"
@@ -218,6 +261,12 @@ function back(): void {
             :disabled="!canConfirm"
             @click="confirm"
           >
+            <template #icon>
+              <AppIcon
+                name="check"
+                :size="24"
+              />
+            </template>
             {{ t.confirm }}
           </BigButton>
         </div>
@@ -227,21 +276,14 @@ function back(): void {
 </template>
 
 <style scoped>
-.checkout-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-  background: rgba(17, 24, 39, 0.5);
-}
+.checkout-backdrop { z-index: 100; padding: 0; }
 
 .checkout {
   display: flex;
   flex-direction: column;
   gap: 12px;
   width: 100%;
+  height: 100%;
   overflow-y: auto;
   padding: calc(12px + var(--safe-top)) 16px calc(12px + var(--safe-bottom));
   background: var(--c-surface);
@@ -249,13 +291,22 @@ function back(): void {
   outline: none;
 }
 
+.checkout__cols { display: flex; flex-direction: column; gap: 12px; }
+.checkout__main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.checkout__pad { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
 @media (min-width: 768px) {
-  .checkout-backdrop { align-items: center; padding: 16px; }
-  .checkout { width: min(560px, 100%); max-height: calc(100dvh - 32px); padding: 24px; border-radius: var(--radius-card); }
+  .checkout-backdrop { align-items: center; justify-content: center; padding: 16px; }
+  .checkout { width: min(880px, 100%); height: auto; max-height: calc(100dvh - 32px); padding: 24px; border-radius: var(--radius-sheet); box-shadow: var(--sh-dialog); }
+  .checkout__cols { flex-direction: row; gap: 24px; }
+  .checkout__main { flex: 1 1 0; }
+  .checkout__pad { flex: 0 0 min(400px, 46%); }
 }
 
+.checkout__pay { display: flex; flex-wrap: wrap; gap: 8px; }
+.pay { flex: 1 1 0; min-width: 96px; }
+
 .checkout__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.checkout__label { font-size: 18px; font-weight: 700; color: var(--c-text-sub); }
 
 .checkout__received {
   display: flex;
@@ -266,57 +317,19 @@ function back(): void {
   border: 2px solid var(--c-primary);
   border-radius: var(--radius);
 }
-.checkout__received-value { font-size: 32px; font-weight: 800; }
+.checkout__received-value { font-size: 32px; font-weight: 800; white-space: nowrap; }
 
-.checkout__quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.quick {
-  min-height: var(--tap-min);
-  border: 2px solid var(--c-primary);
-  border-radius: var(--radius);
-  background: var(--c-surface);
-  color: var(--c-primary);
-  font-size: 18px;
-  font-weight: 700;
-}
+.quick { cursor: pointer; }
+.quick:disabled { opacity: 0.5; }
 
-.checkout__change { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 72px; }
-.checkout__shortage { margin-left: auto; color: var(--c-danger); font-size: 32px; font-weight: 800; }
+.checkout__change { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 64px; padding-top: 8px; border-top: 1px solid var(--c-border-soft); }
+.checkout__shortage { margin-left: auto; color: var(--c-danger); font-size: 32px; font-weight: 800; white-space: nowrap; }
 
 .checkout__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.checkout__stepper { display: flex; align-items: center; gap: 8px; }
-.step {
-  width: var(--qty-btn);
-  height: var(--qty-btn);
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius);
-  background: var(--c-surface-alt);
-  font-size: 24px;
-  font-weight: 700;
-}
-.step:disabled { opacity: 0.4; }
-.step__value { min-width: 4em; text-align: center; font-weight: 700; }
 
-.checkout__memo { display: flex; flex-direction: column; gap: 4px; }
-.checkout__memo input {
-  min-height: var(--tap-min);
-  padding: 0 12px;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius);
-  font-size: 16px;
-}
-
-.checkout__error { color: var(--c-danger); font-weight: 700; white-space: pre-line; }
+.checkout__error { margin: 0; white-space: pre-line; }
 
 .checkout__actions { display: flex; gap: 12px; margin-top: auto; }
-.checkout__back {
-  min-width: 96px;
-  min-height: var(--btn-h-confirm);
-  padding: 0 20px;
-  border: 2px solid var(--c-border);
-  border-radius: var(--radius);
-  background: var(--c-surface);
-  font-size: 20px;
-  font-weight: 700;
-}
-.checkout__confirm { flex: 1 1 auto; }
+.checkout__back { flex: 0 0 auto; min-width: 96px; }
+.checkout__confirm { flex: 1 1 auto; min-width: 0; }
 </style>

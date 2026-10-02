@@ -6,6 +6,9 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { useAuthStore } from '@/stores/auth'
 
+// blue：青い面（ホーム）の白枠ボタン。light：白い面（管理の見出し）の操作者の札（丸の頭文字＋名前）
+const props = withDefaults(defineProps<{ tone?: 'blue' | 'light' }>(), { tone: 'blue' })
+
 const auth = useAuthStore()
 const router = useRouter()
 const open = ref(false)
@@ -14,6 +17,7 @@ const confirming = ref(false)
 const root = ref<HTMLElement | null>(null)
 
 const name = computed(() => auth.me?.user.name ?? '')
+const initial = computed(() => Array.from(name.value)[0] ?? '')
 const roleLabel = computed(() => (auth.role ? ja.role[auth.role] : ''))
 const label = computed(() => fmt(ja.menu.open, { name: name.value, role: roleLabel.value }))
 
@@ -67,6 +71,7 @@ async function logout(): Promise<void> {
   <div
     ref="root"
     class="account-menu"
+    :class="`account-menu--${props.tone}`"
   >
     <button
       type="button"
@@ -76,7 +81,13 @@ async function logout(): Promise<void> {
       :aria-label="label"
       @click="open = !open"
     >
+      <span
+        v-if="props.tone === 'light'"
+        class="op__av"
+        aria-hidden="true"
+      >{{ initial }}</span>
       <svg
+        v-else
         class="account-menu__icon"
         viewBox="0 0 24 24"
         aria-hidden="true"
@@ -211,8 +222,14 @@ async function logout(): Promise<void> {
 .account-menu__item:active { background: var(--c-surface-alt); }
 .account-menu__item--danger { color: var(--c-danger); }
 
+/* 白い面：操作者の札。押すとメニュー */
+.account-menu--light .account-menu__toggle { gap: 8px; padding: 0 8px 0 4px; border: 0; border-radius: 999px; color: var(--c-text); }
+.account-menu--light .account-menu__toggle:active { background: var(--c-surface-alt); }
+.account-menu--light .account-menu__name { display: inline; font-size: 17px; font-weight: 800; white-space: nowrap; }
+.account-menu--light .account-menu__caret { display: inline; color: var(--c-text-sub); font-size: 12px; }
+
 @media (min-width: 768px) {
-  .account-menu__toggle { padding: 0 16px; }
+  .account-menu--blue .account-menu__toggle { padding: 0 16px; }
   .account-menu__icon { display: none; }
   .account-menu__name,
   .account-menu__caret { display: inline; }

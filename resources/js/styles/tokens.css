@@ -65,6 +65,71 @@
   --radius-card: 16px;
   --gutter: 16px;
 
+  /* 追加の色（デザインシステム「レジアプリ」。README §7） */
+  --c-primary-tint: #E8EFFC;
+  --c-primary-ink: #1E40AF;
+  --c-on-primary-tint: rgba(255, 255, 255, 0.16);
+  --c-rail: #1E3A8A;
+  --c-rail-fg: #DCE6FB;
+  --c-rail-line: rgba(255, 255, 255, 0.18);
+  --c-seg-bg: #E5EAF3;
+  --c-seg-count: #CBD5E1;
+  --c-border-soft: #E5E7EB;
+  --c-border-input: #7C8799;
+  --c-placeholder: #6B7280;
+  --c-switch-off: #7C8799;
+  --c-focus-ring: rgba(37, 99, 235, 0.35);
+  --c-disabled-bg: #E5E7EB;
+  --c-disabled-fg: #6B7280;
+  --c-scrim: rgba(17, 24, 39, 0.5);
+  --c-toast: #1F2937;
+  --c-soldout-bg: #E5E7EB;
+  --c-warn-line: #D97706;
+  --c-dot: rgba(255, 255, 255, 0.6);
+  --c-dot-ring: rgba(17, 24, 39, 0.25);
+  --c-photo-badge: rgba(17, 24, 39, 0.62);
+
+  /* 状態の札（StatusChip）は 5 系統だけ */
+  --st-ok-bg: #DCFCE7;      --st-ok-fg: #166534;
+  --st-warn-bg: #FEF3C7;    --st-warn-fg: #92400E;
+  --st-danger-bg: #FEE2E2;  --st-danger-fg: #991B1B;
+  --st-info-bg: #E8EFFC;    --st-info-fg: #1E40AF;
+  --st-neutral-bg: #EEF0F3; --st-neutral-fg: #374151;
+
+  /* 勤怠の時間の帯（TimeBar） */
+  --tl-track: #E5E7EB;
+  --tl-night: rgba(30, 58, 138, 0.12);
+  --tl-work: var(--c-primary);
+  --tl-live: #7FA3EC;
+  --tl-break: #FCD34D;
+  --tl-break-2: #F59E0B;
+  --tl-over: var(--c-change);
+  --tl-plan: #5B86E5;
+  --tl-plan-bg: #EEF3FD;
+
+  /* 勤務の区分の札 */
+  --sh-a-bg: #DBEAFE; --sh-a-fg: #1E3A8A;
+  --sh-b-bg: #DCFCE7; --sh-b-fg: #14532D;
+  --sh-c-bg: #F3E8FF; --sh-c-fg: #581C87;
+
+  /* 余白・角・影 */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-12: 48px;
+  --radius-sm: 8px;
+  --radius-sheet: 20px;
+  --radius-pill: 999px;
+  --sh-card: 0 1px 2px rgba(17, 24, 39, 0.06), 0 1px 3px rgba(17, 24, 39, 0.08);
+  --sh-bar: 0 -2px 10px rgba(17, 24, 39, 0.10);
+  --sh-dialog: 0 12px 32px rgba(17, 24, 39, 0.25);
+  --rail-w: 104px;
+  --thumb-menu: 112px;
+
   /* safe-area（04 §8） */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);

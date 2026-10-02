@@ -116,7 +116,9 @@ const discountLabel = computed(() =>
   overflow: hidden;
   background: #fff;
   color: #111827;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-card);
+  box-shadow: var(--sh-card);
 }
 
 .receipt__title { font-size: 24px; text-align: center; letter-spacing: 0.3em; }
@@ -152,6 +154,6 @@ const discountLabel = computed(() =>
 }
 
 @media print {
-  .receipt { max-width: none; box-shadow: none; }
+  .receipt { max-width: none; border: 0; border-radius: 0; box-shadow: none; }
 }
 </style>

@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import '@/styles/tokens.css'
 import '@/styles/base.css'
+import '@/styles/ui.css'
 
 const app = createApp(App)
 app.use(createPinia())

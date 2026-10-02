@@ -56,10 +56,11 @@ function apply(): void {
       :options="typeOptions"
       :label="t.discountTitle"
     />
-    <label class="discount__field">
+    <label class="discount__field r-field">
       <span>{{ t.discountValue }}</span>
       <input
         v-model="text"
+        class="r-input"
         type="text"
         inputmode="numeric"
         pattern="[0-9]*"
@@ -70,7 +71,7 @@ function apply(): void {
     <button
       v-if="current"
       type="button"
-      class="discount__remove"
+      class="discount__remove r-btn r-btn--danger"
       @click="emit('apply', null)"
     >
       {{ t.discountRemove }}
@@ -79,22 +80,7 @@ function apply(): void {
 </template>
 
 <style scoped>
-.discount__field { display: flex; flex-direction: column; gap: 4px; font-weight: 700; }
-.discount__field input {
-  min-height: var(--tap-min);
-  padding: 0 12px;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius);
-  font-size: 24px;
-}
-.discount__remove {
-  align-self: flex-start;
-  min-height: var(--tap-min);
-  padding: 0 16px;
-  border: 2px solid var(--c-danger);
-  border-radius: var(--radius);
-  background: var(--c-surface);
-  color: var(--c-danger);
-  font-weight: 700;
-}
+.discount__field { font-weight: 700; }
+.discount__field input { font-size: 24px; }
+.discount__remove { align-self: flex-start; }
 </style>

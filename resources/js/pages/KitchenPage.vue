@@ -5,6 +5,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { serveAllOrder, setItemServed } from '@/api/orders'
 import AppHeader from '@/components/AppHeader.vue'
+import AppIcon from '@/components/AppIcon.vue'
 import BigButton from '@/components/BigButton.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import KitchenCard from '@/components/orders/KitchenCard.vue'
@@ -154,7 +155,7 @@ function runConfirm(): void {
         >{{ fmt(t.lastUpdated, { time: lastUpdated }) }}</span>
         <RouterLink
           v-if="kitchen.pendingCount > 0"
-          class="adm-btn kitchen__pending"
+          class="r-btn r-btn--secondary kitchen__pending"
           :to="{ name: 'orders', query: { tab: 'pending' } }"
         >
           {{ fmt(t.pending, { n: kitchen.pendingCount }) }}
@@ -162,34 +163,42 @@ function runConfirm(): void {
         <span class="kitchen__spacer" />
         <button
           type="button"
-          class="adm-btn"
-          :class="{ 'adm-btn--on': sound }"
+          class="r-btn"
+          :class="sound ? 'r-btn--primary' : 'r-btn--secondary'"
           :aria-pressed="sound"
           :aria-label="t.soundLabel"
           data-sound
           @click="toggleSound"
         >
-          {{ sound ? t.soundOn : t.soundOff }}
+          <AppIcon
+            name="sound"
+            :size="20"
+          />
+          <span>{{ sound ? t.soundOn : t.soundOff }}</span>
         </button>
         <button
           type="button"
-          class="adm-btn"
+          class="r-btn r-btn--secondary"
           :disabled="kitchen.loading"
           data-refresh
           @click="refresh"
         >
-          {{ t.refresh }}
+          <AppIcon
+            name="refresh"
+            :size="20"
+          />
+          <span>{{ t.refresh }}</span>
         </button>
       </div>
 
       <nav
-        class="kitchen__tabs"
+        class="kitchen__tabs r-seg"
         :aria-label="t.title"
       >
         <button
           type="button"
           class="kitchen__tab"
-          :class="{ 'kitchen__tab--on': tab === 'progress' }"
+          :class="{ 'kitchen__tab--on': tab === 'progress', on: tab === 'progress' }"
           :aria-pressed="tab === 'progress'"
           data-tab="progress"
           @click="tab = 'progress'"
@@ -199,7 +208,7 @@ function runConfirm(): void {
         <button
           type="button"
           class="kitchen__tab"
-          :class="{ 'kitchen__tab--on': tab === 'done' }"
+          :class="{ 'kitchen__tab--on': tab === 'done', on: tab === 'done' }"
           :aria-pressed="tab === 'done'"
           data-tab="done"
           @click="tab = 'done'"
@@ -224,7 +233,7 @@ function runConfirm(): void {
       </p>
       <div
         v-else-if="!kitchen.loaded"
-        class="adm-panel"
+        class="r-banner r-banner--danger kitchen__fail"
       >
         <p
           class="adm-error"
@@ -240,13 +249,13 @@ function runConfirm(): void {
       </div>
       <p
         v-else-if="list.length === 0"
-        class="adm-help"
+        class="adm-help sub"
       >
         {{ tab === 'progress' ? t.emptyInProgress : t.emptyDone }}
       </p>
       <div
         v-else
-        class="kitchen__grid"
+        class="kitchen__grid k-grid"
       >
         <KitchenCard
           v-for="order in list"
@@ -272,7 +281,7 @@ function runConfirm(): void {
 </template>
 
 <style scoped>
-.kitchen { max-width: 1400px; gap: 16px; }
+.kitchen { max-width: 1400px; gap: 12px; }
 .kitchen__offline {
   position: sticky;
   top: 0;
@@ -287,25 +296,9 @@ function runConfirm(): void {
 .kitchen__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .kitchen__polling { font-size: 18px; font-weight: 700; }
 .kitchen__updated { color: var(--c-text-sub); font-size: 16px; }
-.kitchen__pending { border-color: var(--c-change); color: var(--c-change); text-decoration: none; }
+.kitchen__pending { text-decoration: none; }
 .kitchen__spacer { flex: 1 1 auto; }
-.kitchen__tabs { display: flex; gap: 8px; }
-.kitchen__tab {
-  flex: 1 1 0;
-  min-height: var(--tab-h);
-  border: 2px solid var(--c-border);
-  border-radius: 999px;
-  background: var(--c-surface);
-  color: var(--c-text);
-  font-size: 18px;
-  font-weight: 700;
-}
-.kitchen__tab--on { border-color: var(--c-primary); background: var(--c-primary); color: var(--c-on-primary); }
-.kitchen__grid { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: start; }
-@media (min-width: 768px) {
-  .kitchen__grid { grid-template-columns: repeat(2, 1fr); }
-}
-@media (min-width: 1024px) {
-  .kitchen__grid { grid-template-columns: repeat(3, 1fr); }
-}
+.kitchen__tabs { width: 100%; max-width: 520px; }
+.kitchen__fail { flex-direction: column; align-items: flex-start; }
+.kitchen__grid { padding: 0; }
 </style>

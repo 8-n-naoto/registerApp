@@ -202,8 +202,9 @@ onMounted(load)
   <div class="adm-page">
     <AppHeader :title="t.title" />
     <main class="adm-body products">
-      <div class="adm-actions">
+      <div class="adm-actions ad-tool">
         <BigButton
+          size="sm"
           :disabled="loading || reordering"
           @click="editing = 'new'"
         >
@@ -211,6 +212,7 @@ onMounted(load)
         </BigButton>
         <BigButton
           variant="secondary"
+          size="sm"
           :disabled="reordering"
           @click="openImport"
         >
@@ -226,7 +228,7 @@ onMounted(load)
       </p>
       <p
         v-else-if="loadFailed"
-        class="adm-error"
+        class="adm-error r-err"
         role="alert"
       >
         {{ loadFailed }}
@@ -234,7 +236,7 @@ onMounted(load)
 
       <template v-else>
         <nav
-          class="tabs"
+          class="tabs r-chips"
           :aria-label="t.category"
         >
           <button
@@ -276,7 +278,7 @@ onMounted(load)
           </button>
         </nav>
 
-        <div class="adm-actions">
+        <div class="adm-actions ad-tool">
           <button
             v-if="selectedCategory && !reordering"
             type="button"
@@ -304,14 +306,14 @@ onMounted(load)
         </div>
         <p
           v-if="reorderFailed"
-          class="adm-error"
+          class="adm-error r-err"
           role="alert"
         >
           {{ reorderFailed }}
         </p>
 
         <template v-if="reordering">
-          <p class="adm-help">
+          <p class="adm-help r-help">
             {{ tab === 'all' ? ja.storeSettings.reorderHelp : t.reorderHelp }}
           </p>
           <SortableList
@@ -345,7 +347,7 @@ onMounted(load)
 
         <p
           v-else-if="visibleProducts.length === 0"
-          class="adm-help"
+          class="adm-help r-help"
         >
           {{ t.empty }}
         </p>
@@ -398,16 +400,16 @@ onMounted(load)
     >
       <div
         v-if="categoryForm"
-        class="adm-field"
+        class="adm-field r-field"
       >
         <label
           for="category-name"
-          class="adm-field__label"
+          class="adm-field__label r-label"
         >{{ t.categoryName }}</label>
         <input
           id="category-name"
           v-model="categoryForm.name"
-          class="adm-input"
+          class="adm-input r-input"
           maxlength="30"
           @keydown.enter.prevent="saveCategory"
         >
@@ -445,29 +447,7 @@ onMounted(load)
 <style scoped>
 .products { max-width: 1200px; }
 
-.tabs {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  -webkit-overflow-scrolling: touch;
-}
-
-.tabs__tab {
-  flex: 0 0 auto;
-  min-width: var(--tap-min);
-  min-height: var(--tab-h);
-  padding: 0 18px;
-  border: 2px solid var(--c-primary);
-  border-radius: 999px;
-  background: var(--c-surface);
-  color: var(--c-primary);
-  font-size: 18px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.tabs__tab[aria-pressed='true'] { background: var(--c-primary); color: var(--c-on-primary); }
+.tabs { padding: 0; }
 .tabs__tab:disabled { opacity: 0.45; }
 .tabs__tab--add { border-style: dashed; }
 

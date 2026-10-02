@@ -108,19 +108,19 @@ onMounted(load)
       </p>
       <p
         v-else-if="loadFailed"
-        class="adm-error"
+        class="adm-error r-err"
         role="alert"
       >
         {{ loadFailed }}
       </p>
       <template v-else>
         <section
-          class="adm-panel"
+          class="adm-panel r-card"
           aria-labelledby="store-heading"
         >
           <h2
             id="store-heading"
-            class="adm-panel__title"
+            class="adm-panel__title r-h2"
           >
             {{ t.storeHeading }}
           </h2>
@@ -129,65 +129,65 @@ onMounted(load)
             novalidate
             @submit.prevent="saveStore"
           >
-            <div class="adm-field">
+            <div class="adm-field r-field">
               <label
                 for="store-name"
-                class="adm-field__label"
+                class="adm-field__label r-label"
               >{{ t.name }}</label>
               <input
                 id="store-name"
                 v-model="name"
-                class="adm-input"
+                class="adm-input r-input"
                 maxlength="100"
                 autocomplete="organization"
                 :aria-invalid="errors.name ? 'true' : undefined"
               >
               <p
                 v-if="errors.name"
-                class="adm-error"
+                class="adm-error r-err"
               >
                 {{ errors.name }}
               </p>
             </div>
 
-            <div class="adm-field">
-              <span class="adm-field__label">{{ t.priceMode }}</span>
+            <div class="adm-field r-field">
+              <span class="adm-field__label r-label">{{ t.priceMode }}</span>
               <SegmentedControl
                 v-model="priceMode"
                 :options="PRICE_MODES"
                 :label="t.priceMode"
               />
-              <p class="adm-help">
+              <p class="adm-help r-help">
                 {{ priceMode === 'tax_included' ? t.priceModeHelpIncluded : t.priceModeHelpExcluded }}
               </p>
               <p
                 v-if="errors.price_mode"
-                class="adm-error"
+                class="adm-error r-err"
               >
                 {{ errors.price_mode }}
               </p>
             </div>
 
-            <div class="adm-field">
-              <span class="adm-field__label">{{ t.rounding }}</span>
+            <div class="adm-field r-field">
+              <span class="adm-field__label r-label">{{ t.rounding }}</span>
               <SegmentedControl
                 v-model="rounding"
                 :options="ROUNDINGS"
                 :label="t.rounding"
               />
-              <p class="adm-help">
+              <p class="adm-help r-help">
                 {{ t.roundingHelp }}
               </p>
               <p
                 v-if="errors.rounding"
-                class="adm-error"
+                class="adm-error r-err"
               >
                 {{ errors.rounding }}
               </p>
             </div>
 
-            <fieldset class="adm-field cutoff">
-              <legend class="adm-field__label">
+            <fieldset class="adm-field r-field cutoff">
+              <legend class="adm-field__label r-label">
                 {{ t.cutoff }}
               </legend>
               <div class="adm-actions">
@@ -219,18 +219,18 @@ onMounted(load)
                   </option>
                 </select>
               </div>
-              <p class="adm-help">
+              <p class="adm-help r-help">
                 {{ t.cutoffHelp }}
               </p>
               <p
                 v-if="errors.day_cutoff_time"
-                class="adm-error"
+                class="adm-error r-err"
               >
                 {{ errors.day_cutoff_time }}
               </p>
             </fieldset>
 
-            <div class="adm-field">
+            <div class="adm-field r-field">
               <label class="adm-check"><input
                 v-model="stockEnabled"
                 type="checkbox"
@@ -238,13 +238,13 @@ onMounted(load)
               >{{ t.stockEnabled }}</label>
               <p
                 id="stock-enabled-help"
-                class="adm-help"
+                class="adm-help r-help"
               >
                 {{ t.stockEnabledHelp }}
               </p>
               <p
                 v-if="errors.stock_enabled"
-                class="adm-error"
+                class="adm-error r-err"
               >
                 {{ errors.stock_enabled }}
               </p>
@@ -259,7 +259,7 @@ onMounted(load)
             </p>
             <p
               v-if="saveFailed"
-              class="adm-error"
+              class="adm-error r-err"
               role="alert"
             >
               {{ saveFailed }}

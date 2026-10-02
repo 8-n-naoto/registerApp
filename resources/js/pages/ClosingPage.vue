@@ -131,13 +131,13 @@ async function save(): Promise<void> {
   <div class="adm-page">
     <AppHeader :title="t.title" />
     <main class="adm-body">
-      <div class="closing-head">
-        <h2 class="closing-head__date tabular">
+      <div class="ad-tool closing-head">
+        <h2 class="r-period__v closing-head__date tabular">
           {{ date ? fmt(t.businessDate, { date: formatBusinessDate(date) }) : '' }}
         </h2>
         <RouterLink
           :to="{ name: 'sales-daily', query: auth.isStaff ? {} : { date } }"
-          class="adm-btn"
+          class="r-btn r-btn--secondary r-btn--sm"
         >
           {{ t.toDaily }}
         </RouterLink>
@@ -159,7 +159,7 @@ async function save(): Promise<void> {
       <template v-else-if="view">
         <p
           v-if="view.closing?.changed_after_close"
-          class="closing-alert"
+          class="closing-alert r-banner r-banner--warn"
           role="alert"
           data-test="changed-after-close"
         >
@@ -195,7 +195,7 @@ async function save(): Promise<void> {
             <input
               id="closing-float"
               v-model="floatText"
-              class="adm-input closing-input tabular"
+              class="adm-input r-input closing-input tabular"
               inputmode="numeric"
               autocomplete="off"
               :aria-invalid="errors.float_amount ? 'true' : undefined"
@@ -227,7 +227,7 @@ async function save(): Promise<void> {
             <input
               id="closing-counted"
               v-model="countedText"
-              class="adm-input closing-input tabular"
+              class="adm-input r-input closing-input tabular"
               inputmode="numeric"
               autocomplete="off"
               :aria-invalid="errors.counted_cash ? 'true' : undefined"
@@ -240,7 +240,7 @@ async function save(): Promise<void> {
             </p>
           </div>
 
-          <details class="closing-denoms">
+          <details class="closing-denoms r-card">
             <summary class="closing-denoms__summary">
               {{ t.denominations }}
             </summary>
@@ -255,7 +255,7 @@ async function save(): Promise<void> {
               >
                 <span class="closing-denom__yen tabular">{{ formatYen(d) }}</span>
                 <input
-                  class="adm-input closing-denom__input tabular"
+                  class="adm-input r-input closing-denom__input tabular"
                   inputmode="numeric"
                   autocomplete="off"
                   :value="countTexts[d] ?? ''"
@@ -293,7 +293,7 @@ async function save(): Promise<void> {
             <textarea
               id="closing-memo"
               v-model="memo"
-              class="adm-input closing-memo"
+              class="adm-input r-input closing-memo"
               maxlength="200"
               rows="2"
               :aria-invalid="errors.memo ? 'true' : undefined"
@@ -340,17 +340,10 @@ async function save(): Promise<void> {
 </template>
 
 <style scoped>
-.closing-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
-.closing-head__date { font-size: var(--fs-heading); }
+.closing-head { justify-content: space-between; }
+.closing-head__date { min-width: 0; margin: 0; font-size: 18px; }
 
-.closing-alert {
-  padding: 12px 16px;
-  border: 2px solid var(--c-change);
-  border-radius: var(--radius);
-  background: var(--c-surface);
-  color: var(--c-change);
-  font-weight: 700;
-}
+.closing-alert { font-weight: 700; }
 
 .closing-form { max-width: 640px; }
 .closing-line { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
@@ -359,11 +352,11 @@ async function save(): Promise<void> {
 .closing-input { max-width: 16em; font-size: 24px; text-align: right; }
 .closing-memo { min-height: 96px; padding: 12px 14px; }
 
-.closing-denoms { padding: 8px 12px; border: 1px solid var(--c-border); border-radius: var(--radius); }
-.closing-denoms__summary { display: flex; align-items: center; min-height: var(--tap-min); font-weight: 700; cursor: pointer; }
+.closing-denoms { padding: 4px 16px 12px; }
+.closing-denoms__summary { display: flex; align-items: center; min-height: var(--tap-min); font-weight: 800; cursor: pointer; }
 .closing-denoms__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 8px; }
-.closing-denom { display: grid; grid-template-columns: 6em minmax(0, 1fr) auto; align-items: center; gap: 8px; }
-.closing-denom__yen { font-weight: 700; text-align: right; }
+.closing-denom { display: grid; grid-template-columns: 5em minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.closing-denom__yen { font-weight: 800; text-align: right; white-space: nowrap; }
 .closing-denom__input { text-align: right; }
 .closing-denoms__total { margin-top: 8px; font-size: 18px; font-weight: 800; text-align: right; }
 
@@ -378,7 +371,7 @@ async function save(): Promise<void> {
   background: var(--c-surface-alt);
 }
 
-.closing-diff__value { font-size: var(--fs-total); font-weight: 800; line-height: 1.1; }
+.closing-diff__value { font-size: 32px; font-weight: 800; line-height: 1.1; white-space: nowrap; }
 .closing-diff--short { color: var(--c-danger); }
 .closing-diff--over { color: var(--c-change); }
 .closing-diff--even { color: var(--c-success); }

@@ -13,6 +13,36 @@ import type { ShiftPattern } from '@/types/api'
 const emit = defineEmits<{ changed: [] }>()
 
 const t = ja.shifts
+
+/** 区分の時間帯を 6〜30 時の帯にする。時間帯の間は休憩 */
+const BAR_START = 6 * 60
+const BAR_SPAN = 24 * 60
+
+function toMin(hhmm: string): number {
+  const [h, m] = hhmm.split(':')
+  return Number(h) * 60 + Number(m)
+}
+
+function pct(min: number): number {
+  return Math.min(100, Math.max(0, ((min - BAR_START) / BAR_SPAN) * 100))
+}
+
+interface PatBar { cls: string; left: number; width: number }
+
+function patBars(p: ShiftPattern): PatBar[] {
+  const out: PatBar[] = []
+  p.segments.forEach((s, i) => {
+    const a = pct(toMin(s.start))
+    const b = pct(toMin(s.end))
+    if (b > a) out.push({ cls: 'tl__plan', left: a, width: b - a })
+    const prev = p.segments[i - 1]
+    if (prev) {
+      const from = pct(toMin(prev.end))
+      if (a > from) out.push({ cls: 'tl__break', left: from, width: a - from })
+    }
+  })
+  return out
+}
 const MAX_SEGMENTS = 3
 
 type Active = 'true' | 'false'
@@ -166,7 +196,7 @@ async function save(): Promise<void> {
       class="pattern-list"
     >
       <li
-        v-for="p in patterns"
+        v-for="(p, pi) in patterns"
         :key="p.id"
       >
         <button
@@ -176,8 +206,24 @@ async function save(): Promise<void> {
           :aria-label="fmt(ja.common.editNamed, { name: p.name })"
           @click="startEdit(p)"
         >
+          <span
+            class="pat"
+            :class="['sh--a', 'sh--b', 'sh--c'][pi % 3]"
+          >{{ p.name.slice(0, 1) }}</span>
           <span class="pattern-item__name">{{ p.name }}</span>
           <span class="pattern-item__time">{{ segmentsText(p.segments) }}</span>
+          <span
+            class="tl pattern-item__bar"
+            aria-hidden="true"
+          >
+            <span
+              v-for="(b, bi) in patBars(p)"
+              :key="bi"
+              class="tl__seg"
+              :class="b.cls"
+              :style="{ left: `${b.left}%`, width: `${b.width}%` }"
+            />
+          </span>
           <span
             v-if="p.break_minutes > 0"
             class="pattern-item__sub"
@@ -331,19 +377,21 @@ async function save(): Promise<void> {
 </template>
 
 <style scoped>
-.pattern-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.pattern-list { display: flex; flex-direction: column; margin: 0; padding: 0; overflow: hidden; border: 1px solid var(--c-border-soft); border-radius: var(--radius-card); background: var(--c-surface); list-style: none; }
+.pattern-list > li + li { border-top: 1px solid var(--c-border-soft); }
+
+.pat { display: flex; flex: none; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 8px; font-size: 18px; font-weight: 800; }
 
 .pattern-item {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 12px;
+  gap: 6px 12px;
   width: 100%;
   min-height: var(--tap-min);
-  padding: 8px 12px;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius);
-  background: var(--c-surface);
+  padding: 10px 16px;
+  border: 0;
+  background: transparent;
   color: var(--c-text);
   font-size: 16px;
   text-align: left;
@@ -351,9 +399,10 @@ async function save(): Promise<void> {
 }
 
 .pattern-item--off { background: var(--c-surface-alt); color: var(--c-text-sub); }
-.pattern-item__name { min-width: 3em; font-size: 18px; font-weight: 700; }
-.pattern-item__time { font-variant-numeric: tabular-nums; font-weight: 700; }
-.pattern-item__sub { color: var(--c-text-sub); }
+.pattern-item__name { min-width: 0; flex: 1 1 4em; overflow-wrap: anywhere; font-size: 18px; font-weight: 800; }
+.pattern-item__time { flex: 1 1 100%; font-size: 15px; font-variant-numeric: tabular-nums; font-weight: 700; }
+.pattern-item__bar { flex: 1 1 100%; }
+.pattern-item__sub { color: var(--c-text-sub); font-size: 14px; }
 .pattern-form__short { max-width: 240px; }
 .pattern-form__segments { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; border: 0; }
 .pattern-form__segment { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }

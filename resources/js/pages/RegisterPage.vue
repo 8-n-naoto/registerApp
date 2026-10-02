@@ -5,6 +5,7 @@
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { fetchOrders } from '@/api/orders'
+import AppIcon from '@/components/AppIcon.vue'
 import BigButton from '@/components/BigButton.vue'
 import BottomSheet from '@/components/BottomSheet.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
@@ -34,7 +35,8 @@ useWakeLock()
 onMounted(() => {
   void register.load()
   // S15［会計へ］（?table=ID）：そのテーブルの注文を選んだ状態で開き、URL から外す。
-  // S13［送信して会計へ］（?order=ID）：その注文だけを選んだ状態で開く
+  // S13［送信して会計へ］（?order=ID）：その注文だけを選んだ状態で開く。
+  // ホームの［レジ］（?view=order）：スマホは注文一覧のシートを開いた状態で開く（タブレットは注文一覧が常に右に出ている）
   const table = Number(route.query.table)
   const order = Number(route.query.order)
   if (Number.isSafeInteger(table) && table > 0) {
@@ -46,6 +48,10 @@ onMounted(() => {
     pickOpen.value = true
     void router.replace({ name: 'register' })
   } else {
+    if (route.query.view === 'order') {
+      if (!isTablet.value) orderSheet.value = true
+      void router.replace({ name: 'register' })
+    }
     void refreshUnpaid()
   }
 })
@@ -175,13 +181,18 @@ async function undo(): Promise<void> {
     class="register"
     :class="{ 'register--tablet': isTablet }"
   >
-    <header class="register__top">
+    <header class="register__top r-appbar">
       <RouterLink
         :to="{ name: 'home' }"
-        class="register__home"
+        class="register__home r-appbar__back"
       >
-        <span aria-hidden="true">←</span> {{ ja.common.home }}
+        <AppIcon
+          name="back"
+          :size="24"
+        />
+        <span>{{ ja.common.home }}</span>
       </RouterLink>
+      <span class="r-appbar__title">{{ t.title }}</span>
       <div
         v-if="register.bootstrap"
         class="tabs tabs--tax"
@@ -205,14 +216,14 @@ async function undo(): Promise<void> {
 
     <div
       v-if="register.notice"
-      class="register__notice"
-      :class="`register__notice--${register.notice.kind}`"
+      class="register__notice r-banner"
+      :class="[`register__notice--${register.notice.kind}`, register.notice.kind === 'error' ? 'r-banner--danger' : 'r-banner--ok']"
       :role="register.notice.kind === 'error' ? 'alert' : 'status'"
     >
-      <span>{{ register.notice.text }}</span>
+      <span class="grow">{{ register.notice.text }}</span>
       <button
         type="button"
-        class="register__notice-close"
+        class="register__notice-close r-btn r-btn--plain r-btn--sm"
         @click="register.notice = null"
       >
         {{ ja.common.close }}
@@ -220,7 +231,7 @@ async function undo(): Promise<void> {
     </div>
     <p
       v-if="!register.storageOk"
-      class="register__notice register__notice--error"
+      class="register__notice register__notice--error r-banner r-banner--danger"
     >
       {{ t.storageUnavailable }}
     </p>
@@ -271,18 +282,19 @@ async function undo(): Promise<void> {
 
     <div
       v-if="!isTablet && register.bootstrap"
-      class="total-bar"
+      class="total-bar r-actionbar"
     >
       <button
         type="button"
         class="total-bar__summary"
         @click="orderSheet = true"
       >
-        <span class="total-bar__label">{{ t.totalBar }}・{{ fmt(t.count, { n: register.itemCount }) }}</span>
+        <span class="total-bar__label r-sum__l">{{ t.totalBar }}・{{ fmt(t.count, { n: register.itemCount }) }}</span>
         <MoneyText
+          class="total-bar__money"
           :amount="register.amounts?.total ?? 0"
-          size="amount"
-          tone="inherit"
+          size="total"
+          tone="money"
         />
         <span class="total-bar__view">{{ t.viewOrder }}</span>
       </button>
@@ -346,10 +358,12 @@ async function undo(): Promise<void> {
       :open="checkoutOpen"
       :total="register.amounts.total"
       :payment-method="register.paymentMethod"
+      :payment-methods="register.bootstrap?.payment_methods ?? []"
       :submitting="register.submitting"
       :error="checkoutError"
       @confirm="confirm"
       @back="checkoutOpen = false"
+      @pay="register.setPaymentMethod($event)"
     />
     <SaleDone
       v-if="done"
@@ -367,78 +381,31 @@ async function undo(): Promise<void> {
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
-  padding: var(--safe-top) var(--safe-right) 0 var(--safe-left);
-  background: var(--c-surface-alt);
+  background: var(--c-surface);
   color: var(--c-text);
 }
 
-.register__top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 12px;
-  background: var(--c-primary);
-  color: var(--c-on-primary);
-}
+.register__home { text-decoration: none; }
 
-.register__home {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 4px;
-  min-height: var(--tap-min);
-  padding: 0 12px;
-  color: var(--c-on-primary);
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.tabs {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.tabs--tax { flex: 1 1 auto; justify-content: flex-end; }
+.tabs { display: flex; gap: 8px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.tabs--tax { flex: 0 1 auto; justify-content: flex-end; }
 .tab {
   flex-shrink: 0;
   min-width: var(--tap-min);
-  min-height: var(--tab-h);
+  min-height: var(--tap-min);
   padding: 0 16px;
-  border: 2px solid var(--c-border);
+  border: 2px solid var(--c-on-primary);
   border-radius: 999px;
-  background: var(--c-surface);
-  color: var(--c-text);
-  font-size: 18px;
+  background: transparent;
+  color: var(--c-on-primary);
+  font-size: 16px;
   font-weight: 700;
   white-space: nowrap;
 }
+.tab--on { background: var(--c-surface); color: var(--c-primary-ink); }
 
-.tab--on { border-color: var(--c-primary); background: var(--c-primary); color: var(--c-on-primary); }
-.tabs--tax .tab { min-height: var(--tap-min); border-color: var(--c-on-primary); background: transparent; color: var(--c-on-primary); }
-.tabs--tax .tab--on { background: var(--c-surface); color: var(--c-primary); }
-
-.register__notice {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 4px 12px;
-  font-weight: 700;
-  white-space: pre-line;
-}
-.register__notice--error { background: #FEE2E2; color: var(--c-danger); }
-.register__notice--info { background: #DCFCE7; color: var(--c-success); }
-.register__notice-close {
-  flex-shrink: 0;
-  min-width: var(--tap-min);
-  min-height: var(--tap-min);
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font-weight: 700;
-}
+.register__notice { align-items: center; margin: 8px 16px 0; white-space: pre-line; }
+.register__notice-close { flex-shrink: 0; }
 
 .register__message { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 48px 16px; text-align: center; }
 
@@ -448,35 +415,33 @@ async function undo(): Promise<void> {
 .register--tablet { height: 100dvh; }
 .register--tablet .register__body { overflow: hidden; }
 .register__order {
-  flex: 0 0 38%;
+  display: flex;
+  flex: 0 0 440px;
+  flex-direction: column;
   min-width: 0;
-  overflow-y: auto;
-  padding: 12px 12px calc(12px + var(--safe-bottom));
-  border-left: 1px solid var(--c-border);
+  max-width: 45%;
+  overflow: hidden;
+  border-left: 1px solid var(--c-border-soft);
   background: var(--c-surface);
 }
 
-/* スマホ：合計バーを画面の下に固定し、ホームバーに重ねない（AC-S02-14） */
+/* スマホ：合計の帯を画面の下に固定する（AC-S02-14）。余白は r-actionbar が持つ */
 .total-bar {
   position: fixed;
-  left: 0;
   right: 0;
   bottom: 0;
+  left: 0;
   z-index: 50;
-  display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 8px;
-  padding: 8px calc(12px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(12px + var(--safe-left));
-  background: var(--c-money);
-  color: var(--c-on-primary);
-  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.2);
+  gap: 12px;
 }
 
 .total-bar__summary {
   display: grid;
   flex: 1 1 auto;
-  grid-template-columns: 1fr auto;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   min-height: var(--tap-min);
   padding: 0;
   border: 0;
@@ -484,6 +449,6 @@ async function undo(): Promise<void> {
   color: inherit;
   text-align: left;
 }
-.total-bar__label { font-size: 14px; }
-.total-bar__view { grid-column: 1 / -1; font-size: 14px; text-decoration: underline; }
+.total-bar__money { font-size: 32px; }
+.total-bar__view { color: var(--c-primary-ink); font-size: 14px; text-decoration: underline; }
 </style>

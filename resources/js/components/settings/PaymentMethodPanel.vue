@@ -95,13 +95,13 @@ async function finishReorder(): Promise<void> {
 
 <template>
   <section
-    class="adm-panel"
+    class="adm-panel r-card"
     aria-labelledby="pay-heading"
   >
     <div class="adm-panel__head">
       <h2
         id="pay-heading"
-        class="adm-panel__title"
+        class="adm-panel__title r-h2"
       >
         {{ t.payHeading }}
       </h2>
@@ -126,14 +126,14 @@ async function finishReorder(): Promise<void> {
     </div>
     <p
       v-if="failed"
-      class="adm-error"
+      class="adm-error r-err"
       role="alert"
     >
       {{ failed }}
     </p>
 
     <template v-if="reordering">
-      <p class="adm-help">
+      <p class="adm-help r-help">
         {{ t.reorderHelp }}
       </p>
       <SortableList
@@ -163,21 +163,21 @@ async function finishReorder(): Promise<void> {
           novalidate
           @submit.prevent="save"
         >
-          <div class="adm-field">
+          <div class="adm-field r-field">
             <label
               :for="`pay-name-${method.id}`"
-              class="adm-field__label"
+              class="adm-field__label r-label"
             >{{ t.payName }}</label>
             <input
               :id="`pay-name-${method.id}`"
               v-model="form.name"
-              class="adm-input"
+              class="adm-input r-input"
               maxlength="20"
               :aria-invalid="errors.name ? 'true' : undefined"
             >
             <p
               v-if="errors.name"
-              class="adm-error"
+              class="adm-error r-err"
             >
               {{ errors.name }}
             </p>
@@ -194,7 +194,7 @@ async function finishReorder(): Promise<void> {
           </div>
           <p
             v-if="errors.is_active"
-            class="adm-error"
+            class="adm-error r-err"
             role="alert"
           >
             {{ errors.is_active }}
@@ -223,11 +223,11 @@ async function finishReorder(): Promise<void> {
           <span class="adm-row__main">{{ method.name }}</span>
           <span
             v-if="method.is_cash"
-            class="adm-badge adm-badge--primary"
+            class="adm-badge adm-badge--primary r-chip r-chip--ok"
           >{{ t.payCash }}</span>
           <span
             v-if="!method.is_active"
-            class="adm-badge"
+            class="adm-badge r-chip r-chip--neutral"
           >{{ ja.common.inactive }}</span>
           <button
             type="button"
@@ -247,21 +247,21 @@ async function finishReorder(): Promise<void> {
       novalidate
       @submit.prevent="save"
     >
-      <div class="adm-field">
+      <div class="adm-field r-field">
         <label
           for="pay-name-new"
-          class="adm-field__label"
+          class="adm-field__label r-label"
         >{{ t.payName }}</label>
         <input
           id="pay-name-new"
           v-model="form.name"
-          class="adm-input"
+          class="adm-input r-input"
           maxlength="20"
           :aria-invalid="errors.name ? 'true' : undefined"
         >
         <p
           v-if="errors.name"
-          class="adm-error"
+          class="adm-error r-err"
         >
           {{ errors.name }}
         </p>
@@ -270,7 +270,7 @@ async function finishReorder(): Promise<void> {
         v-model="form.is_cash"
         type="checkbox"
       >{{ t.payCash }}</label>
-      <p class="adm-help">
+      <p class="adm-help r-help">
         {{ t.payCashHelp }}
       </p>
       <div class="adm-actions">

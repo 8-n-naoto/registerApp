@@ -114,7 +114,7 @@ async function doCancel(): Promise<void> {
     </p>
     <p
       v-else-if="loadFailed"
-      class="detail__error"
+      class="detail__error r-banner r-banner--danger"
       role="alert"
     >
       {{ loadFailed }}
@@ -125,7 +125,7 @@ async function doCancel(): Promise<void> {
     >
       <p
         v-if="notice"
-        class="detail__notice"
+        class="detail__notice r-banner r-banner--info"
         role="status"
       >
         {{ notice }}
@@ -160,7 +160,7 @@ async function doCancel(): Promise<void> {
       <div class="detail__actions">
         <RouterLink
           :to="receiptTo"
-          class="detail__link"
+          class="detail__link r-btn r-btn--secondary"
         >
           {{ t.receipt }}
         </RouterLink>
@@ -191,15 +191,10 @@ async function doCancel(): Promise<void> {
 .detail { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 480px; margin: 0 auto; }
 .detail__error { color: var(--c-danger); font-weight: 700; }
 
-.detail__notice {
-  padding: 12px 16px;
-  border-radius: var(--radius);
-  background: var(--c-surface-alt);
-  font-weight: 700;
-}
+.detail__notice { font-weight: 700; }
 
 .detail__meta { display: flex; flex-direction: column; gap: 4px; margin: 0; }
-.detail__row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--c-border); }
+.detail__row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--c-border-soft); }
 .detail__row dt { color: var(--c-text-sub); font-weight: 700; white-space: nowrap; }
 .detail__row dd { margin: 0; text-align: right; }
 .detail__memo { overflow-wrap: anywhere; white-space: pre-wrap; }
@@ -207,16 +202,5 @@ async function doCancel(): Promise<void> {
 
 .detail__actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; }
 
-.detail__link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--btn-h);
-  padding: 0 20px;
-  border: 2px solid var(--c-primary);
-  border-radius: var(--radius);
-  color: var(--c-primary);
-  font-weight: 700;
-  text-decoration: none;
-}
+.detail__link { text-decoration: none; }
 </style>

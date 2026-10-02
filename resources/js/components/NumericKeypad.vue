@@ -26,12 +26,12 @@ function press(key: Key): void {
 </script>
 
 <template>
-  <div class="keypad">
+  <div class="keypad r-keypad">
     <button
       v-for="key in KEYS"
       :key="key"
       type="button"
-      class="keypad__key tabular"
+      class="keypad__key r-key tabular"
       :aria-label="key === 'back' ? ja.register.keyBackspace : undefined"
       :disabled="disabled"
       @click="press(key)"
@@ -40,7 +40,7 @@ function press(key: Key): void {
     </button>
     <button
       type="button"
-      class="keypad__key keypad__key--clear"
+      class="keypad__key keypad__key--clear r-key r-key--fn"
       :disabled="disabled"
       @click="press('clear')"
     >
@@ -50,25 +50,7 @@ function press(key: Key): void {
 </template>
 
 <style scoped>
-.keypad {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.keypad__key {
-  min-height: var(--numpad-key);
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius);
-  background: var(--c-surface);
-  color: var(--c-text);
-  font-size: 26px;
-  font-weight: 700;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.keypad__key:active:not(:disabled) { background: var(--c-surface-alt); }
-.keypad__key--clear { grid-column: 1 / -1; min-height: var(--tap-min); font-size: 18px; }
+.keypad__key { cursor: pointer; touch-action: manipulation; }
+.keypad__key--clear { grid-column: 1 / -1; height: var(--tap-min); }
 .keypad__key:disabled { opacity: 0.55; }
 </style>

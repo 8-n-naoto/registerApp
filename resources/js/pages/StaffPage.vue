@@ -134,10 +134,10 @@ async function resetPassword(id: number): Promise<void> {
       </p>
       <div
         v-else-if="loadFailed"
-        class="adm-panel"
+        class="adm-panel r-card"
       >
         <p
-          class="adm-error"
+          class="adm-error r-err"
           role="alert"
         >
           {{ loadFailed }}
@@ -150,13 +150,13 @@ async function resetPassword(id: number): Promise<void> {
       </div>
       <section
         v-else
-        class="adm-panel"
+        class="adm-panel r-card"
         aria-labelledby="staff-heading"
       >
         <div class="adm-panel__head">
           <h2
             id="staff-heading"
-            class="adm-panel__title"
+            class="adm-panel__title r-h2"
           >
             {{ t.title }}
           </h2>
@@ -178,7 +178,7 @@ async function resetPassword(id: number): Promise<void> {
         </p>
         <p
           v-if="failed"
-          class="adm-error"
+          class="adm-error r-err"
           role="alert"
         >
           {{ failed }}
@@ -192,35 +192,35 @@ async function resetPassword(id: number): Promise<void> {
           @submit.prevent="save"
         >
           <h3>{{ t.addTitle }}</h3>
-          <div class="adm-field">
+          <div class="adm-field r-field">
             <label
               for="staff-new-name"
-              class="adm-field__label"
+              class="adm-field__label r-label"
             >{{ t.name }}</label>
             <input
               id="staff-new-name"
               v-model="form.name"
-              class="adm-input"
+              class="adm-input r-input"
               maxlength="50"
               autocomplete="off"
               :aria-invalid="errors.name ? 'true' : undefined"
             >
             <p
               v-if="errors.name"
-              class="adm-error"
+              class="adm-error r-err"
             >
               {{ errors.name }}
             </p>
           </div>
-          <div class="adm-field">
+          <div class="adm-field r-field">
             <label
               for="staff-new-login"
-              class="adm-field__label"
+              class="adm-field__label r-label"
             >{{ t.loginId }}</label>
             <input
               id="staff-new-login"
               v-model="form.login_id"
-              class="adm-input"
+              class="adm-input r-input"
               maxlength="50"
               autocomplete="off"
               autocapitalize="off"
@@ -229,20 +229,20 @@ async function resetPassword(id: number): Promise<void> {
             >
             <p
               v-if="errors.login_id"
-              class="adm-error"
+              class="adm-error r-err"
             >
               {{ errors.login_id }}
             </p>
           </div>
-          <div class="adm-field">
+          <div class="adm-field r-field">
             <label
               for="staff-new-password"
-              class="adm-field__label"
+              class="adm-field__label r-label"
             >{{ t.initialPassword }}</label>
             <input
               id="staff-new-password"
               v-model="form.password"
-              class="adm-input"
+              class="adm-input r-input"
               type="password"
               maxlength="72"
               autocomplete="new-password"
@@ -250,7 +250,7 @@ async function resetPassword(id: number): Promise<void> {
             >
             <p
               v-if="errors.password"
-              class="adm-error"
+              class="adm-error r-err"
             >
               {{ errors.password }}
             </p>
@@ -293,22 +293,22 @@ async function resetPassword(id: number): Promise<void> {
                 @submit.prevent="save"
               >
                 <h3>{{ t.editTitle }}（{{ user.login_id }}）</h3>
-                <div class="adm-field">
+                <div class="adm-field r-field">
                   <label
                     :for="`staff-name-${user.id}`"
-                    class="adm-field__label"
+                    class="adm-field__label r-label"
                   >{{ t.name }}</label>
                   <input
                     :id="`staff-name-${user.id}`"
                     v-model="form.name"
-                    class="adm-input"
+                    class="adm-input r-input"
                     maxlength="50"
                     autocomplete="off"
                     :aria-invalid="errors.name ? 'true' : undefined"
                   >
                   <p
                     v-if="errors.name"
-                    class="adm-error"
+                    class="adm-error r-err"
                   >
                     {{ errors.name }}
                   </p>
@@ -339,18 +339,18 @@ async function resetPassword(id: number): Promise<void> {
                 @submit.prevent="resetPassword(user.id)"
               >
                 <h3>{{ t.passwordHeading }}</h3>
-                <p class="adm-help">
+                <p class="adm-help r-help">
                   {{ t.passwordHelp }}
                 </p>
-                <div class="adm-field">
+                <div class="adm-field r-field">
                   <label
                     :for="`staff-password-${user.id}`"
-                    class="adm-field__label"
+                    class="adm-field__label r-label"
                   >{{ t.newPassword }}</label>
                   <input
                     :id="`staff-password-${user.id}`"
                     v-model="newPassword"
-                    class="adm-input"
+                    class="adm-input r-input"
                     type="password"
                     maxlength="72"
                     autocomplete="new-password"
@@ -358,7 +358,7 @@ async function resetPassword(id: number): Promise<void> {
                   >
                   <p
                     v-if="passwordError"
-                    class="adm-error"
+                    class="adm-error r-err"
                     role="alert"
                   >
                     {{ passwordError }}
@@ -393,8 +393,8 @@ async function resetPassword(id: number): Promise<void> {
               <span class="adm-row__main">{{ user.name }}</span>
               <span class="staff-row__login">{{ user.login_id }}</span>
               <span
-                class="adm-badge"
-                :class="{ 'adm-badge--primary': user.is_active }"
+                class="adm-badge r-chip"
+                :class="{ 'adm-badge--primary': user.is_active, 'r-chip--ok': user.is_active, 'r-chip--neutral': !user.is_active }"
               >{{ user.is_active ? ja.admin.statusActive : ja.common.inactive }}</span>
               <span class="staff-row__last">{{ user.last_login_at ? fmt(t.lastLogin, { at: formatDateTime(user.last_login_at) }) : t.neverLoggedIn }}</span>
             </button>

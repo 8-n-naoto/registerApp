@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // 下から出るシート（スマホの注文一覧・保留一覧など）。背景のタップと Esc で閉じる
 import { nextTick, ref, watch } from 'vue'
+import AppIcon from '@/components/AppIcon.vue'
 import { ja } from '@/i18n/ja'
 
 const props = defineProps<{ open: boolean; title: string }>()
@@ -34,16 +35,21 @@ watch(
         :aria-label="title"
         tabindex="-1"
       >
+        <span
+          class="r-sheet__handle"
+          aria-hidden="true"
+        />
         <header class="sheet__head">
           <h2 class="sheet__title">
             {{ title }}
           </h2>
           <button
             type="button"
-            class="sheet__close"
+            class="sheet__close r-close"
+            :aria-label="ja.common.close"
             @click="emit('close')"
           >
-            {{ ja.common.close }}
+            <AppIcon name="x" />
           </button>
         </header>
         <div class="sheet__body">
@@ -55,6 +61,7 @@ watch(
 </template>
 
 <style scoped>
+/* r-sheet（デザインシステム）：上端に持ち手、見出しの右に丸い［×］ */
 .sheet-backdrop {
   position: fixed;
   inset: 0;
@@ -62,14 +69,14 @@ watch(
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  background: rgba(17, 24, 39, 0.5);
+  background: var(--c-scrim);
 }
 
 .sheet {
   display: flex;
   flex-direction: column;
   max-height: calc(100dvh - 40px - var(--safe-top));
-  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   background: var(--c-surface);
   color: var(--c-text);
   outline: none;
@@ -80,21 +87,11 @@ watch(
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 8px 8px 16px;
-  border-bottom: 1px solid var(--c-border);
+  padding: 4px 12px 12px 20px;
+  border-bottom: 1px solid var(--c-border-soft);
 }
 
-.sheet__title { font-size: 20px; }
-
-.sheet__close {
-  min-width: var(--tap-min);
-  min-height: var(--tap-min);
-  padding: 0 16px;
-  border: 0;
-  background: transparent;
-  color: var(--c-primary);
-  font-weight: 700;
-}
+.sheet__title { min-width: 0; font-size: 20px; font-weight: 800; }
 
 .sheet__body {
   display: flex;

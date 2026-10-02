@@ -28,6 +28,12 @@ const days = computed(() =>
 const myTotal = computed(() => props.board.shifts.filter((s) => s.user_id === props.myId).reduce((sum, s) => sum + s.planned_minutes, 0))
 const activeMembers = computed(() => props.board.members.filter((m) => m.is_active))
 
+/** 区分ごとの札の色（A・B・C の 3 色を区分の id で巡らせる）。区分なしは色なし */
+function shClass(s: { pattern_id: number | null }): string {
+  if (s.pattern_id === null) return ''
+  return ['sh--a', 'sh--b', 'sh--c'][s.pattern_id % 3] ?? 'sh--a'
+}
+
 function nameOf(userId: number): string {
   return names.value.get(userId) ?? ''
 }
@@ -251,7 +257,7 @@ async function remove(): Promise<void> {
               :is="isOwner ? 'button' : 'div'"
               :type="isOwner ? 'button' : undefined"
               class="shift-item"
-              :class="{ 'shift-item--mine': s.user_id === myId, 'shift-item--btn': isOwner }"
+              :class="[shClass(s), { 'shift-item--mine': s.user_id === myId, 'shift-item--btn': isOwner }]"
               :aria-label="isOwner ? fmt(ja.common.editNamed, { name: `${nameOf(s.user_id)} ${formatDay(s.date)}` }) : undefined"
               @click="startEdit(s)"
             >
@@ -523,58 +529,62 @@ async function remove(): Promise<void> {
 </template>
 
 <style scoped>
-.shift-memo { padding: 12px 16px; border-radius: var(--radius); background: var(--c-surface-alt); white-space: pre-wrap; }
-.shift-days { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.shift-memo { padding: 12px 16px; border-radius: var(--radius); background: var(--c-surface-alt); white-space: pre-wrap; overflow-wrap: anywhere; }
+.shift-days { display: flex; flex-direction: column; gap: 0; margin: 0; padding: 0; overflow: hidden; border: 1px solid var(--c-border-soft); border-radius: var(--radius-card); background: var(--c-surface); list-style: none; }
 
 .shift-day {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius);
+  min-width: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--c-border-soft);
 }
 
+.shift-day:first-child { border-top: 0; }
 .shift-day__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.shift-day__date { font-size: 18px; }
+.shift-day__date { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .shift-day--sun .shift-day__date { color: var(--c-danger); }
-.shift-day--sat .shift-day__date { color: var(--c-primary); }
-.shift-day__none { color: var(--c-text-sub); }
-.shift-list { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.shift-day--sat .shift-day__date { color: var(--c-primary-ink); }
+.shift-day__none { color: var(--c-text-sub); font-size: 15px; }
+.shift-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.shift-list > li { min-width: 0; }
 
 .shift-item {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 12px;
+  gap: 2px 10px;
   width: 100%;
   min-height: var(--tap-min);
   padding: 6px 12px;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius);
-  background: var(--c-surface);
+  border: 1px solid var(--c-border-soft);
+  border-radius: 8px;
+  background: var(--st-neutral-bg);
   color: var(--c-text);
   font-size: 16px;
   text-align: left;
 }
 
 .shift-item--btn { cursor: pointer; }
-.shift-item--mine { border: 2px solid var(--c-primary); background: var(--pc-blue-bg); }
-.shift-item__name { font-weight: 700; }
-.shift-item__pattern { padding: 0 8px; border: 1px solid var(--c-primary); border-radius: 999px; color: var(--c-primary); font-weight: 700; }
-.shift-item__time { font-variant-numeric: tabular-nums; font-weight: 700; }
-.shift-item__sub { color: var(--c-text-sub); }
+.shift-item--mine { border: 2px solid var(--c-primary); }
+.shift-item__name { min-width: 0; overflow-wrap: anywhere; font-weight: 800; }
+.shift-item__pattern { padding: 0 8px; border-radius: 999px; background: var(--c-surface); font-size: 14px; font-weight: 800; }
+.shift-item__time { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+.shift-item__sub { min-width: 0; overflow-wrap: anywhere; font-size: 14px; font-weight: 700; opacity: 0.85; }
 .shift-requests { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
 
 .shift-request {
-  padding: 2px 10px;
-  border: 1px solid var(--c-border);
-  border-radius: 999px;
-  font-size: 16px;
+  max-width: 100%;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
-.shift-request--available { border-color: var(--c-success); color: var(--c-success); }
-.shift-request--unavailable { border-color: var(--c-danger); color: var(--c-danger); }
+.shift-request--available { border: 2px dashed var(--c-border-input); background: var(--c-surface); color: var(--c-text-sub); }
+.shift-request--unavailable { background: var(--st-neutral-bg); color: var(--st-neutral-fg); }
 
 .shift-request:has(.shift-request__btn) { padding: 0; }
 
@@ -582,10 +592,11 @@ async function remove(): Promise<void> {
   min-height: var(--tap-min);
   padding: 4px 14px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 8px;
   background: transparent;
   color: inherit;
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 700;
   text-align: left;
   cursor: pointer;
 }

@@ -127,12 +127,12 @@ onMounted(load)
 
 <template>
   <section
-    class="adm-panel"
+    class="adm-panel r-card"
     aria-labelledby="order-settings-heading"
   >
     <h2
       id="order-settings-heading"
-      class="adm-panel__title"
+      class="adm-panel__title r-h2"
     >
       {{ t.orderHeading }}
     </h2>
@@ -144,7 +144,7 @@ onMounted(load)
     </p>
     <p
       v-else-if="loadFailed"
-      class="adm-error"
+      class="adm-error r-err"
       role="alert"
     >
       {{ loadFailed }}
@@ -155,7 +155,7 @@ onMounted(load)
       novalidate
       @submit.prevent="save"
     >
-      <div class="adm-field">
+      <div class="adm-field r-field">
         <label class="adm-check"><input
           v-model="enabled"
           type="checkbox"
@@ -163,13 +163,13 @@ onMounted(load)
         >{{ t.customerOrderEnabled }}</label>
         <p
           v-if="errors.customer_order_enabled"
-          class="adm-error"
+          class="adm-error r-err"
         >
           {{ errors.customer_order_enabled }}
         </p>
       </div>
 
-      <div class="adm-field">
+      <div class="adm-field r-field">
         <label class="adm-check"><input
           v-model="approval"
           type="checkbox"
@@ -178,16 +178,16 @@ onMounted(load)
         >{{ t.customerOrderApproval }}</label>
         <p
           id="order-approval-help"
-          class="adm-help"
+          class="adm-help r-help"
         >
           {{ t.customerOrderApprovalHelp }}
         </p>
       </div>
 
-      <div class="adm-field">
+      <div class="adm-field r-field">
         <label
           for="order-session"
-          class="adm-field__label"
+          class="adm-field__label r-label"
         >{{ t.sessionMinutes }}</label>
         <select
           id="order-session"
@@ -204,14 +204,14 @@ onMounted(load)
         </select>
         <p
           v-if="errors.customer_session_minutes"
-          class="adm-error"
+          class="adm-error r-err"
         >
           {{ errors.customer_session_minutes }}
         </p>
       </div>
 
-      <div class="adm-field">
-        <span class="adm-field__label">{{ t.polling }}</span>
+      <div class="adm-field r-field">
+        <span class="adm-field__label r-label">{{ t.polling }}</span>
         <SegmentedControl
           :model-value="mode"
           :options="MODES"
@@ -220,7 +220,7 @@ onMounted(load)
         />
         <p
           v-if="errors.polling_mode || errors.polling_windows"
-          class="adm-error"
+          class="adm-error r-err"
         >
           {{ errors.polling_mode ?? errors.polling_windows }}
         </p>
@@ -230,10 +230,10 @@ onMounted(load)
         <fieldset
           v-for="(w, i) in windows"
           :key="i"
-          class="adm-field window"
+          class="adm-field r-field window"
           :data-window="i"
         >
-          <legend class="adm-field__label">
+          <legend class="adm-field__label r-label">
             {{ fmt(t.window, { n: i + 1 }) }}
           </legend>
           <div class="adm-actions">
@@ -303,13 +303,13 @@ onMounted(load)
           </div>
           <p
             v-if="windowError(i)"
-            class="adm-error"
+            class="adm-error r-err"
             role="alert"
           >
             {{ windowError(i) }}
           </p>
         </fieldset>
-        <p class="adm-help">
+        <p class="adm-help r-help">
           {{ t.windowsHelp }}
         </p>
         <div class="adm-actions">
@@ -333,7 +333,7 @@ onMounted(load)
       </p>
       <p
         v-if="saveFailed"
-        class="adm-error"
+        class="adm-error r-err"
         role="alert"
       >
         {{ saveFailed }}

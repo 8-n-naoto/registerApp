@@ -78,14 +78,14 @@ function doDelete(index: number): void {
         </div>
         <button
           type="button"
-          class="held__btn held__btn--primary"
+          class="held__btn held__btn--primary r-btn r-btn--primary r-btn--sm"
           @click="recall(i)"
         >
           {{ t.heldRecall }}
         </button>
         <button
           type="button"
-          class="held__btn"
+          class="held__btn r-btn r-btn--secondary r-btn--sm"
           :aria-label="t.heldDelete"
           @click="deleting = i"
         >
@@ -115,18 +115,7 @@ function doDelete(index: number): void {
 <style scoped>
 .held { margin: 0; padding: 0; list-style: none; }
 .held__empty { padding: 24px 0; color: var(--c-text-sub); text-align: center; }
-.held__row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--c-border); }
-.held__text { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
-.held__time { color: var(--c-text-sub); font-size: 14px; }
-.held__btn {
-  flex-shrink: 0;
-  min-width: var(--tap-min);
-  min-height: var(--tap-min);
-  padding: 0 12px;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius);
-  background: var(--c-surface);
-  font-weight: 700;
-}
-.held__btn--primary { border-color: var(--c-primary); background: var(--c-primary); color: var(--c-on-primary); }
+.held__row { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--c-border-soft); }
+.held__text { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; font-size: 17px; font-weight: 700; overflow-wrap: anywhere; }
+.held__time { color: var(--c-text-sub); font-size: 14px; font-weight: 400; }
 </style>

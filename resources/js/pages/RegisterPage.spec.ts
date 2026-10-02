@@ -284,6 +284,49 @@ describe('S02 会計（08 §5.3）', () => {
     expect(lines()).toEqual([['コーヒー', '1']])
   })
 
+  it('ホームの［レジ］（?view=order）：スマホは注文一覧のシートを開いた状態で開き、URL から外す', async () => {
+    stubMatchMedia(false)
+    const { router } = await mountPage('/register?view=order')
+    expect(document.querySelector('.order--sheet')).not.toBeNull()
+    expect(document.querySelector('.order--sheet')?.textContent).toContain('お会計へ')
+    expect(router.currentRoute.value.fullPath).toBe('/register')
+  })
+
+  it('ホームの［レジ］（?view=order）：タブレットは注文一覧が右に出ているのでシートを開かない', async () => {
+    const { router } = await mountPage('/register?view=order')
+    expect(document.querySelector('.register__order')).not.toBeNull()
+    expect(document.querySelector('.order--sheet')).toBeNull()
+    expect(router.currentRoute.value.fullPath).toBe('/register')
+  })
+
+  it('お会計ダイアログに明細と内訳を出し、支払方法をダイアログで選ぶ', async () => {
+    await mountPage()
+    expect(document.querySelector('.order [role="radiogroup"]')).toBeNull()
+    await click(tile(1))
+    await click(tile(1))
+    await click(tile(2))
+    await click(button('お会計へ'))
+
+    const dialog = document.querySelector<HTMLElement>('.checkout')
+    if (!dialog) throw new Error('dialog')
+    const detail = [...dialog.querySelectorAll('.cdetail__line')].map((li) => li.textContent?.replace(/\s+/g, ''))
+    expect(detail).toEqual(['コーヒー×2¥800', 'ケーキ×1¥380'])
+    expect(dialog.querySelector('.cdetail__sums')?.textContent).toContain('小計')
+    expect(dialog.querySelector('.cdetail__sums')?.textContent).toContain('3 点')
+
+    const cash = button('現金', dialog)
+    expect(cash.getAttribute('aria-checked')).toBe('true')
+    expect(dialog.querySelector('.checkout__pad')).not.toBeNull()
+    await click(button('カード', dialog))
+    expect(button('カード', dialog).getAttribute('aria-checked')).toBe('true')
+    expect(dialog.querySelector('.checkout__pad')).toBeNull()
+    expect(button('確定', dialog).disabled).toBe(false)
+
+    api.createSale.mockResolvedValue(makeSale())
+    await click(button('確定', dialog))
+    expect((api.createSale.mock.calls[0]?.[0] as SaleInput)).toMatchObject({ payment_method_id: 2, received: null, expected_total: 1180 })
+  })
+
   it('読み込みに失敗したら再読み込みを出す', async () => {
     const { apiError } = await import('@/test/helpers')
     api.fetchBootstrap.mockRejectedValueOnce(apiError(500, { message: 'エラー' }))
@@ -365,9 +408,10 @@ describe('S02 注文から会計（12 §8.6）', () => {
   const O4 = makeOrder({ id: 104, order_no: 4, order_table_id: null, table_name: null, label: '田中さま', subtotal: 400 })
 
   async function checkoutByCard(): Promise<void> {
-    await click(button('カード'))
     await click(button('お会計へ'))
-    await click(button('確定', document.querySelector<HTMLElement>('.checkout') ?? document))
+    const dialog = document.querySelector<HTMLElement>('.checkout') ?? document
+    await click(button('カード', dialog))
+    await click(button('確定', dialog))
   }
 
   function checkbox(selector: string): HTMLButtonElement {

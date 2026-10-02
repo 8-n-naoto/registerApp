@@ -29,6 +29,8 @@ const routes: RouteRecordRaw[] = [
   { path: '/orders', name: 'orders', component: () => import('@/pages/OrdersPage.vue'), meta: { roles: ['owner', 'staff'] } },
   { path: '/kitchen', name: 'kitchen', component: () => import('@/pages/KitchenPage.vue'), meta: { roles: ['owner', 'staff'] } },
   { path: '/closing', name: 'closing', component: () => import('@/pages/ClosingPage.vue'), meta: { roles: ['owner', 'staff'] } },
+  // スマホの管理メニュー（タブレットのレールの代わり）
+  { path: '/manage', name: 'manage', component: () => import('@/pages/ManagePage.vue') },
   { path: '/account', name: 'account', component: () => import('@/pages/AccountPage.vue') },
   // 13 §7 勤怠：S22 出勤・S20 勤怠・S21 勤務表
   { path: '/clock-in', name: 'clock-in', component: () => import('@/pages/ClockInPage.vue'), meta: { roles: ['owner', 'staff'], attendanceFree: true } },

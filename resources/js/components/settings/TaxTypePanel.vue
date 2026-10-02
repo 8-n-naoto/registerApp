@@ -102,13 +102,13 @@ async function finishReorder(): Promise<void> {
 
 <template>
   <section
-    class="adm-panel"
+    class="adm-panel r-card"
     aria-labelledby="tax-heading"
   >
     <div class="adm-panel__head">
       <h2
         id="tax-heading"
-        class="adm-panel__title"
+        class="adm-panel__title r-h2"
       >
         {{ t.taxHeading }}
       </h2>
@@ -131,19 +131,19 @@ async function finishReorder(): Promise<void> {
         </BigButton>
       </div>
     </div>
-    <p class="adm-help">
+    <p class="adm-help r-help">
       {{ t.taxRateNote }}
     </p>
     <p
       v-if="failed"
-      class="adm-error"
+      class="adm-error r-err"
       role="alert"
     >
       {{ failed }}
     </p>
 
     <template v-if="reordering">
-      <p class="adm-help">
+      <p class="adm-help r-help">
         {{ t.reorderHelp }}
       </p>
       <SortableList
@@ -175,41 +175,41 @@ async function finishReorder(): Promise<void> {
           @submit.prevent="save"
         >
           <div class="tax-form__grid">
-            <div class="adm-field">
+            <div class="adm-field r-field">
               <label
                 :for="`tax-name-${tax.id}`"
-                class="adm-field__label"
+                class="adm-field__label r-label"
               >{{ t.taxName }}</label>
               <input
                 :id="`tax-name-${tax.id}`"
                 v-model="form.name"
-                class="adm-input"
+                class="adm-input r-input"
                 maxlength="20"
                 :aria-invalid="errors.name ? 'true' : undefined"
               >
               <p
                 v-if="errors.name"
-                class="adm-error"
+                class="adm-error r-err"
               >
                 {{ errors.name }}
               </p>
             </div>
-            <div class="adm-field">
+            <div class="adm-field r-field">
               <label
                 :for="`tax-rate-${tax.id}`"
-                class="adm-field__label"
+                class="adm-field__label r-label"
               >{{ t.taxRate }}</label>
               <input
                 :id="`tax-rate-${tax.id}`"
                 v-model="form.rate"
-                class="adm-input"
+                class="adm-input r-input"
                 inputmode="decimal"
                 maxlength="5"
                 :aria-invalid="errors.rate_permille ? 'true' : undefined"
               >
               <p
                 v-if="errors.rate_permille"
-                class="adm-error"
+                class="adm-error r-err"
               >
                 {{ errors.rate_permille }}
               </p>
@@ -228,13 +228,13 @@ async function finishReorder(): Promise<void> {
           </div>
           <p
             v-if="errors.is_default"
-            class="adm-error"
+            class="adm-error r-err"
           >
             {{ errors.is_default }}
           </p>
           <p
             v-if="errors.is_active"
-            class="adm-error"
+            class="adm-error r-err"
             role="alert"
           >
             {{ errors.is_active }}
@@ -264,11 +264,11 @@ async function finishReorder(): Promise<void> {
           <span class="tabular">{{ permilleToPercent(tax.rate_permille) }}%</span>
           <span
             v-if="tax.is_default"
-            class="adm-badge adm-badge--primary"
+            class="adm-badge adm-badge--primary r-chip r-chip--ok"
           >{{ t.taxDefault }}</span>
           <span
             v-if="!tax.is_active"
-            class="adm-badge"
+            class="adm-badge r-chip r-chip--neutral"
           >{{ ja.common.inactive }}</span>
           <button
             type="button"
@@ -289,34 +289,34 @@ async function finishReorder(): Promise<void> {
       @submit.prevent="save"
     >
       <div class="tax-form__grid">
-        <div class="adm-field">
+        <div class="adm-field r-field">
           <label
             for="tax-name-new"
-            class="adm-field__label"
+            class="adm-field__label r-label"
           >{{ t.taxName }}</label>
           <input
             id="tax-name-new"
             v-model="form.name"
-            class="adm-input"
+            class="adm-input r-input"
             maxlength="20"
             :aria-invalid="errors.name ? 'true' : undefined"
           >
           <p
             v-if="errors.name"
-            class="adm-error"
+            class="adm-error r-err"
           >
             {{ errors.name }}
           </p>
         </div>
-        <div class="adm-field">
+        <div class="adm-field r-field">
           <label
             for="tax-rate-new"
-            class="adm-field__label"
+            class="adm-field__label r-label"
           >{{ t.taxRate }}</label>
           <input
             id="tax-rate-new"
             v-model="form.rate"
-            class="adm-input"
+            class="adm-input r-input"
             inputmode="decimal"
             maxlength="5"
             aria-describedby="tax-rate-help"
@@ -324,13 +324,13 @@ async function finishReorder(): Promise<void> {
           >
           <p
             id="tax-rate-help"
-            class="adm-help"
+            class="adm-help r-help"
           >
             {{ t.taxRateHelp }}
           </p>
           <p
             v-if="errors.rate_permille"
-            class="adm-error"
+            class="adm-error r-err"
           >
             {{ errors.rate_permille }}
           </p>
@@ -340,7 +340,7 @@ async function finishReorder(): Promise<void> {
         v-model="form.is_default"
         type="checkbox"
       >{{ t.taxDefault }}</label>
-      <p class="adm-help">
+      <p class="adm-help r-help">
         {{ t.taxDefaultHelp }}
       </p>
       <div class="adm-actions">

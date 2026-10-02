@@ -258,12 +258,12 @@ async function confirmDeleteGroup(): Promise<void> {
         {{ ja.common.done }}
       </BigButton>
     </div>
-    <p class="adm-help">
+    <p class="adm-help r-help">
       {{ t.optionsHelp }}
     </p>
     <p
       v-if="failed"
-      class="adm-error"
+      class="adm-error r-err"
       role="alert"
     >
       {{ failed }}
@@ -292,7 +292,7 @@ async function confirmDeleteGroup(): Promise<void> {
       >
         <div class="gbox__top">
           <input
-            class="adm-input gbox__name"
+            class="adm-input r-input gbox__name"
             :value="group.name"
             maxlength="30"
             :aria-label="t.groupName"
@@ -361,7 +361,7 @@ async function confirmDeleteGroup(): Promise<void> {
       </section>
       <p
         v-if="groupErrors.name || groupErrors.selection"
-        class="adm-error"
+        class="adm-error r-err"
         role="alert"
       >
         {{ groupErrors.name ?? groupErrors.selection }}
@@ -413,52 +413,52 @@ async function confirmDeleteGroup(): Promise<void> {
       novalidate
       @submit.prevent="save"
     >
-      <div class="adm-field">
+      <div class="adm-field r-field">
         <label
           for="option-name"
-          class="adm-field__label"
+          class="adm-field__label r-label"
         >{{ t.optionName }}</label>
         <input
           id="option-name"
           v-model="form.name"
-          class="adm-input"
+          class="adm-input r-input"
           maxlength="30"
           :aria-invalid="errors.name ? 'true' : undefined"
         >
         <p
           v-if="errors.name"
-          class="adm-error"
+          class="adm-error r-err"
         >
           {{ errors.name }}
         </p>
       </div>
-      <div class="adm-field">
+      <div class="adm-field r-field">
         <label
           for="option-price"
-          class="adm-field__label"
+          class="adm-field__label r-label"
         >{{ t.optionPrice }}</label>
         <input
           id="option-price"
           v-model="form.price"
-          class="adm-input tabular"
+          class="adm-input r-input tabular"
           inputmode="numeric"
           maxlength="8"
           :aria-invalid="errors.price ? 'true' : undefined"
         >
         <p
           v-if="errors.price"
-          class="adm-error"
+          class="adm-error r-err"
         >
           {{ errors.price }}
         </p>
       </div>
       <div
         v-if="groups.length > 0"
-        class="adm-field"
+        class="adm-field r-field"
       >
         <label
           for="option-group"
-          class="adm-field__label"
+          class="adm-field__label r-label"
         >{{ t.optionGroup }}</label>
         <select
           id="option-group"
@@ -479,7 +479,7 @@ async function confirmDeleteGroup(): Promise<void> {
         </select>
         <p
           v-if="errors.group_id"
-          class="adm-error"
+          class="adm-error r-err"
         >
           {{ errors.group_id }}
         </p>
@@ -493,7 +493,7 @@ async function confirmDeleteGroup(): Promise<void> {
       >{{ t.optionDefaultCheck }}</label>
       <p
         v-if="errors.is_default"
-        class="adm-error"
+        class="adm-error r-err"
       >
         {{ errors.is_default }}
       </p>
@@ -532,24 +532,24 @@ async function confirmDeleteGroup(): Promise<void> {
       novalidate
       @submit.prevent="addGroup"
     >
-      <div class="adm-field">
+      <div class="adm-field r-field">
         <label
           for="group-name"
-          class="adm-field__label"
+          class="adm-field__label r-label"
         >{{ t.groupName }}</label>
         <input
           id="group-name"
           v-model="newGroup.name"
-          class="adm-input"
+          class="adm-input r-input"
           maxlength="30"
           :placeholder="t.groupNamePlaceholder"
           :aria-invalid="groupErrors.name ? 'true' : undefined"
         >
       </div>
-      <div class="adm-field">
+      <div class="adm-field r-field">
         <label
           for="group-selection"
-          class="adm-field__label"
+          class="adm-field__label r-label"
         >{{ t.groupSelectionLabel }}</label>
         <select
           id="group-selection"

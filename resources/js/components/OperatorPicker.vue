@@ -125,7 +125,7 @@ function submitPassword(): void {
       </p>
       <button
         type="button"
-        class="op-pick__btn"
+        class="op-pick__btn r-btn r-btn--secondary"
         @click="load"
       >
         {{ ja.operator.retry }}
@@ -136,7 +136,7 @@ function submitPassword(): void {
     </p>
     <ul
       v-else
-      class="op-pick__list"
+      class="op-pick__list r-list"
     >
       <li
         v-for="op in operators"
@@ -144,32 +144,41 @@ function submitPassword(): void {
       >
         <button
           type="button"
-          class="op-pick__btn"
-          :class="{ 'op-pick__btn--on': selected?.id === op.id }"
+          class="op-pick__btn r-li"
+          :class="{ 'op-pick__btn--on': selected?.id === op.id, on: selected?.id === op.id }"
           :aria-pressed="selected?.id === op.id"
           :disabled="switching"
           @click="choose(op)"
         >
-          <span>{{ op.name }}</span>
-          <span class="op-pick__meta">{{ ja.role[op.role] }}<template v-if="op.on_break">・{{ ja.operator.onBreak }}</template></span>
+          <span class="op">
+            <span
+              class="op__av op-pick__av"
+              :data-initial="Array.from(op.name)[0] ?? ''"
+              aria-hidden="true"
+            />
+          </span>
+          <span class="r-li__main">
+            <span class="r-li__title clamp1">{{ op.name }}</span>
+            <span class="op-pick__meta r-li__meta">{{ ja.role[op.role] }}<template v-if="op.on_break">・{{ ja.operator.onBreak }}</template></span>
+          </span>
         </button>
       </li>
     </ul>
     <form
       v-if="selected"
-      class="op-pick__form"
+      class="op-pick__form r-field"
       novalidate
       @submit.prevent="submitPassword"
     >
       <label
         for="operator-password"
-        class="op-pick__label"
+        class="op-pick__label r-label"
       >{{ fmt(ja.operator.passwordFor, { name: selected.name }) }}</label>
       <input
         id="operator-password"
         ref="passwordInput"
         v-model="password"
-        class="op-pick__input"
+        class="op-pick__input r-input"
         type="password"
         autocomplete="current-password"
         maxlength="255"
@@ -185,7 +194,7 @@ function submitPassword(): void {
     </form>
     <p
       v-if="error"
-      class="op-pick__error"
+      class="op-pick__error r-err"
       role="alert"
     >
       {{ error }}
@@ -195,44 +204,11 @@ function submitPassword(): void {
 
 <style scoped>
 .op-pick { display: flex; flex-direction: column; gap: 12px; color: var(--c-text); }
-.op-pick__heading { font-size: 20px; }
+.op-pick__av::before { content: attr(data-initial); }
+.op-pick__heading { font-size: 20px; font-weight: 800; }
 .op-pick__help { color: var(--c-text-sub); font-size: 16px; }
-.op-pick__list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
-
-.op-pick__btn {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  min-height: var(--btn-h);
-  padding: 0 16px;
-  border: 2px solid var(--c-primary);
-  border-radius: var(--radius);
-  background: var(--c-surface);
-  color: var(--c-primary);
-  font-size: 18px;
-  font-weight: 700;
-  text-align: left;
-}
-
+.op-pick__list li + li .r-li { border-top: 1px solid var(--c-border-soft); }
 .op-pick__btn:disabled { opacity: 0.55; }
-.op-pick__btn--on { background: var(--c-primary); color: var(--c-on-primary); }
-.op-pick__meta { font-size: 16px; font-weight: 400; }
-.op-pick__failed { display: flex; flex-direction: column; gap: 8px; color: var(--c-danger); font-weight: 700; }
-.op-pick__form { display: flex; flex-direction: column; gap: 8px; }
-.op-pick__label { font-weight: 700; }
-
-.op-pick__input {
-  min-height: var(--btn-h);
-  padding: 0 14px;
-  border: 2px solid var(--c-border);
-  border-radius: var(--radius);
-  background: var(--c-surface);
-  font-size: 18px;
-}
-
-.op-pick__input:focus { border-color: var(--c-focus); outline: none; }
-.op-pick__input[aria-invalid='true'] { border-color: var(--c-danger); }
-.op-pick__error { color: var(--c-danger); font-weight: 700; }
+.op-pick__failed { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; color: var(--c-danger); font-weight: 700; }
+.op-pick__form { gap: 8px; }
 </style>

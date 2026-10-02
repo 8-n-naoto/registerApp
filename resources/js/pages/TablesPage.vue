@@ -258,10 +258,10 @@ const confirmTitle = computed(() => {
       </p>
       <div
         v-else-if="loadFailed"
-        class="adm-panel"
+        class="adm-panel r-card"
       >
         <p
-          class="adm-error"
+          class="adm-error r-err"
           role="alert"
         >
           {{ loadFailed }}
@@ -274,13 +274,13 @@ const confirmTitle = computed(() => {
       </div>
       <template v-else>
         <section
-          class="adm-panel"
+          class="adm-panel r-card"
           aria-labelledby="tables-heading"
         >
           <div class="adm-panel__head">
             <h2
               id="tables-heading"
-              class="adm-panel__title"
+              class="adm-panel__title r-h2"
             >
               {{ t.title }}
             </h2>
@@ -302,7 +302,7 @@ const confirmTitle = computed(() => {
           </p>
           <p
             v-if="failed"
-            class="adm-error"
+            class="adm-error r-err"
             role="alert"
           >
             {{ failed }}
@@ -316,22 +316,22 @@ const confirmTitle = computed(() => {
             @submit.prevent="save"
           >
             <h3>{{ t.addTitle }}</h3>
-            <div class="adm-field">
+            <div class="adm-field r-field">
               <label
                 for="table-new-name"
-                class="adm-field__label"
+                class="adm-field__label r-label"
               >{{ t.name }}</label>
               <input
                 id="table-new-name"
                 v-model="form.name"
-                class="adm-input"
+                class="adm-input r-input"
                 maxlength="20"
                 autocomplete="off"
                 :aria-invalid="errors.name ? 'true' : undefined"
               >
               <p
                 v-if="errors.name"
-                class="adm-error"
+                class="adm-error r-err"
               >
                 {{ errors.name }}
               </p>
@@ -371,22 +371,22 @@ const confirmTitle = computed(() => {
                 @submit.prevent="save"
               >
                 <h3>{{ t.editTitle }}</h3>
-                <div class="adm-field">
+                <div class="adm-field r-field">
                   <label
                     :for="`table-name-${table.id}`"
-                    class="adm-field__label"
+                    class="adm-field__label r-label"
                   >{{ t.name }}</label>
                   <input
                     :id="`table-name-${table.id}`"
                     v-model="form.name"
-                    class="adm-input"
+                    class="adm-input r-input"
                     maxlength="20"
                     autocomplete="off"
                     :aria-invalid="errors.name ? 'true' : undefined"
                   >
                   <p
                     v-if="errors.name"
-                    class="adm-error"
+                    class="adm-error r-err"
                   >
                     {{ errors.name }}
                   </p>
@@ -439,12 +439,12 @@ const confirmTitle = computed(() => {
                 >
                   <span class="adm-row__main">{{ table.name }}</span>
                   <span
-                    class="adm-badge"
-                    :class="{ 'adm-badge--primary': table.is_active }"
+                    class="adm-badge r-chip"
+                    :class="{ 'adm-badge--primary': table.is_active, 'r-chip--ok': table.is_active, 'r-chip--neutral': !table.is_active }"
                   >{{ table.is_active ? t.active : ja.common.inactive }}</span>
                   <span
                     v-if="table.opened_at"
-                    class="adm-badge"
+                    class="adm-badge r-chip r-chip--neutral"
                   >{{ t.inUse }}</span>
                   <span class="tbl-row__sub">{{ fmt(t.qrCreated, { at: formatDateTime(table.token_rotated_at) }) }}</span>
                 </button>
@@ -463,21 +463,21 @@ const confirmTitle = computed(() => {
 
         <section
           v-if="tables.length > 0"
-          class="adm-panel"
+          class="adm-panel r-card"
           aria-labelledby="tables-print-heading"
         >
           <h2
             id="tables-print-heading"
-            class="adm-panel__title"
+            class="adm-panel__title r-h2"
           >
             {{ t.printAll }}
           </h2>
-          <p class="adm-help">
+          <p class="adm-help r-help">
             {{ t.printAllHelp }}
           </p>
           <p
             v-if="printAllError"
-            class="adm-error"
+            class="adm-error r-err"
             role="alert"
           >
             {{ printAllError }}
@@ -524,7 +524,7 @@ const confirmTitle = computed(() => {
           </p>
           <p
             v-else-if="qrError"
-            class="adm-error"
+            class="adm-error r-err"
             role="alert"
           >
             {{ qrError }}

@@ -213,9 +213,10 @@ async function submit(): Promise<void> {
         </h3>
         <dl class="req-legend__list">
           <div
-            v-for="p in patterns"
+            v-for="(p, pi) in patterns"
             :key="p.id"
             class="req-legend__row"
+            :class="['sh--a', 'sh--b', 'sh--c'][pi % 3]"
           >
             <dt class="req-legend__name">
               {{ p.name }}
@@ -306,27 +307,28 @@ async function submit(): Promise<void> {
 </template>
 
 <style scoped>
-.req-legend { padding: 12px 16px; border-radius: var(--radius); background: var(--c-surface-alt); }
-.req-legend__title { margin-bottom: 4px; font-size: 16px; }
-.req-legend__list { display: flex; flex-direction: column; gap: 4px; margin: 0; }
-.req-legend__row { display: flex; flex-wrap: wrap; gap: 4px 12px; }
-.req-legend__name { min-width: 3em; font-weight: 700; }
-.req-legend__time { margin: 0; font-variant-numeric: tabular-nums; }
-.req-days { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.req-legend { padding: 12px 16px; border: 1px solid var(--c-border-soft); border-radius: var(--radius-card); background: var(--c-surface); }
+.req-legend__title { margin-bottom: 8px; font-size: 16px; font-weight: 800; }
+.req-legend__list { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.req-legend__row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; max-width: 100%; padding: 6px 12px; border-radius: 8px; }
+.req-legend__name { min-width: 1.5em; font-size: 16px; font-weight: 800; overflow-wrap: anywhere; }
+.req-legend__time { margin: 0; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.req-days { display: flex; flex-direction: column; gap: 0; margin: 0; padding: 0; overflow: hidden; border: 1px solid var(--c-border-soft); border-radius: var(--radius-card); background: var(--c-surface); list-style: none; }
 
 .req-day {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius);
+  min-width: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--c-border-soft);
 }
 
-.req-day__date { font-size: 18px; }
+.req-day:first-child { border-top: 0; }
+.req-day__date { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .req-day--sun .req-day__date { color: var(--c-danger); }
-.req-day--sat .req-day__date { color: var(--c-primary); }
-.req-day__segments { font-variant-numeric: tabular-nums; font-weight: 700; }
+.req-day--sat .req-day__date { color: var(--c-primary-ink); }
+.req-day__segments { font-variant-numeric: tabular-nums; font-weight: 700; overflow-wrap: anywhere; }
 
 .req-submit {
   position: sticky;

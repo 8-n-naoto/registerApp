@@ -100,7 +100,7 @@ function onFileChange(e: Event): void {
             {{ ja.common.close }}
           </button>
         </header>
-        <p class="adm-help">
+        <p class="adm-help r-help">
           {{ t.steps }}
         </p>
         <div class="adm-actions">
@@ -137,7 +137,7 @@ function onFileChange(e: Event): void {
         </p>
         <p
           v-if="failed"
-          class="adm-error"
+          class="adm-error r-err"
           role="alert"
         >
           {{ failed }}

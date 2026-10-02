@@ -3,6 +3,7 @@
 import { onMounted, ref, watch } from 'vue'
 import { attendanceExportUrl, fetchAttendanceSummary } from '@/api/attendance'
 import BigButton from '@/components/BigButton.vue'
+import StatTile from '@/components/StatTile.vue'
 import LaborWarningBanner from '@/components/LaborWarningBanner.vue'
 import { ja } from '@/i18n/ja'
 import { errorBody, isNetworkError } from '@/lib/apiError'
@@ -96,8 +97,26 @@ watch(() => [props.month, props.reloadKey], load)
       >
         {{ t.payNull }}
       </p>
+      <div class="r-stats sum-stats">
+        <StatTile
+          :label="t.col.work"
+          :value="formatMinutes(summary.totals.work_minutes)"
+          :sub="`${t.col.days} ${summary.totals.days}`"
+        />
+        <StatTile
+          :label="t.col.overtime"
+          :value="formatMinutes(summary.totals.overtime_minutes)"
+          :sub="`${t.col.night} ${formatMinutes(summary.totals.night_minutes)}`"
+          :tone="summary.totals.overtime_minutes > 0 ? 'warn' : 'normal'"
+        />
+        <StatTile
+          :label="t.col.totalPay"
+          :value="yen(summary.totals.total_pay)"
+          tone="main"
+        />
+      </div>
       <div class="sum-wrap">
-        <table class="sum-table">
+        <table class="r-table sum-table">
           <thead>
             <tr>
               <th scope="col">
@@ -211,16 +230,23 @@ watch(() => [props.month, props.reloadKey], load)
 
 <style scoped>
 .sum-to-labor { margin-top: 8px; }
-.sum-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.sum-table { width: 100%; border-collapse: collapse; font-size: 16px; white-space: nowrap; }
+.sum-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sum-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--radius-card); }
+.sum-table { width: 100%; min-width: max-content; font-size: 16px; white-space: nowrap; }
 .sum-table th,
-.sum-table td { padding: 8px 10px; border-bottom: 1px solid var(--c-border); text-align: right; }
-.sum-table th:first-child { position: sticky; left: 0; background: var(--c-surface); text-align: left; }
-.sum-table thead th { color: var(--c-text-sub); }
+.sum-table td { text-align: right; }
+.sum-table td { height: 52px; }
+.sum-table th:first-child { position: sticky; left: 0; background: var(--c-surface-alt); text-align: left; }
+.sum-table tbody th { background: var(--c-surface); color: var(--c-text); font-size: 16px; }
+.sum-table tfoot th { background: var(--c-surface-alt); color: var(--c-text); font-size: 16px; }
 .sum-table tfoot th,
-.sum-table tfoot td { border-top: 2px solid var(--c-text); font-weight: 700; }
+.sum-table tfoot td { border-top: 2px solid var(--c-text); font-weight: 800; }
 .sum-table__off { color: var(--c-text-sub); }
-.sum-table__pay { font-weight: 700; }
+.sum-table__pay { font-weight: 800; }
 .sum-table__notes { text-align: left; }
 .sum-table__warn { margin-right: 4px; border-color: var(--c-danger); color: var(--c-danger); }
+
+@media (max-width: 599px) {
+  .sum-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 </style>

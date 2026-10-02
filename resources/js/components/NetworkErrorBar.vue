@@ -1,5 +1,6 @@
 <script setup lang="ts">
 // 通信エラーの赤い帯（08 §6・§8）。次に通信できたとき、または［閉じる］で消える
+import AppIcon from '@/components/AppIcon.vue'
 import { ja } from '@/i18n/ja'
 import { useUiStore } from '@/stores/ui'
 
@@ -9,13 +10,17 @@ const ui = useUiStore()
 <template>
   <div
     v-if="ui.networkError"
-    class="network-bar"
+    class="network-bar r-netbar"
     role="alert"
   >
-    <span>{{ ja.error.network }}</span>
+    <AppIcon
+      name="wifioff"
+      :size="24"
+    />
+    <span class="network-bar__msg">{{ ja.error.network }}</span>
     <button
       type="button"
-      class="network-bar__close"
+      class="network-bar__close r-btn r-btn--on-blue r-btn--sm"
       @click="ui.networkError = false"
     >
       {{ ja.common.close }}
@@ -30,25 +35,8 @@ const ui = useUiStore()
   left: 0;
   right: 0;
   z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: calc(8px + var(--safe-top)) calc(var(--gutter) + var(--safe-right)) 8px calc(var(--gutter) + var(--safe-left));
-  background: var(--c-danger);
-  color: var(--c-on-primary);
-  font-weight: 700;
+  padding: calc(8px + var(--safe-top)) calc(16px + var(--safe-right)) 8px calc(16px + var(--safe-left));
 }
 
-.network-bar__close {
-  flex-shrink: 0;
-  min-width: var(--tap-min);
-  min-height: var(--tap-min);
-  padding: 0 16px;
-  border: 2px solid var(--c-on-primary);
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--c-on-primary);
-  font-weight: 700;
-}
+.network-bar__msg { flex: 1; min-width: 0; }
 </style>

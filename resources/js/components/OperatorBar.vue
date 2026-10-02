@@ -2,6 +2,7 @@
 // 13 §7 ホームの担当者の欄：名前・状態（勤務中 9:02〜／休憩中）、休憩の記録、担当者の切替
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import AppIcon from '@/components/AppIcon.vue'
 import BottomSheet from '@/components/BottomSheet.vue'
 import OperatorPicker from '@/components/OperatorPicker.vue'
 import { fmt, ja } from '@/i18n/ja'
@@ -16,6 +17,7 @@ const busy = ref(false)
 const error = ref<string | null>(null)
 
 const name = computed(() => auth.me?.user.name ?? '')
+const initial = computed(() => Array.from(name.value)[0] ?? '')
 const status = computed(() => {
   const a = auth.me?.attendance
   if (!a) return ''
@@ -62,39 +64,51 @@ function onSwitched(): void {
 
 <template>
   <section
-    class="op-bar"
+    class="op-bar h-op"
     :aria-label="ja.operator.label"
   >
-    <p class="op-bar__who">
+    <p class="op-bar__who op">
+      <span
+        class="op__av"
+        aria-hidden="true"
+      >{{ initial }}</span>
       <span class="op-bar__label">{{ ja.operator.label }}</span>
-      <strong class="op-bar__name">{{ name }}</strong>
+      <strong class="op-bar__name op__n clamp1">{{ name }}</strong>
       <span
         v-if="status"
-        class="op-bar__status"
-        :class="{ 'op-bar__status--break': auth.onBreak }"
+        class="op-bar__status r-chip"
+        :class="auth.onBreak ? 'r-chip--warn op-bar__status--break' : 'r-chip--ok'"
       >{{ status }}</span>
     </p>
     <div class="op-bar__actions">
       <button
         v-if="auth.working"
         type="button"
-        class="op-bar__btn"
+        class="op-bar__btn r-btn r-btn--secondary r-btn--sm"
         :disabled="busy"
         @click="toggleBreak"
       >
-        {{ auth.onBreak ? ja.operator.breakEnd : ja.operator.breakStart }}
+        <AppIcon
+          :name="auth.onBreak ? 'play' : 'pause'"
+          :size="20"
+        />
+        <span>{{ auth.onBreak ? ja.operator.breakEnd : ja.operator.breakStart }}</span>
       </button>
       <button
         type="button"
-        class="op-bar__btn"
+        class="op-bar__btn r-btn r-btn--secondary r-btn--sm"
         @click="sheetOpen = true"
       >
-        {{ ja.operator.switch }}
+        <AppIcon
+          name="swap"
+          :size="20"
+        />
+        <span>{{ ja.operator.switch }}</span>
       </button>
     </div>
     <p
       v-if="error"
-      class="op-bar__error"
+      class="op-bar__error r-err"
       role="alert"
     >
       {{ error }}
@@ -115,55 +129,11 @@ function onSwitched(): void {
 </template>
 
 <style scoped>
-.op-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px 16px;
-  margin-bottom: 16px;
-  padding: 12px 16px;
-  border: 1px solid var(--c-card-border);
-  border-radius: var(--radius-card);
-  background: var(--c-card-bg);
-}
-
-.op-bar__who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-size: 18px; }
-.op-bar__label { font-size: 16px; }
-.op-bar__name { font-size: 22px; }
-
-.op-bar__status {
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: var(--c-surface);
-  color: var(--c-success);
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.op-bar__status--break { color: var(--c-change); }
-.op-bar__actions { display: flex; flex-wrap: wrap; gap: 8px; }
-
-.op-bar__btn {
-  min-height: var(--tap-min);
-  padding: 0 16px;
-  border: 2px solid var(--c-on-primary);
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--c-on-primary);
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.op-bar__btn:active { background: rgba(255, 255, 255, 0.2); }
+.op-bar { justify-content: space-between; gap: 8px 12px; }
+.op-bar__who { flex: 1 1 auto; flex-wrap: wrap; margin: 0; }
+.op-bar__name { min-width: 0; }
+.op-bar__label { color: var(--c-text-sub); font-size: 15px; }
+.op-bar__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 .op-bar__btn:disabled { opacity: 0.6; }
-
-.op-bar__error {
-  flex-basis: 100%;
-  padding: 8px 12px;
-  border-radius: 8px;
-  background: var(--c-surface);
-  color: var(--c-danger);
-  font-weight: 700;
-}
+.op-bar__error { flex-basis: 100%; }
 </style>

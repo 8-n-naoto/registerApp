@@ -7,6 +7,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import { acceptOrder, cancelOrder, fetchOrders, type OrderView } from '@/api/orders'
 import { closeOrderTable, fetchOrderTables, openOrderTable } from '@/api/orderTables'
 import AppHeader from '@/components/AppHeader.vue'
+import AppIcon from '@/components/AppIcon.vue'
 import BigButton from '@/components/BigButton.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import OrderCard from '@/components/orders/OrderCard.vue'
@@ -194,7 +195,7 @@ async function runConfirm(): Promise<void> {
     <main class="adm-body orders">
       <div class="orders__bar">
         <nav
-          class="orders__tabs"
+          class="orders__tabs r-seg"
           :aria-label="t.title"
         >
           <button
@@ -202,7 +203,7 @@ async function runConfirm(): Promise<void> {
             :key="item.key"
             type="button"
             class="orders__tab"
-            :class="{ 'orders__tab--on': tab === item.key, 'orders__tab--alert': item.key === 'pending' && pendingCount > 0 }"
+            :class="{ 'orders__tab--on': tab === item.key, on: tab === item.key, 'orders__tab--alert': item.key === 'pending' && pendingCount > 0 }"
             :aria-pressed="tab === item.key"
             :data-tab="item.key"
             @click="selectTab(item.key)"
@@ -212,24 +213,28 @@ async function runConfirm(): Promise<void> {
         </nav>
         <button
           type="button"
-          class="adm-btn"
+          class="r-btn r-btn--secondary"
           :disabled="loading"
           @click="refresh"
         >
-          {{ t.refresh }}
+          <AppIcon
+            name="refresh"
+            :size="20"
+          />
+          <span>{{ t.refresh }}</span>
         </button>
       </div>
 
       <p
         v-if="notice"
-        class="adm-ok"
+        class="adm-ok r-banner r-banner--ok"
         role="status"
       >
         {{ notice }}
       </p>
       <p
         v-if="actionError"
-        class="adm-error"
+        class="adm-error r-banner r-banner--danger"
         role="alert"
       >
         {{ actionError }}
@@ -243,7 +248,7 @@ async function runConfirm(): Promise<void> {
       </p>
       <div
         v-else-if="loadFailed"
-        class="adm-panel"
+        class="adm-panel r-banner r-banner--danger orders__fail"
       >
         <p
           class="adm-error"
@@ -261,7 +266,7 @@ async function runConfirm(): Promise<void> {
       <template v-else-if="tab === 'tables'">
         <p
           v-if="visibleTables.length === 0 && takeouts.length === 0"
-          class="adm-help"
+          class="adm-help sub"
         >
           {{ t.noTables }}
         </p>
@@ -272,13 +277,16 @@ async function runConfirm(): Promise<void> {
           <li
             v-for="table in visibleTables"
             :key="table.id"
-            class="table"
+            class="table r-card"
             :class="{ 'table--open': table.opened_at !== null }"
             :data-table="table.id"
           >
             <div class="table__head">
-              <span class="table__name">{{ table.name }}</span>
-              <span class="table__state">{{ table.opened_at !== null ? t.inUse : t.vacant }}</span>
+              <span class="table__name clamp1 grow">{{ table.name }}</span>
+              <span
+                class="table__state r-chip"
+                :class="table.opened_at !== null ? 'r-chip--info' : 'r-chip--neutral'"
+              >{{ table.opened_at !== null ? t.inUse : t.vacant }}</span>
             </div>
             <p
               v-if="table.opened_at !== null"
@@ -296,7 +304,7 @@ async function runConfirm(): Promise<void> {
               <button
                 v-if="table.opened_at === null && table.is_active"
                 type="button"
-                class="adm-btn"
+                class="r-btn r-btn--secondary"
                 @click="ask({ kind: 'open', table })"
               >
                 {{ t.open }}
@@ -304,21 +312,21 @@ async function runConfirm(): Promise<void> {
               <button
                 v-if="table.opened_at !== null"
                 type="button"
-                class="adm-btn"
+                class="r-btn r-btn--secondary"
                 @click="ask({ kind: 'close', table })"
               >
                 {{ t.close }}
               </button>
               <RouterLink
                 v-if="table.is_active"
-                class="adm-btn adm-btn--on"
+                class="r-btn r-btn--secondary"
                 :to="{ name: 'order-new', query: { table: table.id } }"
               >
                 {{ t.addOrder }}
               </RouterLink>
               <RouterLink
                 v-if="table.unpaid_order_count > 0"
-                class="adm-btn adm-btn--on"
+                class="r-btn r-btn--primary"
                 :data-to-register="table.id"
                 :to="{ name: 'register', query: { table: table.id } }"
               >
@@ -329,12 +337,12 @@ async function runConfirm(): Promise<void> {
           <li
             v-for="order in takeouts"
             :key="`o${order.id}`"
-            class="table table--takeout"
+            class="table table--takeout r-card"
             :data-takeout="order.id"
           >
             <div class="table__head">
-              <span class="table__name">{{ orderPlace(order) }}</span>
-              <span class="table__state">{{ t.status[orderDisplayStatus(order)] }}</span>
+              <span class="table__name clamp2 grow">{{ orderPlace(order) }}</span>
+              <span class="table__state r-chip r-chip--info">{{ t.status[orderDisplayStatus(order)] }}</span>
             </div>
             <p class="table__line">
               {{ fmt(t.takeoutOrder, { no: order.order_no, time: formatTime(order.created_at) }) }}
@@ -344,7 +352,7 @@ async function runConfirm(): Promise<void> {
             </p>
             <div class="table__actions">
               <RouterLink
-                class="adm-btn adm-btn--on"
+                class="r-btn r-btn--primary"
                 :data-to-register-order="order.id"
                 :to="{ name: 'register', query: { order: order.id } }"
               >
@@ -358,7 +366,7 @@ async function runConfirm(): Promise<void> {
       <template v-else>
         <p
           v-if="orders.length === 0 && !loading"
-          class="adm-help"
+          class="adm-help sub"
         >
           {{ t.noOrders }}
         </p>
@@ -374,7 +382,7 @@ async function runConfirm(): Promise<void> {
             <button
               v-if="order.status === 'pending'"
               type="button"
-              class="adm-btn adm-btn--on"
+              class="r-btn r-btn--primary"
               :disabled="acceptingId !== null"
               @click="accept(order)"
             >
@@ -383,7 +391,7 @@ async function runConfirm(): Promise<void> {
             <button
               v-if="canCancelOrder(order)"
               type="button"
-              class="adm-btn adm-btn--danger"
+              class="r-btn r-btn--danger"
               @click="ask({ kind: 'cancel', order })"
             >
               {{ t.cancel }}
@@ -411,21 +419,14 @@ async function runConfirm(): Promise<void> {
 .orders { max-width: 1200px; gap: 16px; }
 
 .orders__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.orders__tabs { display: flex; flex: 1 1 auto; gap: 8px; overflow-x: auto; scrollbar-width: none; }
-.orders__tab {
-  flex-shrink: 0;
-  min-height: var(--tab-h);
-  padding: 0 16px;
-  border: 2px solid var(--c-border);
-  border-radius: 999px;
-  background: var(--c-surface);
-  color: var(--c-text);
-  font-size: 18px;
-  font-weight: 700;
-  white-space: nowrap;
+.orders__tabs { flex: 1 1 320px; max-width: 640px; overflow-x: auto; scrollbar-width: none; }
+.orders__tabs > button { flex: 1 0 auto; white-space: nowrap; cursor: pointer; }
+/* スマホは 4 つのタブが 1 行に収まらないので 2 列 × 2 段にする（横スクロールで隠さない） */
+@media (max-width: 599px) {
+  .orders__tabs { display: grid; grid-template-columns: 1fr 1fr; flex-basis: 100%; max-width: none; overflow: visible; }
 }
-.orders__tab--alert { border-color: var(--c-change); color: var(--c-change); }
-.orders__tab--on { border-color: var(--c-primary); background: var(--c-primary); color: var(--c-on-primary); }
+.orders__tab--alert { color: var(--st-warn-fg); }
+.orders__fail { flex-direction: column; }
 
 .tables {
   display: grid;
@@ -435,24 +436,15 @@ async function runConfirm(): Promise<void> {
   padding: 0;
   list-style: none;
 }
-.table {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 16px;
-  border: 2px solid var(--c-border);
-  border-radius: var(--radius-card);
-  background: var(--c-surface);
-}
-.table--open, .table--takeout { border-color: var(--c-primary); }
-.table__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.table { display: flex; flex-direction: column; gap: 8px; min-height: 132px; padding: 14px 16px; }
+.table--open, .table--takeout { border: 3px solid var(--c-primary); }
+.table__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .table__name { font-size: 22px; font-weight: 800; overflow-wrap: anywhere; }
-.table__state { flex-shrink: 0; color: var(--c-text-sub); font-weight: 700; }
-.table--open .table__state, .table--takeout .table__state { color: var(--c-primary); }
-.table__line { margin: 0; color: var(--c-text-sub); }
-.table__line--unpaid { color: var(--c-money); font-weight: 700; }
+.table__state { flex: none; }
+.table__line { margin: 0; color: var(--c-text-sub); font-size: 15px; }
+.table__line--unpaid { color: var(--c-money); font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .table__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
-.table__actions .adm-btn { flex: 1 1 auto; text-decoration: none; }
+.table__actions .r-btn { flex: 1 1 auto; text-decoration: none; }
 
 .orders__list {
   display: grid;

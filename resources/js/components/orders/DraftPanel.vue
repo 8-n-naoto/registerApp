@@ -2,6 +2,7 @@
 // S13 の注文の一覧（12 §8.4）：品目（−・数量・＋・×、行をタップでメモ）、点数・小計の目安、［厨房へ送信］。
 // タブレットは右の列、スマホは下から出るシートに置く
 import { computed, ref } from 'vue'
+import AppIcon from '@/components/AppIcon.vue'
 import BigButton from '@/components/BigButton.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import MoneyText from '@/components/MoneyText.vue'
@@ -51,10 +52,10 @@ function clear(): void {
     :class="{ 'draft--sheet': inSheet }"
   >
     <div class="draft__tools">
-      <span class="draft__count">{{ fmt(t.count, { n: draft.itemCount }) }}</span>
+      <span class="draft__count r-sum__l">{{ fmt(t.count, { n: draft.itemCount }) }}</span>
       <button
         type="button"
-        class="draft__tool"
+        class="draft__tool r-btn r-btn--quiet"
         :disabled="draft.lines.length === 0"
         @click="confirmClear = true"
       >
@@ -64,92 +65,101 @@ function clear(): void {
 
     <p
       v-if="draft.lines.length === 0"
-      class="draft__empty"
+      class="draft__empty r-empty"
     >
       {{ t.empty }}
     </p>
     <ul
       v-else
-      class="draft__lines"
+      class="draft__lines r-list"
       :aria-label="t.order"
     >
       <li
         v-for="row in rows"
         :key="row.line.key"
-        class="line"
+        class="line o-line"
       >
         <button
           type="button"
-          class="line__name"
+          class="line__name o-line__main"
           :aria-expanded="memoKey === row.line.key"
           @click="toggleMemo(row.line.key)"
         >
-          <span class="line__title">{{ row.name }}</span>
+          <span class="line__title o-line__name clamp2">{{ row.name }}</span>
           <span
             v-if="row.productMemo"
-            class="line__sub"
+            class="line__sub o-line__opt"
           >{{ row.productMemo }}</span>
           <span
             v-if="row.options.length > 0"
-            class="line__sub"
+            class="line__sub o-line__opt"
           >{{ row.options.join('・') }}</span>
           <span
             v-if="row.line.memo"
-            class="line__memo"
+            class="line__memo o-line__memo"
           >{{ fmt(ja.orders.memo, { memo: row.line.memo }) }}</span>
           <span
             v-else
             class="line__hint"
           >{{ t.editMemo }}</span>
         </button>
-        <div class="line__qty">
+        <div class="line__qty r-qty">
           <button
             type="button"
-            class="line__btn"
+            class="line__btn r-qty__b"
             :aria-label="fmt(ja.register.decrease, { name: row.name })"
             @click="draft.decrement(row.line.key)"
           >
-            −
+            <AppIcon
+              name="minus"
+              :size="22"
+            />
           </button>
           <span
-            class="line__count tabular"
+            class="line__count r-qty__v tabular"
             :aria-label="fmt(ja.register.quantity, { n: row.line.quantity })"
           >{{ row.line.quantity }}</span>
           <button
             type="button"
-            class="line__btn"
+            class="line__btn r-qty__b"
             :aria-label="fmt(ja.register.increase, { name: row.name })"
             :disabled="!row.canIncrease"
             @click="draft.increment(row.line.key)"
           >
-            ＋
+            <AppIcon
+              name="plus"
+              :size="22"
+            />
           </button>
         </div>
         <MoneyText
           v-if="row.amount !== null"
-          class="line__amount"
+          class="line__amount o-line__amt"
           :amount="row.amount"
         />
         <button
           type="button"
-          class="line__remove"
+          class="line__remove r-qty__b"
           :aria-label="fmt(ja.register.removeLine, { name: row.name })"
           @click="draft.removeLine(row.line.key)"
         >
-          ×
+          <AppIcon
+            name="trash"
+            :size="22"
+          />
         </button>
         <div
           v-if="memoKey === row.line.key"
           class="line__memo-edit"
         >
           <label
-            class="line__memo-label"
+            class="line__memo-label r-label"
             :for="`memo-${row.line.key}`"
           >{{ t.lineMemo }}</label>
           <div class="line__memo-row">
             <input
               :id="`memo-${row.line.key}`"
-              class="line__input"
+              class="line__input r-input"
               type="text"
               :value="row.line.memo"
               :maxlength="LINE_MEMO_MAX"
@@ -160,7 +170,7 @@ function clear(): void {
             >
             <button
               type="button"
-              class="line__close"
+              class="line__close r-btn r-btn--secondary"
               @click="memoKey = null"
             >
               {{ ja.common.done }}
@@ -171,8 +181,8 @@ function clear(): void {
       </li>
     </ul>
 
-    <div class="draft__sum">
-      <span>{{ t.subtotal }}</span>
+    <div class="draft__sum r-sum">
+      <span class="r-sum__l">{{ t.subtotal }}</span>
       <MoneyText
         :amount="draft.subtotal"
         size="amount"
@@ -216,106 +226,23 @@ function clear(): void {
 
 .draft__tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .draft__count { font-weight: 700; }
-.draft__tool {
-  min-height: var(--tap-min);
-  padding: 0 16px;
-  border: 2px solid var(--c-border);
-  border-radius: var(--radius);
-  background: var(--c-surface);
-  color: var(--c-text-sub);
-  font-weight: 700;
-}
-.draft__tool:disabled { opacity: 0.5; }
 
-.draft__empty { flex: 1 1 auto; padding: 24px 8px; color: var(--c-text-sub); text-align: center; }
+.draft__empty { flex: 1 1 auto; }
 
-.draft__lines {
-  flex: 1 1 auto;
-  min-height: 96px;
-  overflow-y: auto;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  border-top: 1px solid var(--c-border);
-}
+.draft__lines { flex: 1 1 auto; min-height: 96px; overflow-y: auto; }
 
-.line {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-areas: "name name name" "qty amount remove" "memo memo memo";
-  align-items: center;
-  gap: 4px 8px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--c-border);
-  font-size: var(--fs-order-line);
-}
+.line { align-items: center; }
+.line__name { min-height: var(--tap-min); padding: 0; border: 0; background: transparent; color: var(--c-text); font: inherit; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.line__hint { color: var(--c-primary-ink); font-size: 14px; text-decoration: underline; }
+.line__count { text-align: center; }
+.line__amount { flex: none; }
+.line__remove { border-color: transparent; background: transparent; color: var(--c-text-sub); }
 
-.line__name {
-  display: flex;
-  flex-direction: column;
-  grid-area: name;
-  min-height: var(--tap-min);
-  min-width: 0;
-  padding: 4px 0;
-  border: 0;
-  background: transparent;
-  color: var(--c-text);
-  font-size: inherit;
-  text-align: left;
-  overflow-wrap: anywhere;
-}
-.line__title { font-weight: 700; }
-.line__sub { color: var(--c-text-sub); font-size: 14px; }
-.line__memo { color: var(--c-change); font-size: 16px; font-weight: 700; }
-.line__hint { color: var(--c-primary); font-size: 14px; text-decoration: underline; }
-
-.line__qty { display: flex; grid-area: qty; align-items: center; gap: 4px; }
-.line__count { min-width: 2.5em; text-align: center; font-weight: 700; }
-.line__btn,
-.line__remove {
-  width: var(--qty-btn);
-  height: var(--qty-btn);
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius);
-  background: var(--c-surface-alt);
-  font-size: 24px;
-  font-weight: 700;
-}
-.line__btn:disabled { opacity: 0.4; }
-.line__amount { grid-area: amount; justify-self: end; font-weight: 700; }
-.line__remove { grid-area: remove; border-color: transparent; background: transparent; color: var(--c-text-sub); }
-
-.line__memo-edit { display: flex; flex-direction: column; grid-area: memo; gap: 4px; }
-.line__memo-label { font-size: 14px; color: var(--c-text-sub); }
+.line__memo-edit { display: flex; flex: 1 1 100%; flex-direction: column; gap: 4px; }
 .line__memo-row { display: flex; gap: 8px; }
-.line__input {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: var(--tap-min);
-  padding: 0 12px;
-  border: 2px solid var(--c-border);
-  border-radius: var(--radius);
-  font-size: 16px;
-}
-.line__close {
-  min-width: var(--tap-min);
-  min-height: var(--tap-min);
-  padding: 0 12px;
-  border: 2px solid var(--c-primary);
-  border-radius: var(--radius);
-  background: var(--c-surface);
-  color: var(--c-primary);
-  font-weight: 700;
-}
+.line__input { flex: 1 1 auto; font-size: 16px; }
+.line__close { flex: none; }
 .line__counter { align-self: flex-end; color: var(--c-text-sub); font-size: 14px; }
 
-.draft__sum {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 4px;
-  border-top: 2px solid var(--c-text);
-  font-size: 18px;
-  font-weight: 700;
-}
+.draft__sum { padding-top: 4px; }
 </style>

@@ -134,7 +134,7 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
         <div class="adm-actions">
           <RouterLink
             :to="{ name: 'admin-stores' }"
-            class="adm-btn"
+            class="r-btn r-btn--secondary"
           >
             {{ ja.viewing.toStores }}
           </RouterLink>
@@ -155,8 +155,8 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
               v-for="p in presets"
               :key="p.key"
               type="button"
-              class="adm-btn"
-              :class="{ 'adm-btn--on': activePreset === p.key && !customOpen }"
+              class="adm-btn r-btn r-btn--sm"
+              :class="activePreset === p.key && !customOpen ? 'r-btn--primary adm-btn--on' : 'r-btn--secondary'"
               :aria-pressed="activePreset === p.key && !customOpen"
               @click="choosePreset(p.key)"
             >
@@ -164,8 +164,8 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
             </button>
             <button
               type="button"
-              class="adm-btn"
-              :class="{ 'adm-btn--on': customOpen || activePreset === null }"
+              class="adm-btn r-btn r-btn--sm"
+              :class="customOpen || activePreset === null ? 'r-btn--primary adm-btn--on' : 'r-btn--secondary'"
               :aria-expanded="customOpen"
               @click="customOpen = !customOpen"
             >
@@ -183,7 +183,7 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
               <input
                 v-model="draft.from"
                 type="date"
-                class="adm-input"
+                class="adm-input r-input"
                 :aria-invalid="draftProblem !== null"
               >
             </label>
@@ -192,7 +192,7 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
               <input
                 v-model="draft.to"
                 type="date"
-                class="adm-input"
+                class="adm-input r-input"
                 :aria-invalid="draftProblem !== null"
               >
             </label>
@@ -246,12 +246,13 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
         </div>
         <template v-else-if="report">
           <section
-            class="summary-tiles"
+            class="r-stats"
             :aria-label="t.title"
           >
             <StatTile
               :label="t.total"
               :amount="report.totals.total"
+              tone="main"
             />
             <StatTile
               :label="t.count"
@@ -292,7 +293,7 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
               </summary>
               <div class="table-wrap">
                 <table
-                  class="summary-table"
+                  class="r-table summary-table"
                   data-test="by-date"
                 >
                   <thead>
@@ -317,13 +318,13 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
                       :key="r.date"
                     >
                       <td>{{ formatBusinessDate(r.date) }}</td>
-                      <td class="num">
+                      <td class="num n">
                         <MoneyText :amount="r.total" />
                       </td>
-                      <td class="num">
+                      <td class="num n">
                         {{ r.count }}
                       </td>
-                      <td class="num">
+                      <td class="num n">
                         {{ r.customers }}
                       </td>
                     </tr>
@@ -353,7 +354,7 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
                 {{ t.showTable }}
               </summary>
               <div class="table-wrap">
-                <table class="summary-table">
+                <table class="r-table summary-table">
                   <thead>
                     <tr>
                       <th scope="col">
@@ -373,10 +374,10 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
                       :key="r.hour"
                     >
                       <td>{{ fmt(t.hourValue, { h: r.hour }) }}</td>
-                      <td class="num">
+                      <td class="num n">
                         <MoneyText :amount="r.total" />
                       </td>
-                      <td class="num">
+                      <td class="num n">
                         {{ r.count }}
                       </td>
                     </tr>
@@ -401,7 +402,7 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
             </p>
             <div class="table-wrap">
               <table
-                class="summary-table"
+                class="r-table summary-table"
                 data-test="by-category"
               >
                 <thead>
@@ -423,10 +424,10 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
                     :key="`${r.category_id ?? ''}-${r.category_name ?? ''}`"
                   >
                     <td>{{ r.category_name ?? ja.products.uncategorized }}</td>
-                    <td class="num">
+                    <td class="num n">
                       {{ r.quantity }}
                     </td>
-                    <td class="num">
+                    <td class="num n">
                       <MoneyText :amount="r.amount" />
                     </td>
                   </tr>
@@ -456,7 +457,7 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
               class="table-wrap"
             >
               <table
-                class="summary-table"
+                class="r-table summary-table"
                 data-test="ranking"
               >
                 <thead>
@@ -490,10 +491,10 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
                         class="product-cell__sub"
                       >{{ productSub(r) }}</span>
                     </td>
-                    <td class="num">
+                    <td class="num n">
                       {{ r.quantity }}
                     </td>
-                    <td class="num">
+                    <td class="num n">
                       <MoneyText :amount="r.amount" />
                     </td>
                   </tr>
@@ -514,7 +515,7 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
                 {{ ja.daily.byTax }}
               </h2>
               <div class="table-wrap">
-                <table class="summary-table">
+                <table class="r-table summary-table">
                   <thead>
                     <tr>
                       <th scope="col">
@@ -540,16 +541,16 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
                       :key="`${r.tax_type_name}-${r.rate_permille}`"
                     >
                       <td>{{ r.tax_type_name }}</td>
-                      <td class="num">
+                      <td class="num n">
                         {{ permilleToPercent(r.rate_permille) }}%
                       </td>
-                      <td class="num">
+                      <td class="num n">
                         <MoneyText :amount="r.taxable_amount" />
                       </td>
-                      <td class="num">
+                      <td class="num n">
                         <MoneyText :amount="r.tax_amount" />
                       </td>
-                      <td class="num">
+                      <td class="num n">
                         <MoneyText :amount="r.total" />
                       </td>
                     </tr>
@@ -569,7 +570,7 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
                 {{ ja.daily.byPayment }}
               </h2>
               <div class="table-wrap">
-                <table class="summary-table">
+                <table class="r-table summary-table">
                   <thead>
                     <tr>
                       <th scope="col">
@@ -589,10 +590,10 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
                       :key="`${r.payment_method_name}-${r.is_cash}`"
                     >
                       <td>{{ r.payment_method_name }}</td>
-                      <td class="num">
+                      <td class="num n">
                         {{ r.count }}
                       </td>
-                      <td class="num">
+                      <td class="num n">
                         <MoneyText :amount="r.total" />
                       </td>
                     </tr>
@@ -619,7 +620,7 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
               <span class="adm-field__label">{{ t.exportType }}</span>
               <select
                 v-model="exportType"
-                class="adm-select"
+                class="adm-select r-input"
               >
                 <option
                   v-for="e in exportTypes"
@@ -631,7 +632,7 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
               </select>
             </label>
             <a
-              class="adm-btn summary-export__link"
+              class="r-btn r-btn--secondary summary-export__link"
               :href="downloadHref"
               download
               data-test="export"
@@ -650,27 +651,24 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
 .summary-custom { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
 .summary-custom .adm-field { flex: 1 1 160px; }
 .summary-custom__error { flex-basis: 100%; }
-.summary-period { font-size: var(--fs-heading); }
+.summary-period { font-size: 18px; font-weight: 800; }
 
-.summary-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .summary-sub { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--c-text-sub); font-weight: 700; }
 
-.summary-toggle { min-height: var(--tap-min); display: flex; align-items: center; color: var(--c-primary); font-weight: 700; cursor: pointer; }
-.summary-tables { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+.summary-toggle { min-height: var(--tap-min); display: flex; align-items: center; color: var(--c-primary-ink); font-weight: 700; cursor: pointer; }
+.summary-tables { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
 .summary-export__type { flex: 0 1 auto; }
 .summary-export__link { align-self: flex-end; text-decoration: none; }
+.summary-export__type .r-input { width: auto; min-width: 160px; }
 
 .table-wrap { overflow-x: auto; }
-.summary-table { width: 100%; border-collapse: collapse; font-size: var(--fs-body); }
-.summary-table th,
-.summary-table td { padding: 10px 8px; border-bottom: 1px solid var(--c-border); text-align: left; white-space: nowrap; }
-.summary-table th { color: var(--c-text-sub); font-size: 16px; }
-.summary-table .num { text-align: right; font-variant-numeric: tabular-nums; }
-.summary-table .product-cell { min-width: 8em; white-space: normal; overflow-wrap: anywhere; }
+.summary-table th:not(:first-child) { text-align: right; }
+.summary-table[data-test='ranking'] th:nth-child(2) { text-align: left; }
+.summary-table td { height: 52px; }
+.summary-table .product-cell { min-width: 8em; overflow-wrap: anywhere; }
 .product-cell__sub { display: block; color: var(--c-text-sub); font-size: 14px; }
 
 @media (min-width: 768px) {
-  .summary-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .summary-tables { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 </style>

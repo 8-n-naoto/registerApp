@@ -3,6 +3,7 @@
 // 店舗名・テーブル名を常に上に出し、商品 → シート（オプション・数量・メモ）→ カート → 確認 → 送信
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import AppIcon from '@/components/AppIcon.vue'
 import BigButton from '@/components/BigButton.vue'
 import BottomSheet from '@/components/BottomSheet.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
@@ -85,6 +86,11 @@ const cartLines = computed(() => store.lines.map((l) => {
 
 const priceSuffix = computed(() => (menu.value?.price_mode === 'tax_excluded' ? t.taxExcluded : ''))
 
+/** 一覧の写真の左上に出す、その商品がカートに入っている数 */
+function inCartCount(productId: number): number {
+  return store.lines.filter((l) => l.product_id === productId).reduce((sum, l) => sum + l.quantity, 0)
+}
+
 onMounted(async () => {
   const token = typeof route.params.token === 'string' ? route.params.token : ''
   await store.open(token)
@@ -165,18 +171,19 @@ function openHistory(): void {
     <template v-else>
       <header
         v-if="menu"
-        class="c01__head"
+        class="c01__head c-head"
       >
-        <div class="c01__where">
-          <span class="c01__store">{{ menu.store_name }}</span>
-          <span class="c01__table">{{ menu.table_name }}</span>
+        <div class="c01__where col grow">
+          <span class="c01__store c-head__store clamp1">{{ menu.store_name }}</span>
+          <span class="c01__table c-head__table">{{ menu.table_name }}</span>
         </div>
         <button
           type="button"
-          class="c01__history-btn"
+          class="c01__history-btn c-head__btn"
           @click="openHistory"
         >
-          {{ t.history }}
+          <AppIcon name="history" />
+          <span>{{ t.history }}</span>
         </button>
       </header>
 
@@ -205,22 +212,25 @@ function openHistory(): void {
         <template v-else-if="menu">
           <div
             v-if="store.lastOrder"
-            class="c01__done"
+            class="c01__done r-banner r-banner--ok"
             role="status"
           >
-            <p class="c01__done-title">
-              {{ fmt(t.done, { no: store.lastOrder.order_no }) }}
-            </p>
-            <p
-              v-if="store.lastOrder.status === 'pending'"
-              class="c01__done-sub"
-            >
-              {{ t.donePending }}
-            </p>
+            <AppIcon name="check" />
+            <div>
+              <p class="c01__done-title">
+                {{ fmt(t.done, { no: store.lastOrder.order_no }) }}
+              </p>
+              <p
+                v-if="store.lastOrder.status === 'pending'"
+                class="c01__done-sub"
+              >
+                {{ t.donePending }}
+              </p>
+            </div>
           </div>
           <p
             v-if="notAcceptingMessage"
-            class="c01__closed"
+            class="c01__closed r-banner r-banner--danger"
             role="status"
           >
             {{ notAcceptingMessage }}
@@ -235,7 +245,7 @@ function openHistory(): void {
 
           <nav
             v-if="tabs.length > 1"
-            class="c01__tabs"
+            class="c01__tabs r-chips"
           >
             <button
               v-for="c in tabs"
@@ -264,27 +274,46 @@ function openHistory(): void {
               v-for="p in visibleProducts"
               :key="p.id"
               type="button"
-              class="c01__product"
-              :class="[`c01__product--${p.color}`, { 'c01__product--soldout': p.sold_out }]"
+              class="c01__product c-item"
+              :class="{ 'c01__product--soldout': p.sold_out, 'c-item--sold': p.sold_out }"
               :disabled="p.sold_out"
               :data-product="p.id"
               @click="openProduct(p)"
             >
-              <span class="c01__pname">{{ p.name }}</span>
               <span
-                v-if="p.memo"
-                class="c01__pmemo"
-              >{{ p.memo }}</span>
-              <span class="c01__pfoot">
-                <span class="c01__pprice tabular">{{ formatYen(p.price) }}</span>
+                class="c-photo"
+                :class="`pc-${p.color}`"
+              >
+                <AppIcon
+                  name="coffee"
+                  :size="40"
+                />
                 <span
-                  v-if="p.sold_out"
-                  class="c01__mark c01__mark--soldout"
-                >{{ t.soldOut }}</span>
+                  v-if="inCartCount(p.id) > 0"
+                  class="c-incart"
+                >{{ inCartCount(p.id) }}</span>
+              </span>
+              <span class="c-item__body">
+                <span class="c01__pname c-item__name clamp2">{{ p.name }}</span>
                 <span
-                  v-else-if="p.options.length > 0"
-                  class="c01__mark"
-                >{{ t.hasOptions }}</span>
+                  v-if="p.memo"
+                  class="c01__pmemo c-item__desc clamp2"
+                >{{ p.memo }}</span>
+                <span class="c01__pfoot c-item__foot">
+                  <span
+                    class="c01__pprice c-item__price tabular"
+                    :class="{ sub: p.sold_out }"
+                  >{{ formatYen(p.price) }}</span>
+                  <span class="grow" />
+                  <span
+                    v-if="p.sold_out"
+                    class="c01__mark c01__mark--soldout r-chip r-chip--danger"
+                  >{{ t.soldOut }}</span>
+                  <span
+                    v-else-if="p.options.length > 0"
+                    class="c01__mark r-chip r-chip--info r-chip--plain"
+                  >{{ t.hasOptions }}</span>
+                </span>
               </span>
             </button>
           </div>
@@ -297,11 +326,12 @@ function openHistory(): void {
       >
         <button
           type="button"
-          class="c01__cart-btn"
+          class="c01__cart-btn r-btn r-btn--primary r-btn--lg r-btn--block"
           data-cart
           @click="openCart"
         >
-          {{ store.itemCount > 0 ? fmt(t.viewCart, { n: store.itemCount, amount: formatYen(store.subtotal) }) : t.viewCartEmpty }}
+          <AppIcon name="cart" />
+          <span>{{ store.itemCount > 0 ? fmt(t.viewCart, { n: store.itemCount, amount: formatYen(store.subtotal) }) : t.viewCartEmpty }}</span>
         </button>
       </div>
     </template>
@@ -316,13 +346,25 @@ function openHistory(): void {
         v-if="picking"
         class="pick"
       >
+        <!-- 写真は現在 1 枚も持てない（API に画像が無い）ので、色の面とアイコンで代える -->
+        <div
+          class="pick__photo c-gallery"
+          :class="`pc-${picking.color}`"
+        >
+          <span class="c-gallery__img">
+            <AppIcon
+              name="coffee"
+              :size="72"
+            />
+          </span>
+        </div>
         <p
           v-if="picking.memo"
           class="pick__memo"
         >
           {{ picking.memo }}
         </p>
-        <p class="pick__price tabular">
+        <p class="pick__price num tabular">
           {{ formatYen(picking.price) }}{{ priceSuffix }}
         </p>
 
@@ -344,28 +386,28 @@ function openHistory(): void {
 
         <div class="pick__group">
           <span class="pick__label">{{ t.quantity }}</span>
-          <div class="stepper">
+          <div class="stepper r-qty r-qty--lg">
             <button
               type="button"
-              class="stepper__btn"
+              class="stepper__btn r-qty__b"
               :aria-label="t.decrease"
               :disabled="pickQuantity <= 1"
               @click="pickQuantity -= 1"
             >
-              −
+              <AppIcon name="minus" />
             </button>
             <span
-              class="stepper__value tabular"
+              class="stepper__value r-qty__v tabular"
               data-quantity
             >{{ pickQuantity }}</span>
             <button
               type="button"
-              class="stepper__btn"
+              class="stepper__btn r-qty__b"
               :aria-label="t.increase"
               :disabled="pickQuantity >= Math.min(store.maxQuantity, TOTAL_QUANTITY_MAX - store.itemCount)"
               @click="pickQuantity += 1"
             >
-              ＋
+              <AppIcon name="plus" />
             </button>
           </div>
         </div>
@@ -374,7 +416,7 @@ function openHistory(): void {
           <span class="pick__label">{{ t.memo }}</span>
           <input
             v-model="pickMemo"
-            class="c01__input"
+            class="c01__input r-input"
             type="text"
             :maxlength="LINE_MEMO_MAX"
             :placeholder="t.memoPlaceholder"
@@ -420,45 +462,45 @@ function openHistory(): void {
           <li
             v-for="row in cartLines"
             :key="row.line.key"
-            class="cart__line"
+            class="cart__line o-line"
             :data-line="row.line.key"
           >
-            <div class="cart__text">
-              <span class="cart__name">{{ row.name }}</span>
+            <div class="cart__text o-line__main">
+              <span class="cart__name o-line__name">{{ row.name }}</span>
               <span
                 v-if="row.options.length > 0"
-                class="cart__sub"
+                class="cart__sub o-line__opt"
               >{{ row.options.join('・') }}</span>
               <span
                 v-if="row.line.memo"
-                class="cart__sub"
+                class="cart__sub o-line__opt"
               >{{ fmt(t.itemMemo, { memo: row.line.memo }) }}</span>
-              <span class="cart__amount tabular">{{ formatYen(row.amount) }}</span>
             </div>
             <div class="cart__controls">
-              <div class="stepper">
+              <div class="stepper r-qty">
                 <button
                   type="button"
-                  class="stepper__btn"
+                  class="stepper__btn r-qty__b"
                   :aria-label="t.decrease"
                   @click="store.setQuantity(row.line.key, row.line.quantity - 1)"
                 >
-                  −
+                  <AppIcon name="minus" />
                 </button>
-                <span class="stepper__value tabular">{{ row.line.quantity }}</span>
+                <span class="stepper__value r-qty__v tabular">{{ row.line.quantity }}</span>
                 <button
                   type="button"
-                  class="stepper__btn"
+                  class="stepper__btn r-qty__b"
                   :aria-label="t.increase"
                   :disabled="row.line.quantity >= store.maxQuantity || store.itemCount >= TOTAL_QUANTITY_MAX"
                   @click="store.setQuantity(row.line.key, row.line.quantity + 1)"
                 >
-                  ＋
+                  <AppIcon name="plus" />
                 </button>
               </div>
+              <span class="cart__amount o-line__amt tabular">{{ formatYen(row.amount) }}</span>
               <button
                 type="button"
-                class="cart__remove"
+                class="cart__remove r-btn r-btn--quiet"
                 :aria-label="fmt(t.remove, { name: row.name })"
                 @click="store.remove(row.line.key)"
               >
@@ -471,7 +513,7 @@ function openHistory(): void {
         <label class="pick__group">
           <span class="pick__label">{{ t.note }}</span>
           <textarea
-            class="c01__input c01__textarea"
+            class="c01__input c01__textarea r-input"
             :value="store.note"
             :maxlength="NOTE_MAX"
             :placeholder="t.notePlaceholder"
@@ -480,10 +522,10 @@ function openHistory(): void {
           />
         </label>
 
-        <div class="cart__total">
-          <span>{{ t.estimate }}{{ priceSuffix }}</span>
+        <div class="cart__total r-sum">
+          <span class="r-sum__l">{{ t.estimate }}{{ priceSuffix }}</span>
           <span
-            class="cart__total-amount tabular"
+            class="cart__total-amount r-sum__v tabular"
             data-total
           >{{ formatYen(store.subtotal) }}</span>
         </div>
@@ -500,7 +542,7 @@ function openHistory(): void {
         </p>
         <p
           v-if="notAcceptingMessage"
-          class="c01__closed"
+          class="c01__closed r-banner r-banner--danger"
         >
           {{ notAcceptingMessage }}
         </p>
@@ -548,16 +590,16 @@ function openHistory(): void {
         <article
           v-for="o in store.orders"
           :key="o.order_no"
-          class="history__order"
+          class="history__order r-card"
           :class="{ 'history__order--cancelled': o.status === 'cancelled' }"
           :data-history="o.order_no"
         >
-          <header class="history__head">
-            <span class="history__no tabular">{{ fmt(t.orderNo, { no: o.order_no }) }}</span>
-            <span class="history__time tabular">{{ formatTime(o.created_at) }}</span>
+          <header class="history__head r-card__head">
+            <span class="history__no num tabular">{{ fmt(t.orderNo, { no: o.order_no }) }}</span>
+            <span class="history__time sub tabular">{{ formatTime(o.created_at) }}</span>
             <span
               v-if="o.status !== 'active'"
-              class="history__status"
+              class="history__status r-chip r-chip--warn"
             >{{ o.status === 'pending' ? t.statusPending : t.statusCancelled }}</span>
           </header>
           <ul class="history__items">
@@ -571,8 +613,8 @@ function openHistory(): void {
               </span>
               <span
                 v-if="o.status === 'active'"
-                class="history__served"
-                :class="{ 'history__served--on': item.served }"
+                class="history__served r-chip"
+                :class="item.served ? 'history__served--on r-chip--ok' : 'r-chip--info'"
               >{{ item.served ? t.served : t.preparing }}</span>
             </li>
           </ul>
@@ -595,101 +637,48 @@ function openHistory(): void {
 <style scoped>
 .c01 {
   min-height: 100dvh;
-  padding-bottom: calc(64px + 16px + var(--safe-bottom));
+  padding-bottom: calc(80px + var(--safe-bottom));
   background: var(--c-surface-alt);
   color: var(--c-text);
   font-size: 16px;
 }
 .c01__invalid { margin: 0; padding: 48px var(--gutter); font-size: 20px; font-weight: 700; text-align: center; }
 
-.c01__head {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: calc(8px + var(--safe-top)) var(--gutter) 8px;
-  border-bottom: 1px solid var(--c-border);
-  background: var(--c-surface);
-}
-.c01__where { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; }
-.c01__store { color: var(--c-text-sub); font-size: 16px; overflow-wrap: anywhere; }
-.c01__table { font-size: 20px; font-weight: 800; overflow-wrap: anywhere; }
-.c01__history-btn {
-  flex-shrink: 0;
-  min-height: var(--tap-min);
-  padding: 0 16px;
-  border: 2px solid var(--c-primary);
-  border-radius: var(--radius);
-  background: var(--c-surface);
-  color: var(--c-primary);
-  font-size: 16px;
-  font-weight: 700;
-}
+.c01__head { position: sticky; top: 0; z-index: 10; padding-top: calc(8px + var(--safe-top)); }
+.c01__where { min-width: 0; }
+.c01__history-btn { flex-shrink: 0; border: 0; background: transparent; }
 
-.c01__main { display: flex; flex-direction: column; gap: 12px; max-width: 720px; margin: 0 auto; padding: 12px var(--gutter); }
+.c01__main { display: flex; flex-direction: column; gap: 12px; max-width: 720px; margin: 0 auto; padding: 0 0 12px; }
+.c01__main > p,
+.c01__main > .c01__panel,
+.c01__main > .c01__done { margin: 0 var(--gutter); }
+.c01__main > :first-child { margin-top: 12px; }
 .c01__panel { display: flex; flex-direction: column; gap: 12px; }
 .c01__error { margin: 0; color: var(--c-danger); font-weight: 700; }
 .c01__error--pre { white-space: pre-line; }
 .c01__help { margin: 0; color: var(--c-text-sub); }
 .c01__notice { margin: 0; color: var(--c-success); font-weight: 700; }
-.c01__closed { margin: 0; padding: 12px; border-radius: var(--radius); background: #FEF3C7; color: var(--c-change); font-weight: 800; }
-.c01__done { padding: 12px 16px; border: 2px solid var(--c-success); border-radius: var(--radius-card); background: var(--c-surface); }
-.c01__done-title { margin: 0; color: var(--c-success); font-size: 20px; font-weight: 800; }
+.c01__done-title { margin: 0; font-size: 18px; font-weight: 800; }
 .c01__done-sub { margin: 4px 0 0; }
+.c01__closed { font-weight: 800; }
 
-.c01__tabs { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
-.c01__tab {
-  flex-shrink: 0;
-  min-height: var(--tab-h);
-  padding: 0 16px;
-  border: 2px solid var(--c-border);
-  border-radius: 999px;
+.c01__tabs { position: sticky; top: 64px; z-index: 9; background: var(--c-surface); border-bottom: 1px solid var(--c-border-soft); }
+.c01__tab { flex-shrink: 0; min-height: var(--tab-h); white-space: nowrap; }
+
+.c01__grid { background: var(--c-surface); }
+.c01__product {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--c-border-soft);
   background: var(--c-surface);
   color: var(--c-text);
-  font-size: 16px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.c01__tab--on { border-color: var(--c-primary); background: var(--c-primary); color: var(--c-on-primary); }
-
-.c01__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-@media (min-width: 600px) {
-  .c01__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-.c01__product {
-  --tile-bg: var(--c-surface);
-  --tile-fg: var(--c-text);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  min-height: 104px;
-  padding: 12px;
-  border: 0;
-  border-radius: var(--radius-card);
-  background: var(--tile-bg);
-  color: var(--tile-fg);
+  font: inherit;
   text-align: left;
 }
-.c01__product--gray { --tile-bg: var(--pc-gray-bg); --tile-fg: var(--pc-gray-fg); }
-.c01__product--red { --tile-bg: var(--pc-red-bg); --tile-fg: var(--pc-red-fg); }
-.c01__product--orange { --tile-bg: var(--pc-orange-bg); --tile-fg: var(--pc-orange-fg); }
-.c01__product--yellow { --tile-bg: var(--pc-yellow-bg); --tile-fg: var(--pc-yellow-fg); }
-.c01__product--green { --tile-bg: var(--pc-green-bg); --tile-fg: var(--pc-green-fg); }
-.c01__product--teal { --tile-bg: var(--pc-teal-bg); --tile-fg: var(--pc-teal-fg); }
-.c01__product--blue { --tile-bg: var(--pc-blue-bg); --tile-fg: var(--pc-blue-fg); }
-.c01__product--indigo { --tile-bg: var(--pc-indigo-bg); --tile-fg: var(--pc-indigo-fg); }
-.c01__product--purple { --tile-bg: var(--pc-purple-bg); --tile-fg: var(--pc-purple-fg); }
-.c01__product--pink { --tile-bg: var(--pc-pink-bg); --tile-fg: var(--pc-pink-fg); }
-.c01__product--soldout { opacity: 0.55; }
-.c01__pname { font-size: 18px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
-.c01__pmemo { font-size: 16px; opacity: 0.85; overflow-wrap: anywhere; }
-.c01__pfoot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: auto; }
-.c01__pprice { font-size: 18px; font-weight: 700; }
-.c01__mark { padding: 0 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.7); color: var(--c-text); font-size: 16px; font-weight: 700; }
-.c01__mark--soldout { background: var(--c-text); color: var(--c-on-primary); }
+.c01__product:first-child { border-top: 0; }
+.c01__product:disabled { cursor: default; }
+.c01__product:active:not(:disabled) { background: var(--c-surface-alt); }
+.c01__product .c-photo :deep(svg) { width: 40px; height: 40px; fill: none; opacity: 0.6; }
 
 .c01__bar {
   position: fixed;
@@ -701,83 +690,36 @@ function openHistory(): void {
   border-top: 1px solid var(--c-border);
   background: var(--c-surface);
 }
-.c01__cart-btn {
-  display: block;
-  width: 100%;
-  max-width: 720px;
-  min-height: 64px;
-  margin: 0 auto;
-  border: 0;
-  border-radius: var(--radius);
-  background: var(--c-primary);
-  color: var(--c-on-primary);
-  font-size: 18px;
-  font-weight: 800;
-}
-.c01__cart-btn:active { background: var(--c-primary-press); }
+.c01__cart-btn { max-width: 720px; margin: 0 auto; }
 
 /* 入力欄は 16px 以上（iOS Safari の自動拡大を防ぐ。AC-C01-5） */
-.c01__input {
-  width: 100%;
-  min-height: var(--tap-min);
-  padding: 8px 12px;
-  border: 2px solid var(--c-border);
-  border-radius: var(--radius);
-  background: var(--c-surface);
-  color: var(--c-text);
-  font-size: 16px;
-}
+.c01__input { width: 100%; min-height: var(--tap-min); font-size: 16px; }
 .c01__textarea { resize: vertical; }
 
 .pick, .cart, .history { display: flex; flex-direction: column; gap: 16px; }
+/* 商品の写真は 1 枚（API に写真が無い間は色の面とアイコン）。シートでは高さを抑える */
+.pick__photo { height: 180px; aspect-ratio: auto; border-radius: var(--radius); }
+.pick__photo :deep(svg) { fill: none; opacity: 0.6; }
 .pick__memo { margin: 0; color: var(--c-text-sub); }
-.pick__price { margin: 0; font-size: 20px; font-weight: 800; }
+.pick__price { margin: 0; font-size: 24px; font-weight: 800; }
 .pick__group { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; border: 0; }
 .pick__label { font-weight: 700; }
 
-.stepper { display: flex; align-items: center; gap: 8px; }
-.stepper__btn {
-  min-width: 56px;
-  min-height: 56px;
-  border: 2px solid var(--c-border);
-  border-radius: var(--radius);
-  background: var(--c-surface);
-  color: var(--c-text);
-  font-size: 24px;
-  font-weight: 800;
-}
-.stepper__btn:disabled { opacity: 0.4; }
-.stepper__value { min-width: 40px; font-size: 22px; font-weight: 800; text-align: center; }
+.stepper { align-self: flex-start; }
 
-.cart__lines { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
-.cart__line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--c-border); }
-.cart__text { display: flex; flex: 1 1 160px; flex-direction: column; min-width: 0; }
-.cart__name { font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
-.cart__sub { color: var(--c-text-sub); overflow-wrap: anywhere; }
-.cart__amount { font-weight: 700; }
-.cart__controls { display: flex; align-items: center; gap: 8px; }
-.cart__remove {
-  min-width: var(--tap-min);
-  min-height: var(--tap-min);
-  padding: 0 12px;
-  border: 0;
-  background: transparent;
-  color: var(--c-danger);
-  font-size: 16px;
-  font-weight: 700;
-}
-.cart__total { display: flex; align-items: baseline; justify-content: space-between; font-size: 18px; font-weight: 700; }
-.cart__total-amount { font-size: 24px; font-weight: 800; }
+.cart__lines { margin: 0; padding: 0; list-style: none; border: 1px solid var(--c-border-soft); border-radius: var(--radius); }
+.cart__line { padding: 12px; }
+.cart__text { min-width: 0; overflow-wrap: anywhere; }
+.cart__controls { display: flex; flex: 1 1 100%; align-items: center; justify-content: space-between; gap: 8px; }
+.cart__controls .stepper { align-self: auto; }
+.cart__remove { color: var(--c-danger); }
 
-.history__order { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--c-border); border-radius: var(--radius); }
-.history__order--cancelled { opacity: 0.6; }
-.history__head { display: flex; align-items: baseline; gap: 12px; }
+.history__order { overflow: hidden; }
 .history__no { font-size: 20px; font-weight: 800; }
-.history__time { color: var(--c-text-sub); }
-.history__status { margin-left: auto; color: var(--c-change); font-weight: 800; }
-.history__items { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
-.history__item { display: flex; justify-content: space-between; gap: 8px; }
-.history__name { overflow-wrap: anywhere; }
-.history__served { flex-shrink: 0; color: var(--c-text-sub); font-weight: 700; }
-.history__served--on { color: var(--c-success); }
+.history__status { margin-left: auto; }
+.history__order--cancelled { opacity: 0.6; }
+.history__items { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 12px 16px; list-style: none; }
+.history__item { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.history__name { min-width: 0; overflow-wrap: anywhere; }
+.history__served { flex-shrink: 0; }
 </style>

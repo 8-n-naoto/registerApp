@@ -223,7 +223,7 @@ function add(): void {
       </ul>
       <p
         v-if="addError"
-        class="pick__error"
+        class="pick__error r-banner r-banner--danger"
         role="alert"
       >
         {{ addError }}
@@ -252,7 +252,7 @@ function add(): void {
 <style scoped>
 .pick { display: flex; flex-direction: column; gap: 12px; margin: 0 0 16px; padding: 0; list-style: none; }
 .pick__message { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px 0; color: var(--c-text-sub); text-align: center; }
-.pick__group { border: 1px solid var(--c-border); border-radius: var(--radius-card); overflow: hidden; }
+.pick__group { border: 1px solid var(--c-border-soft); border-radius: var(--radius-card); overflow: hidden; }
 .pick__orders { margin: 0; padding: 0; list-style: none; }
 .pick__head,
 .pick__order {
@@ -268,8 +268,9 @@ function add(): void {
   font-size: 16px;
   text-align: left;
 }
-.pick__head { background: var(--c-surface-alt); font-size: 18px; font-weight: 700; }
-.pick__order { border-top: 1px solid var(--c-border); }
+.pick__head { background: var(--c-primary-tint); font-size: 18px; font-weight: 700; }
+.pick__order { border-top: 1px solid var(--c-border-soft); }
+.pick__order[aria-checked="true"] { background: var(--c-primary-tint); }
 .pick__head:disabled,
 .pick__order:disabled { opacity: 0.6; }
 .pick__box {
@@ -282,12 +283,12 @@ function add(): void {
   border: 2px solid var(--c-primary);
   border-radius: 6px;
   background: var(--c-surface);
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
   font-weight: 800;
 }
 .pick__text { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
 .pick__no { font-weight: 700; }
 .pick__items { color: var(--c-text-sub); font-size: 14px; }
 .pick__amount { flex-shrink: 0; font-weight: 700; }
-.pick__error { margin: 0 0 12px; color: var(--c-danger); font-weight: 700; }
+.pick__error { margin: 0 0 12px; }
 </style>

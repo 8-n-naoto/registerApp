@@ -23,14 +23,17 @@ const hasOptions = computed(() => props.product.options.some((o) => o.is_active)
 <template>
   <div
     class="tile"
-    :class="[`tile--${layout}`, `tile--${product.color}`, { 'tile--soldout': soldOut, 'tile--stopped': !product.is_active }]"
+    :class="[`tile--${layout}`, `tile--${product.color}`, layout === 'tile' ? ['r-pt', `pc-${product.color}`, { 'r-pt--sold': soldOut }] : [], { 'tile--soldout': soldOut, 'tile--stopped': !product.is_active }]"
   >
     <span
       class="tile__swatch"
       aria-hidden="true"
     />
     <span class="tile__text">
-      <span class="tile__name">{{ product.name }}</span>
+      <span
+        class="tile__name r-pt__name"
+        :class="{ clamp2: layout === 'tile' }"
+      >{{ product.name }}</span>
       <span
         v-if="product.memo"
         class="tile__memo"
@@ -40,7 +43,7 @@ const hasOptions = computed(() => props.product.options.some((o) => o.is_active)
         class="tile__code tabular"
       >{{ product.code }}</span>
     </span>
-    <span class="tile__price tabular">{{ formatYen(signedPrice(product)) }}</span>
+    <span class="tile__price r-pt__price tabular">{{ formatYen(signedPrice(product)) }}</span>
     <span class="tile__marks">
       <span
         v-if="product.is_discount"
@@ -89,14 +92,17 @@ const hasOptions = computed(() => props.product.options.some((o) => o.is_active)
 .tile--pink { --tile-bg: var(--pc-pink-bg); --tile-fg: var(--pc-pink-fg); }
 
 .tile--tile {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 4px;
-  min-height: var(--product-min-h);
+  display: grid;
+  grid-template-areas: "text text" "marks price";
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: 1fr auto;
+  align-items: end;
+  gap: 6px;
   height: 100%;
-  padding: 10px 12px;
 }
+.tile--tile .tile__text { grid-area: text; align-self: start; }
+.tile--tile .tile__marks { grid-area: marks; align-self: end; }
+.tile--tile .tile__price { grid-area: price; }
 
 .tile--tile .tile__swatch { display: none; }
 .tile__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -120,8 +126,7 @@ const hasOptions = computed(() => props.product.options.some((o) => o.is_active)
 .tile__code { white-space: nowrap; text-overflow: ellipsis; opacity: 0.85; }
 .tile--row .tile__code { color: var(--c-text-sub); opacity: 1; }
 
-.tile--tile .tile__name { font-size: var(--fs-product); font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
-.tile--tile .tile__price { font-size: var(--fs-product-price); font-weight: 700; }
+.tile--tile .tile__name { line-height: 1.3; }
 
 .tile--row {
   display: flex;

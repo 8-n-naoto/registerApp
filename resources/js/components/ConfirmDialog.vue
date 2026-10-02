@@ -72,10 +72,10 @@ function cancel(): void {
         >
           {{ error }}
         </p>
-        <div class="dialog__actions">
+        <div class="dialog__actions r-dialog__acts">
           <button
             type="button"
-            class="dialog__cancel"
+            class="dialog__cancel r-btn r-btn--secondary"
             data-cancel
             :disabled="loading"
             @click="cancel"
@@ -84,6 +84,7 @@ function cancel(): void {
           </button>
           <BigButton
             :variant="danger ? 'danger' : 'primary'"
+            size="lg"
             :loading="loading"
             @click="emit('confirm')"
           >
@@ -96,6 +97,7 @@ function cancel(): void {
 </template>
 
 <style scoped>
+/* r-dialog（デザインシステム）：スマホは［実行］が上・［やめる］が下、タブレットは横に［やめる］［実行］ */
 .dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -104,35 +106,25 @@ function cancel(): void {
   align-items: center;
   justify-content: center;
   padding: 16px;
-  background: rgba(17, 24, 39, 0.5);
+  background: var(--c-scrim);
 }
 
 .dialog {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  width: min(480px, 100%);
+  width: min(520px, 100%);
   max-height: calc(100dvh - 32px);
   overflow-y: auto;
   padding: 24px;
-  border-radius: var(--radius-card);
+  border-radius: var(--radius-sheet);
   background: var(--c-surface);
   color: var(--c-text);
+  box-shadow: var(--sh-dialog);
 }
 
-.dialog__title { font-size: var(--fs-heading); }
-.dialog__message { white-space: pre-line; }
+.dialog__title { font-size: 22px; font-weight: 800; line-height: 1.4; }
+.dialog__message { font-size: 17px; line-height: 1.65; white-space: pre-line; }
 .dialog__error { color: var(--c-danger); font-weight: 700; }
-.dialog__actions { display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
-
-.dialog__cancel {
-  min-width: var(--tap-min);
-  min-height: var(--btn-h);
-  padding: 0 24px;
-  border: 2px solid var(--c-border);
-  border-radius: var(--radius);
-  background: var(--c-surface);
-  font-size: 18px;
-  font-weight: 700;
-}
+.dialog__cancel { min-height: var(--btn-h-lg); font-size: 20px; }
 </style>

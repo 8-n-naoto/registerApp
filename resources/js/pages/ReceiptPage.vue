@@ -4,7 +4,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchSale } from '@/api/register'
-import BigButton from '@/components/BigButton.vue'
+import AppIcon from '@/components/AppIcon.vue'
 import SaleReceipt from '@/components/SaleReceipt.vue'
 import { ja } from '@/i18n/ja'
 import { errorBody, errorStatus, isNetworkError } from '@/lib/apiError'
@@ -51,60 +51,72 @@ function close(): void {
 
 <template>
   <main class="receipt-page">
-    <div class="receipt-page__bar">
-      <BigButton
-        variant="secondary"
+    <header class="receipt-page__bar r-appbar">
+      <button
+        type="button"
+        class="r-appbar__back"
         @click="close"
       >
-        {{ t.close }}
-      </BigButton>
-      <BigButton
+        <AppIcon
+          name="back"
+          :size="24"
+        />
+        <span>{{ t.close }}</span>
+      </button>
+      <span class="r-appbar__title">{{ t.title }}</span>
+      <button
+        type="button"
+        class="r-appbar__act"
         :disabled="sale === null"
         @click="print"
       >
-        {{ t.print }}
-      </BigButton>
+        <AppIcon
+          name="print"
+          :size="24"
+        />
+        <span>{{ t.print }}</span>
+      </button>
+    </header>
+    <div class="receipt-page__body">
+      <p
+        v-if="loading"
+        class="receipt-page__message"
+        role="status"
+      >
+        {{ ja.common.loading }}
+      </p>
+      <div
+        v-else-if="failed"
+        class="receipt-page__message r-banner r-banner--danger"
+        role="alert"
+      >
+        <AppIcon
+          name="alert"
+          :size="24"
+        />
+        <span class="r-banner__d">{{ failed }}</span>
+      </div>
+      <SaleReceipt
+        v-else-if="sale"
+        :sale="sale"
+      />
     </div>
-    <p
-      v-if="loading"
-      class="receipt-page__message"
-    >
-      {{ ja.common.loading }}
-    </p>
-    <p
-      v-else-if="failed"
-      class="receipt-page__message receipt-page__message--error"
-      role="alert"
-    >
-      {{ failed }}
-    </p>
-    <SaleReceipt
-      v-else-if="sale"
-      :sale="sale"
-    />
   </main>
 </template>
 
 <style scoped>
-.receipt-page {
-  min-height: 100dvh;
-  padding: calc(16px + var(--safe-top)) calc(16px + var(--safe-right)) calc(24px + var(--safe-bottom)) calc(16px + var(--safe-left));
-  background: var(--c-surface-alt);
+.receipt-page { min-height: 100dvh; background: var(--c-surface-alt); }
+
+.receipt-page__body {
+  padding: 16px calc(16px + var(--safe-right)) calc(24px + var(--safe-bottom)) calc(16px + var(--safe-left));
 }
 
-.receipt-page__bar {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  max-width: 360px;
-  margin: 0 auto 16px;
-}
-
-.receipt-page__message { max-width: 360px; margin: 24px auto; text-align: center; }
-.receipt-page__message--error { color: var(--c-danger); font-weight: 700; }
+.receipt-page__message { max-width: 360px; margin: 24px auto; }
+.receipt-page__bar button:disabled { opacity: 0.5; }
 
 @media print {
-  .receipt-page { min-height: 0; padding: 0; background: #fff; }
+  .receipt-page { min-height: 0; background: #fff; }
+  .receipt-page__body { padding: 0; }
   .receipt-page__bar { display: none; }
 }
 </style>

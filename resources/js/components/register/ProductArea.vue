@@ -50,13 +50,13 @@ function press(product: Product): void {
     :aria-label="label"
   >
     <nav
-      class="tabs"
+      class="tabs r-chips"
       :aria-label="t.category"
     >
       <button
         type="button"
         class="tab"
-        :class="{ 'tab--on': tab === 'all' }"
+        :class="{ on: tab === 'all', 'tab--on': tab === 'all' }"
         :aria-pressed="tab === 'all'"
         @click="tab = 'all'"
       >
@@ -67,7 +67,7 @@ function press(product: Product): void {
         :key="category.id"
         type="button"
         class="tab"
-        :class="{ 'tab--on': tab === category.id }"
+        :class="{ on: tab === category.id, 'tab--on': tab === category.id }"
         :aria-pressed="tab === category.id"
         @click="tab = category.id"
       >
@@ -77,14 +77,14 @@ function press(product: Product): void {
         v-if="hasUncategorized && categories.length > 0"
         type="button"
         class="tab"
-        :class="{ 'tab--on': tab === 'none' }"
+        :class="{ on: tab === 'none', 'tab--on': tab === 'none' }"
         :aria-pressed="tab === 'none'"
         @click="tab = 'none'"
       >
         {{ t.uncategorized }}
       </button>
     </nav>
-    <div class="grid">
+    <div class="grid r-pgrid">
       <button
         v-for="product in visibleProducts"
         :key="product.id"
@@ -102,47 +102,25 @@ function press(product: Product): void {
 </template>
 
 <style scoped>
-.products { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; }
+.products { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; background: var(--c-surface); }
 
-.tabs {
-  display: flex;
-  flex-shrink: 0;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 8px 12px;
-  scrollbar-width: none;
-}
-
-.tab {
-  flex-shrink: 0;
-  min-width: var(--tap-min);
-  min-height: var(--tab-h);
-  padding: 0 16px;
-  border: 2px solid var(--c-border);
-  border-radius: 999px;
-  background: var(--c-surface);
-  color: var(--c-text);
-  font-size: 18px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.tab--on { border-color: var(--c-primary); background: var(--c-primary); color: var(--c-on-primary); }
+/* カテゴリの並び（r-chips）。押したものは .on */
+.tabs { min-width: 0; }
+.tab { cursor: pointer; }
 
 .grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 8px 16px calc(120px + var(--safe-bottom));
   grid-auto-rows: minmax(var(--product-min-h), auto);
-  gap: var(--product-gap);
-  align-content: start;
-  padding: 0 12px calc(96px + var(--safe-bottom));
 }
 
 .grid__item {
   display: block;
+  min-width: 0;
   padding: 0;
   border: 0;
   border-radius: var(--radius);
   background: transparent;
+  color: inherit;
   text-align: left;
   user-select: none;
   -webkit-user-select: none;
@@ -150,18 +128,13 @@ function press(product: Product): void {
 }
 .grid__item:active:not(:disabled) { transform: scale(0.97); }
 .grid__item:disabled { cursor: not-allowed; }
-.grid__item:deep(.tile__name) {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
 
 /* タブレット：画面の高さに収め、商品の列だけをスクロールする（AC-S02-13） */
-.products--tablet { flex: 0 0 62%; overflow: hidden; }
+.products--tablet { flex: 1 1 0; overflow: hidden; }
 .products--tablet .grid {
-  grid-template-columns: repeat(auto-fill, minmax(var(--product-min-w, 140px), 1fr));
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  padding-bottom: calc(12px + var(--safe-bottom));
+  padding-bottom: calc(16px + var(--safe-bottom));
 }
 </style>

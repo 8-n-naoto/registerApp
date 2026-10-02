@@ -4,6 +4,7 @@
 // ［送信して会計へ］は送信に成功したら S02 を開き、その注文をカートに入れるダイアログを出す（持ち帰りなどすぐ会計する注文用）
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import AppIcon from '@/components/AppIcon.vue'
 import BigButton from '@/components/BigButton.vue'
 import BottomSheet from '@/components/BottomSheet.vue'
 import MoneyText from '@/components/MoneyText.vue'
@@ -113,14 +114,18 @@ async function send(checkout = false): Promise<void> {
     class="order-new"
     :class="{ 'order-new--tablet': isTablet }"
   >
-    <header class="order-new__top">
+    <header class="order-new__top r-appbar">
       <RouterLink
         :to="{ name: 'home' }"
-        class="order-new__home"
+        class="order-new__home r-appbar__back"
       >
-        <span aria-hidden="true">←</span> {{ ja.common.home }}
+        <AppIcon
+          name="back"
+          :size="24"
+        />
+        <span>{{ ja.common.home }}</span>
       </RouterLink>
-      <h1 class="order-new__title">
+      <h1 class="order-new__title r-appbar__title">
         {{ t.title }}
       </h1>
     </header>
@@ -130,13 +135,13 @@ async function send(checkout = false): Promise<void> {
       class="order-new__dest"
     >
       <label
-        class="order-new__field"
+        class="order-new__field r-field"
         for="order-table"
       >
-        <span class="order-new__label">{{ t.table }}</span>
+        <span class="order-new__label r-label">{{ t.table }}</span>
         <select
           id="order-table"
-          class="order-new__select"
+          class="order-new__select r-input"
           :value="tableValue"
           @change="onTableChange"
         >
@@ -152,13 +157,13 @@ async function send(checkout = false): Promise<void> {
       </label>
       <label
         v-if="draft.tableId === null"
-        class="order-new__field order-new__field--grow"
+        class="order-new__field order-new__field--grow r-field"
         for="order-label"
       >
-        <span class="order-new__label">{{ t.label }}</span>
+        <span class="order-new__label r-label">{{ t.label }}</span>
         <input
           id="order-label"
-          class="order-new__input"
+          class="order-new__input r-input"
           type="text"
           :value="draft.label"
           :maxlength="LABEL_MAX"
@@ -170,14 +175,14 @@ async function send(checkout = false): Promise<void> {
 
     <div
       v-if="notice"
-      class="order-new__notice"
-      :class="`order-new__notice--${notice.kind}`"
+      class="order-new__notice r-banner"
+      :class="[`order-new__notice--${notice.kind}`, notice.kind === 'error' ? 'r-banner--danger' : 'r-banner--ok']"
       :role="notice.kind === 'error' ? 'alert' : 'status'"
     >
       <span>{{ notice.text }}</span>
       <button
         type="button"
-        class="order-new__notice-close"
+        class="order-new__notice-close r-btn r-btn--quiet"
         @click="showNotice(null)"
       >
         {{ ja.common.close }}
@@ -185,14 +190,14 @@ async function send(checkout = false): Promise<void> {
     </div>
     <p
       v-if="!draft.storageOk"
-      class="order-new__notice order-new__notice--error"
+      class="order-new__notice order-new__notice--error r-banner r-banner--danger"
     >
       {{ t.storageUnavailable }}
     </p>
 
     <p
       v-if="draft.loading && !draft.bootstrap"
-      class="order-new__message"
+      class="order-new__message sub"
     >
       {{ ja.common.loading }}
     </p>
@@ -229,14 +234,14 @@ async function send(checkout = false): Promise<void> {
 
     <div
       v-if="!isTablet && draft.bootstrap"
-      class="bar"
+      class="bar r-actionbar"
     >
       <button
         type="button"
         class="bar__summary"
         @click="orderSheet = true"
       >
-        <span class="bar__label">{{ t.subtotal }}・{{ fmt(t.count, { n: draft.itemCount }) }}</span>
+        <span class="bar__label r-sum__l">{{ t.subtotal }}・{{ fmt(t.count, { n: draft.itemCount }) }}</span>
         <MoneyText
           :amount="draft.subtotal"
           size="amount"
@@ -274,7 +279,7 @@ async function send(checkout = false): Promise<void> {
         <p class="send__dest">
           {{ fmt(t.sendTo, { table: destination }) }}
         </p>
-        <p class="send__sum">
+        <p class="send__sum r-sum">
           <span>{{ fmt(t.count, { n: draft.itemCount }) }}・{{ t.subtotal }}</span>
           <MoneyText
             :amount="draft.subtotal"
@@ -283,12 +288,12 @@ async function send(checkout = false): Promise<void> {
           />
         </p>
         <label
-          class="send__label"
+          class="send__label r-label"
           for="order-note"
         >{{ t.note }}</label>
         <textarea
           id="order-note"
-          class="send__note"
+          class="send__note r-input"
           rows="3"
           :value="draft.note"
           :maxlength="NOTE_MAX"
@@ -331,33 +336,12 @@ async function send(checkout = false): Promise<void> {
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
-  padding: var(--safe-top) var(--safe-right) 0 var(--safe-left);
   background: var(--c-surface-alt);
   color: var(--c-text);
 }
 
-.order-new__top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 12px;
-  background: var(--c-primary);
-  color: var(--c-on-primary);
-}
-
-.order-new__home {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 4px;
-  min-height: var(--tap-min);
-  padding: 0 12px;
-  color: var(--c-on-primary);
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.order-new__title { margin: 0; font-size: 20px; }
+.order-new__home { text-decoration: none; color: inherit; }
+.order-new__title { margin: 0; }
 
 .order-new__dest {
   display: flex;
@@ -365,44 +349,16 @@ async function send(checkout = false): Promise<void> {
   align-items: flex-end;
   gap: 8px 12px;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--c-border);
+  border-bottom: 1px solid var(--c-border-soft);
   background: var(--c-surface);
 }
-.order-new__field { display: flex; flex-direction: column; gap: 2px; }
+.order-new__field { flex: 0 1 240px; }
 .order-new__field--grow { flex: 1 1 200px; }
-.order-new__label { color: var(--c-text-sub); font-size: 14px; font-weight: 700; }
-.order-new__select,
-.order-new__input {
-  min-height: var(--tap-min);
-  padding: 0 12px;
-  border: 2px solid var(--c-border);
-  border-radius: var(--radius);
-  background: var(--c-surface);
-  color: var(--c-text);
-  font-size: 18px;
-}
-.order-new__select { min-width: 200px; font-weight: 700; }
+.order-new__select { font-weight: 700; }
 
-.order-new__notice {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 4px 12px;
-  font-weight: 700;
-  white-space: pre-line;
-}
-.order-new__notice--error { background: #FEE2E2; color: var(--c-danger); }
-.order-new__notice--info { background: #DCFCE7; color: var(--c-success); font-size: 20px; }
-.order-new__notice-close {
-  flex-shrink: 0;
-  min-width: var(--tap-min);
-  min-height: var(--tap-min);
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font-weight: 700;
-}
+.order-new__notice { align-items: center; justify-content: space-between; margin: 8px 12px 0; font-weight: 700; white-space: pre-line; }
+.order-new__notice--info { font-size: 18px; }
+.order-new__notice-close { flex: none; }
 
 .order-new__message { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 48px 16px; text-align: center; }
 
@@ -416,7 +372,7 @@ async function send(checkout = false): Promise<void> {
   min-width: 0;
   overflow-y: auto;
   padding: 12px 12px calc(12px + var(--safe-bottom));
-  border-left: 1px solid var(--c-border);
+  border-left: 1px solid var(--c-border-soft);
   background: var(--c-surface);
 }
 
@@ -426,42 +382,29 @@ async function send(checkout = false): Promise<void> {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 50;
-  display: flex;
+  z-index: 40;
+  flex-direction: row;
   align-items: center;
   gap: 8px;
-  padding: 8px calc(12px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(12px + var(--safe-left));
-  background: var(--c-money);
-  color: var(--c-on-primary);
-  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.2);
 }
 .bar__summary {
   display: grid;
   flex: 1 1 auto;
   grid-template-columns: 1fr auto;
   align-items: center;
+  min-width: 0;
   min-height: var(--tap-min);
   padding: 0;
   border: 0;
   background: transparent;
-  color: inherit;
+  color: var(--c-text);
   text-align: left;
 }
-.bar__label { font-size: 14px; }
-.bar__view { grid-column: 1 / -1; font-size: 14px; text-decoration: underline; }
+.bar__view { grid-column: 1 / -1; color: var(--c-primary-ink); font-size: 14px; text-decoration: underline; }
 
 .send { display: flex; flex-direction: column; gap: 8px; }
 .send__dest { margin: 0; font-size: 20px; font-weight: 700; }
-.send__sum { display: flex; align-items: center; justify-content: space-between; margin: 0; font-weight: 700; }
-.send__label { color: var(--c-text-sub); font-size: 14px; font-weight: 700; }
-.send__note {
-  min-height: 96px;
-  padding: 8px 12px;
-  border: 2px solid var(--c-border);
-  border-radius: var(--radius);
-  font: inherit;
-  font-size: 16px;
-  resize: vertical;
-}
+.send__sum { margin: 0; font-weight: 700; }
+.send__note { padding-top: 12px; font-size: 16px; resize: vertical; }
 .send__counter { align-self: flex-end; color: var(--c-text-sub); font-size: 14px; }
 </style>

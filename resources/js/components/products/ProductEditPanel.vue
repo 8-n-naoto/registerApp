@@ -2,6 +2,7 @@
 // S08 商品の編集パネル（08 §5.9）。タブレットは右側のパネル、スマホは全画面
 import { computed, onMounted, ref } from 'vue'
 import { changeStock, createProduct, deleteProduct, updateProduct, type StockMode } from '@/api/catalog'
+import AppIcon from '@/components/AppIcon.vue'
 import BigButton from '@/components/BigButton.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import OptionEditor from '@/components/products/OptionEditor.vue'
@@ -201,10 +202,10 @@ async function confirmDelete(): Promise<void> {
           novalidate
           @submit.prevent="save"
         >
-          <div class="adm-field">
+          <div class="adm-field r-field">
             <label
               for="product-name"
-              class="adm-field__label"
+              class="adm-field__label r-label"
             >{{ t.name }}</label>
             <input
               id="product-name"
@@ -216,21 +217,21 @@ async function confirmDelete(): Promise<void> {
             >
             <p
               v-if="errors.name"
-              class="adm-error"
+              class="adm-error r-err"
             >
               {{ errors.name }}
             </p>
           </div>
 
-          <div class="adm-field">
+          <div class="adm-field r-field">
             <label
               for="product-memo"
-              class="adm-field__label"
+              class="adm-field__label r-label"
             >{{ t.memo }}</label>
             <textarea
               id="product-memo"
               v-model="memo"
-              class="adm-input edit__memo"
+              class="adm-input r-input edit__memo"
               maxlength="200"
               rows="2"
               aria-describedby="product-memo-help"
@@ -238,27 +239,27 @@ async function confirmDelete(): Promise<void> {
             />
             <p
               id="product-memo-help"
-              class="adm-help"
+              class="adm-help r-help"
             >
               {{ t.memoHelp }}
             </p>
             <p
               v-if="errors.memo"
-              class="adm-error"
+              class="adm-error r-err"
             >
               {{ errors.memo }}
             </p>
           </div>
 
-          <div class="adm-field">
+          <div class="adm-field r-field">
             <label
               for="product-code"
-              class="adm-field__label"
+              class="adm-field__label r-label"
             >{{ t.code }}</label>
             <input
               id="product-code"
               v-model="code"
-              class="adm-input tabular"
+              class="adm-input r-input tabular"
               maxlength="20"
               autocapitalize="characters"
               autocomplete="off"
@@ -269,19 +270,19 @@ async function confirmDelete(): Promise<void> {
             >
             <p
               id="product-code-help"
-              class="adm-help"
+              class="adm-help r-help"
             >
               {{ t.codeHelp }}
             </p>
             <p
               v-if="errors.code"
-              class="adm-error"
+              class="adm-error r-err"
             >
               {{ errors.code }}
             </p>
           </div>
 
-          <div class="adm-field">
+          <div class="adm-field r-field">
             <label class="adm-check"><input
               v-model="isDiscount"
               type="checkbox"
@@ -290,48 +291,48 @@ async function confirmDelete(): Promise<void> {
             >{{ t.isDiscount }}</label>
             <p
               id="is-discount-help"
-              class="adm-help"
+              class="adm-help r-help"
             >
               {{ hasOptions ? t.isDiscountHasOptions : t.isDiscountHelp }}
             </p>
             <p
               v-if="errors.is_discount"
-              class="adm-error"
+              class="adm-error r-err"
             >
               {{ errors.is_discount }}
             </p>
           </div>
 
-          <div class="adm-field">
+          <div class="adm-field r-field">
             <label
               for="product-price"
-              class="adm-field__label"
+              class="adm-field__label r-label"
             >{{ isDiscount ? t.discountPrice : t.price }}</label>
             <input
               id="product-price"
               v-model="price"
-              class="adm-input tabular"
+              class="adm-input r-input tabular"
               inputmode="numeric"
               maxlength="10"
               :aria-invalid="errors.price ? 'true' : undefined"
             >
             <p
               v-if="errors.price"
-              class="adm-error"
+              class="adm-error r-err"
             >
               {{ errors.price }}
             </p>
           </div>
 
-          <div class="adm-field">
+          <div class="adm-field r-field">
             <label
               for="product-category"
-              class="adm-field__label"
+              class="adm-field__label r-label"
             >{{ t.category }}</label>
             <select
               id="product-category"
               v-model="categoryId"
-              class="adm-select edit__category"
+              class="adm-select r-input edit__category"
             >
               <option :value="null">
                 {{ t.uncategorized }}
@@ -346,14 +347,14 @@ async function confirmDelete(): Promise<void> {
             </select>
             <p
               v-if="errors.category_id"
-              class="adm-error"
+              class="adm-error r-err"
             >
               {{ errors.category_id }}
             </p>
           </div>
 
-          <fieldset class="adm-field edit__fieldset">
-            <legend class="adm-field__label">
+          <fieldset class="adm-field r-field edit__fieldset">
+            <legend class="adm-field__label r-label">
               {{ t.color }}
             </legend>
             <div
@@ -388,7 +389,7 @@ async function confirmDelete(): Promise<void> {
 
           <div
             v-if="!isDiscount"
-            class="adm-field"
+            class="adm-field r-field"
           >
             <label class="adm-check"><input
               v-model="trackStock"
@@ -397,13 +398,13 @@ async function confirmDelete(): Promise<void> {
             >{{ t.trackStock }}</label>
             <p
               id="track-stock-help"
-              class="adm-help"
+              class="adm-help r-help"
             >
               {{ t.trackStockHelp }}
             </p>
             <p
               v-if="trackStock && !stockEnabled"
-              class="adm-help"
+              class="adm-help r-help"
               role="note"
             >
               {{ t.stockDisabledNotice }}
@@ -412,7 +413,7 @@ async function confirmDelete(): Promise<void> {
 
           <div
             v-if="!isDiscount"
-            class="adm-field"
+            class="adm-field r-field"
           >
             <label class="adm-check"><input
               v-model="customerVisible"
@@ -421,7 +422,7 @@ async function confirmDelete(): Promise<void> {
             >{{ t.customerVisible }}</label>
             <p
               id="customer-visible-help"
-              class="adm-help"
+              class="adm-help r-help"
             >
               {{ t.customerVisibleHelp }}
             </p>
@@ -429,23 +430,23 @@ async function confirmDelete(): Promise<void> {
 
           <div
             v-if="trackStock && !isDiscount && isNew"
-            class="adm-field"
+            class="adm-field r-field"
           >
             <label
               for="product-stock"
-              class="adm-field__label"
+              class="adm-field__label r-label"
             >{{ t.stockQty }}</label>
             <input
               id="product-stock"
               v-model="initialStock"
-              class="adm-input tabular"
+              class="adm-input r-input tabular"
               inputmode="numeric"
               maxlength="7"
               :aria-invalid="errors.stock_qty ? 'true' : undefined"
             >
             <p
               v-if="errors.stock_qty"
-              class="adm-error"
+              class="adm-error r-err"
             >
               {{ errors.stock_qty }}
             </p>
@@ -453,7 +454,7 @@ async function confirmDelete(): Promise<void> {
 
           <p
             v-if="failed"
-            class="adm-error"
+            class="adm-error r-err"
             role="alert"
           >
             {{ failed }}
@@ -465,18 +466,20 @@ async function confirmDelete(): Promise<void> {
           >
             {{ savedMessage }}
           </p>
-          <BigButton
-            type="submit"
-            :loading="saving"
-            block
-          >
-            {{ ja.common.save }}
-          </BigButton>
+          <div class="r-savebar edit__savebar">
+            <BigButton
+              type="submit"
+              :loading="saving"
+              block
+            >
+              {{ ja.common.save }}
+            </BigButton>
+          </div>
         </form>
 
         <section
           v-if="trackStock && !isDiscount && current"
-          class="edit__section"
+          class="edit__section r-card"
           aria-labelledby="stock-heading"
         >
           <h3
@@ -488,15 +491,15 @@ async function confirmDelete(): Promise<void> {
           <p class="edit__stock tabular">
             {{ fmt(t.stockCurrent, { n: current.stock_qty }) }}
           </p>
-          <div class="adm-field">
+          <div class="adm-field r-field">
             <label
               for="stock-value"
-              class="adm-field__label"
+              class="adm-field__label r-label"
             >{{ t.stockValue }}</label>
             <input
               id="stock-value"
               v-model="stockValue"
-              class="adm-input tabular"
+              class="adm-input r-input tabular"
               inputmode="numeric"
               maxlength="7"
               :aria-invalid="stockError ? 'true' : undefined"
@@ -504,7 +507,7 @@ async function confirmDelete(): Promise<void> {
           </div>
           <p
             v-if="stockError"
-            class="adm-error"
+            class="adm-error r-err"
             role="alert"
           >
             {{ stockError }}
@@ -531,7 +534,7 @@ async function confirmDelete(): Promise<void> {
 
         <section
           v-if="!isDiscount"
-          class="edit__section"
+          class="edit__section r-card"
         >
           <OptionEditor
             v-if="current"
@@ -543,7 +546,7 @@ async function confirmDelete(): Promise<void> {
           />
           <p
             v-else
-            class="adm-help"
+            class="adm-help r-help"
           >
             {{ t.optionsSaveFirst }}
           </p>
@@ -557,6 +560,9 @@ async function confirmDelete(): Promise<void> {
             variant="danger"
             @click="confirmingDelete = true"
           >
+            <template #icon>
+              <AppIcon name="trash" />
+            </template>
             {{ ja.common.delete }}
           </BigButton>
         </div>
@@ -614,7 +620,10 @@ async function confirmDelete(): Promise<void> {
   padding: 16px calc(16px + var(--safe-right)) calc(32px + var(--safe-bottom)) calc(16px + var(--safe-left));
 }
 
-.edit__section { display: flex; flex-direction: column; gap: 12px; padding-top: 16px; border-top: 1px solid var(--c-border); }
+.edit__section { display: flex; flex-direction: column; gap: 12px; }
+.edit__section.r-card { padding: 16px; }
+/* 本文の下の余白（32px＋安全域）の分だけ下げて、パネルの下端に付ける（帯の下から入力欄が透けて見えないように） */
+.edit__savebar { bottom: calc(-32px - var(--safe-bottom)); margin: 0 calc(-1 * var(--sp-4)); border-top: 1px solid var(--c-border-soft); }
 .edit__subtitle { font-size: 20px; }
 .edit__stock { font-size: 20px; font-weight: 700; }
 .edit__category { width: 100%; }
@@ -625,13 +634,13 @@ async function confirmDelete(): Promise<void> {
 
 .colors__btn {
   min-height: var(--tap-min);
-  border: 2px solid var(--c-border);
-  border-radius: var(--radius);
+  border: 2px solid transparent;
+  border-radius: 12px;
   font-size: 22px;
   font-weight: 700;
 }
 
-.colors__btn[aria-checked='true'] { border: 3px solid var(--c-text); }
+.colors__btn[aria-checked='true'] { border-color: transparent; box-shadow: 0 0 0 3px var(--c-surface), 0 0 0 6px var(--c-primary); }
 .colors__btn--gray { background: var(--pc-gray-bg); color: var(--pc-gray-fg); }
 .colors__btn--red { background: var(--pc-red-bg); color: var(--pc-red-fg); }
 .colors__btn--orange { background: var(--pc-orange-bg); color: var(--pc-orange-fg); }
@@ -647,7 +656,7 @@ async function confirmDelete(): Promise<void> {
   .edit {
     inset: 0 0 0 auto;
     width: min(480px, 100%);
-    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--sh-sheet, -8px 0 24px rgba(0, 0, 0, 0.2));
   }
 }
 </style>

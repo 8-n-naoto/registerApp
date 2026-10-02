@@ -58,8 +58,8 @@ const showInstall = isIos() && !isStandalone()
   <div class="page">
     <AppHeader :title="ja.account.title" />
     <main class="page__body">
-      <section class="panel">
-        <h2 class="panel__title">
+      <section class="panel r-card">
+        <h2 class="panel__title r-h2">
           {{ ja.account.passwordHeading }}
         </h2>
         <form
@@ -76,15 +76,15 @@ const showInstall = isIos() && !isStandalone()
             tabindex="-1"
             aria-hidden="true"
           >
-          <div class="field">
+          <div class="field r-field">
             <label
               for="current-password"
-              class="field__label"
+              class="field__label r-label"
             >{{ ja.account.currentPassword }}</label>
             <input
               id="current-password"
               v-model="currentPassword"
-              class="field__input"
+              class="field__input r-input"
               type="password"
               autocomplete="current-password"
               maxlength="255"
@@ -94,20 +94,20 @@ const showInstall = isIos() && !isStandalone()
             <p
               v-if="errors.current_password"
               id="current-password-error"
-              class="field__error"
+              class="field__error adm-error"
             >
               {{ errors.current_password }}
             </p>
           </div>
-          <div class="field">
+          <div class="field r-field">
             <label
               for="new-password"
-              class="field__label"
+              class="field__label r-label"
             >{{ ja.account.newPassword }}</label>
             <input
               id="new-password"
               v-model="newPassword"
-              class="field__input"
+              class="field__input r-input"
               type="password"
               autocomplete="new-password"
               maxlength="72"
@@ -117,20 +117,20 @@ const showInstall = isIos() && !isStandalone()
             <p
               v-if="errors.password"
               id="new-password-error"
-              class="field__error"
+              class="field__error adm-error"
             >
               {{ errors.password }}
             </p>
           </div>
-          <div class="field">
+          <div class="field r-field">
             <label
               for="confirm-password"
-              class="field__label"
+              class="field__label r-label"
             >{{ ja.account.confirmPassword }}</label>
             <input
               id="confirm-password"
               v-model="confirmPassword"
-              class="field__input"
+              class="field__input r-input"
               type="password"
               autocomplete="new-password"
               maxlength="72"
@@ -138,14 +138,14 @@ const showInstall = isIos() && !isStandalone()
           </div>
           <p
             v-if="passwordDone"
-            class="form__ok"
+            class="form__ok adm-ok"
             role="status"
           >
             {{ ja.account.passwordChanged }}
           </p>
           <p
             v-if="passwordFailed"
-            class="field__error"
+            class="field__error adm-error"
             role="alert"
           >
             {{ passwordFailed }}
@@ -161,24 +161,24 @@ const showInstall = isIos() && !isStandalone()
 
       <section
         id="device"
-        class="panel"
+        class="panel r-card"
       >
-        <h2 class="panel__title">
+        <h2 class="panel__title r-h2">
           {{ ja.account.deviceHeading }}
         </h2>
         <form
           class="form"
           @submit.prevent="saveDevice"
         >
-          <div class="field">
+          <div class="field r-field">
             <label
               for="device-name"
-              class="field__label"
+              class="field__label r-label"
             >{{ ja.account.deviceHeading }}</label>
             <input
               id="device-name"
               v-model="deviceName"
-              class="field__input"
+              class="field__input r-input"
               type="text"
               autocomplete="off"
               :maxlength="DEVICE_NAME_MAX"
@@ -193,7 +193,7 @@ const showInstall = isIos() && !isStandalone()
           </div>
           <p
             v-if="deviceMessage"
-            class="form__ok"
+            class="form__ok adm-ok"
             role="status"
           >
             {{ deviceMessage }}
@@ -209,9 +209,9 @@ const showInstall = isIos() && !isStandalone()
 
       <section
         v-if="showInstall"
-        class="panel"
+        class="panel r-card"
       >
-        <h2 class="panel__title">
+        <h2 class="panel__title r-h2">
           {{ ja.account.installHeading }}
         </h2>
         <p>{{ ja.account.installSteps }}</p>
@@ -226,45 +226,26 @@ const showInstall = isIos() && !isStandalone()
 .page__body {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 24px calc(var(--gutter) + var(--safe-right)) calc(32px + var(--safe-bottom)) calc(var(--gutter) + var(--safe-left));
+  gap: 16px;
+  max-width: 560px;
+  padding: 16px calc(16px + var(--safe-right)) calc(32px + var(--safe-bottom)) calc(16px + var(--safe-left));
 }
 
 .panel {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 24px;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-card);
-  background: var(--c-surface);
+  padding: 20px;
   scroll-margin-top: calc(var(--header-h) + 16px);
 }
 
-.panel__title { font-size: var(--fs-heading); }
-
-.form { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; }
-.field { display: flex; flex-direction: column; gap: 6px; width: 100%; }
-.field__label { font-weight: 700; }
-
-.field__input {
-  min-height: var(--btn-h);
-  padding: 0 14px;
-  border: 2px solid var(--c-border);
-  border-radius: var(--radius);
-  background: var(--c-surface);
-  font-size: 18px;
-}
-
-.field__input:focus { border-color: var(--c-focus); outline: none; }
-.field__input[aria-invalid='true'] { border-color: var(--c-danger); }
-.field__help { color: var(--c-text-sub); font-size: 16px; }
-.field__error { color: var(--c-danger); font-weight: 700; }
-.form__ok { color: var(--c-success); font-weight: 700; }
+.form { display: flex; flex-direction: column; gap: 16px; align-items: stretch; }
+.field { width: 100%; }
+.field__help { color: var(--c-text-sub); font-size: 15px; }
+.field__error { font-weight: 700; }
+.form__ok { font-weight: 700; }
 
 @media (min-width: 768px) {
-  .page__body { padding-top: 32px; padding-left: 32px; padding-right: 32px; }
+  .page__body { padding: 20px 32px calc(32px + var(--safe-bottom)) 32px; }
 }
 </style>

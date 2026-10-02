@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import { NAV_GROUPS } from '@/lib/adminNav'
 import HomePage from '@/pages/HomePage.vue'
 import { useAuthStore } from '@/stores/auth'
 import { makeMe } from '@/test/helpers'
@@ -24,7 +25,9 @@ function mountAs(role: Role, me: Me = makeMe(role)) {
       { path: '/account', name: 'account', component: HomePage },
       { path: '/login', name: 'login', component: HomePage },
       { path: '/clock-in', name: 'clock-in', component: HomePage },
-      { path: '/attendance', name: 'attendance', component: HomePage },
+      { path: '/shifts', name: 'shifts', component: HomePage },
+      { path: '/manage', name: 'manage', component: HomePage },
+      ...NAV_GROUPS.flatMap((g) => g.pages).map((p) => ({ path: `/nav/${p.name}`, name: p.name, component: HomePage })),
       { path: '/:p(.*)*', component: HomePage },
     ],
   })
@@ -36,33 +39,34 @@ describe('S00 ホーム（08 §5.2）', () => {
     fetchMe.mockReset()
   })
 
-  it('owner はカード 6 枚とボタン 16 個', () => {
+  it('owner は管理のカード 5 枚（レールと同じ順）とボタン 11 個', () => {
     const w = mountAs('owner')
-    expect(w.findAll('.home-card__title').map((e) => e.text())).toEqual(['レジ操作', '注文', '商品管理', '売上管理', '勤怠', '設定'])
-    expect(w.findAll('.home-card__btn')).toHaveLength(16)
+    expect(w.findAll('.home-card__title').map((e) => e.text())).toEqual(['売上', '商品', 'スタッフ', '店舗設定', '記録'])
+    expect(w.findAll('.home-card__btn')).toHaveLength(11)
   })
 
-  it('勤怠のカードは勤怠・勤務表（owner / staff とも）', () => {
+  it('スタッフのカードは勤怠・勤務表（owner / staff とも）', () => {
     for (const role of ['owner', 'staff'] as const) {
-      const card = mountAs(role).findAll('.home-card').find((c) => c.find('.home-card__title').text() === '勤怠')
-      expect(card?.findAll('.home-card__btn').map((b) => b.text())).toEqual(['勤怠', '勤務表'])
+      const card = mountAs(role).findAll('.home-card').find((c) => c.find('.home-card__title').text() === 'スタッフ')
+      const labels = card?.findAll('.home-card__btn').map((b) => b.text()) ?? []
+      expect(labels.slice(0, 2)).toEqual(['勤怠', '勤務表'])
     }
   })
 
-  it('注文のカードに［会計］があり、S02 を開く（owner / staff とも）', () => {
+  it('お店の操作：レジ・注文入力・注文確認・厨房（owner / staff とも）', () => {
     for (const role of ['owner', 'staff'] as const) {
-      const card = mountAs(role).findAll('.home-card').find((c) => c.find('.home-card__title').text() === '注文')
-      const btns = card?.findAll('.home-card__btn') ?? []
-      expect(btns.map((b) => b.text())).toEqual(['注文を受ける', '会計', '厨房', '注文確認'])
-      expect(btns[1]?.attributes('href')).toBe('/register')
+      const btns = mountAs(role).findAll('.home-shop__grid .h-btn:not(.home-shop__extra)')
+      expect(btns.map((b) => b.text())).toEqual(['レジ', '注文入力', '注文確認', '厨房'])
+      expect(btns.map((b) => b.attributes('href'))).toEqual(['/register?view=order', '/orders/new', '/orders', '/kitchen'])
     }
   })
 
-  it('AC-S00-2：staff はレジ操作・注文・売上管理・勤怠の 4 枚で、売上管理は売上確認・レジ締めのみ', () => {
+  it('AC-S00-2：staff は管理のカードが売上・スタッフの 2 枚で、売上は日次売上・レジ締めのみ', () => {
     const w = mountAs('staff')
     const cards = w.findAll('.home-card')
-    expect(cards.map((c) => c.find('.home-card__title').text())).toEqual(['レジ操作', '注文', '売上管理', '勤怠'])
-    expect(cards[2]?.findAll('.home-card__btn').map((b) => b.text())).toEqual(['売上確認', 'レジ締め'])
+    expect(cards.map((c) => c.find('.home-card__title').text())).toEqual(['売上', 'スタッフ'])
+    expect(cards[0]?.findAll('.home-card__btn').map((b) => b.text())).toEqual(['日次売上', 'レジ締め'])
+    expect(cards[1]?.findAll('.home-card__btn').map((b) => b.text())).toEqual(['勤怠', '勤務表'])
   })
 
   it('AC-S00-6：店舗名と営業日を出す', () => {

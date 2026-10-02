@@ -91,41 +91,41 @@ function onCancelled(sale: Sale): void {
       :viewing-store-name="readOnly ? (storeId === null ? ja.viewing.unnamed : admin.viewingLabel(storeId)) : null"
     />
     <main class="adm-body">
-      <div
-        class="daily-nav"
-        :class="{ 'daily-nav--fixed': !canChangeDate }"
-      >
-        <button
-          v-if="canChangeDate"
-          type="button"
-          class="adm-btn"
-          :disabled="!report"
-          @click="shift(-1)"
-        >
-          {{ t.prevDay }}
-        </button>
-        <h2 class="daily-nav__date tabular">
-          {{ report ? formatBusinessDate(report.date) : '' }}
-        </h2>
-        <template v-if="canChangeDate">
+      <div class="ad-tool daily-nav">
+        <div class="r-period daily-period">
           <button
+            v-if="canChangeDate"
             type="button"
-            class="adm-btn"
+            class="r-btn r-btn--secondary r-btn--sm"
+            :disabled="!report"
+            @click="shift(-1)"
+          >
+            {{ t.prevDay }}
+          </button>
+          <h2 class="r-period__v daily-nav__date tabular">
+            {{ report ? formatBusinessDate(report.date) : '' }}
+          </h2>
+          <button
+            v-if="canChangeDate"
+            type="button"
+            class="r-btn r-btn--secondary r-btn--sm"
             :disabled="!report"
             @click="shift(1)"
           >
             {{ t.nextDay }}
           </button>
+        </div>
+        <template v-if="canChangeDate">
           <input
             type="date"
-            class="adm-input daily-nav__picker"
+            class="r-input daily-nav__picker"
             :value="report?.date ?? ''"
             :aria-label="t.pickDate"
             @change="onPick"
           >
           <button
             type="button"
-            class="adm-btn"
+            class="r-btn r-btn--plain r-btn--sm"
             :disabled="report !== null && today !== null && report.date === today"
             @click="goTo(null)"
           >
@@ -158,12 +158,13 @@ function onCancelled(sale: Sale): void {
       </div>
       <template v-else-if="report">
         <section
-          class="daily-tiles"
+          class="r-stats"
           :aria-label="t.title"
         >
           <StatTile
             :label="t.total"
             :amount="report.totals.total"
+            tone="main"
           />
           <StatTile
             :label="t.count"
@@ -194,14 +195,14 @@ function onCancelled(sale: Sale): void {
             {{ t.closingHeading }}
           </h2>
           <span
-            class="daily-closing__state"
+            class="daily-closing__state r-chip r-chip--lg"
             :class="`daily-closing__state--${closing}`"
             data-test="closing-state"
           >{{ closingLabel }}</span>
           <RouterLink
             v-if="!readOnly"
             :to="{ name: 'closing', query: auth.isStaff ? {} : { date: report.date } }"
-            class="adm-btn"
+            class="r-btn r-btn--secondary r-btn--sm"
           >
             {{ t.toClosing }}
           </RouterLink>
@@ -222,7 +223,7 @@ function onCancelled(sale: Sale): void {
           </p>
           <ul
             v-else
-            class="adm-list"
+            class="r-list"
           >
             <li
               v-for="s in report.sales"
@@ -244,8 +245,8 @@ function onCancelled(sale: Sale): void {
                 <span class="sale-row__pay">{{ s.payment_method_name }}</span>
                 <span class="sale-row__user">{{ s.user_name }}</span>
                 <span
-                  class="adm-badge"
-                  :class="{ 'sale-row__badge--cancelled': s.status === 'cancelled' }"
+                  class="adm-badge r-chip"
+                  :class="s.status === 'cancelled' ? 'r-chip--danger sale-row__badge--cancelled' : 'r-chip--ok'"
                 >{{ s.status === 'cancelled' ? t.cancelled : t.completed }}</span>
               </button>
             </li>
@@ -264,7 +265,7 @@ function onCancelled(sale: Sale): void {
               {{ t.byTax }}
             </h2>
             <div class="table-wrap">
-              <table class="daily-table">
+              <table class="r-table daily-table">
                 <thead>
                   <tr>
                     <th scope="col">
@@ -290,16 +291,16 @@ function onCancelled(sale: Sale): void {
                     :key="`${r.tax_type_name}-${r.rate_permille}`"
                   >
                     <td>{{ r.tax_type_name }}</td>
-                    <td class="num">
+                    <td class="num n">
                       {{ permilleToPercent(r.rate_permille) }}%
                     </td>
-                    <td class="num">
+                    <td class="num n">
                       <MoneyText :amount="r.taxable_amount" />
                     </td>
-                    <td class="num">
+                    <td class="num n">
                       <MoneyText :amount="r.tax_amount" />
                     </td>
-                    <td class="num">
+                    <td class="num n">
                       <MoneyText :amount="r.total" />
                     </td>
                   </tr>
@@ -319,7 +320,7 @@ function onCancelled(sale: Sale): void {
               {{ t.byPayment }}
             </h2>
             <div class="table-wrap">
-              <table class="daily-table">
+              <table class="r-table daily-table">
                 <thead>
                   <tr>
                     <th scope="col">
@@ -339,10 +340,10 @@ function onCancelled(sale: Sale): void {
                     :key="`${r.payment_method_name}-${r.is_cash}`"
                   >
                     <td>{{ r.payment_method_name }}</td>
-                    <td class="num">
+                    <td class="num n">
                       {{ r.count }}
                     </td>
-                    <td class="num">
+                    <td class="num n">
                       <MoneyText :amount="r.total" />
                     </td>
                   </tr>
@@ -367,7 +368,7 @@ function onCancelled(sale: Sale): void {
           </p>
           <div class="table-wrap">
             <table
-              class="daily-table"
+              class="r-table daily-table"
               data-test="by-category"
             >
               <thead>
@@ -389,10 +390,10 @@ function onCancelled(sale: Sale): void {
                   :key="`${r.category_id ?? ''}-${r.category_name ?? ''}`"
                 >
                   <td>{{ r.category_name ?? ja.products.uncategorized }}</td>
-                  <td class="num">
+                  <td class="num n">
                     {{ r.quantity }}
                   </td>
-                  <td class="num">
+                  <td class="num n">
                     <MoneyText :amount="r.amount" />
                   </td>
                 </tr>
@@ -415,7 +416,7 @@ function onCancelled(sale: Sale): void {
             {{ t.productNote }}
           </p>
           <div class="table-wrap">
-            <table class="daily-table">
+            <table class="r-table daily-table">
               <thead>
                 <tr>
                   <th scope="col">
@@ -441,10 +442,10 @@ function onCancelled(sale: Sale): void {
                       class="product-cell__sub"
                     >{{ productSub(r) }}</span>
                   </td>
-                  <td class="num">
+                  <td class="num n">
                     {{ r.quantity }}
                   </td>
-                  <td class="num">
+                  <td class="num n">
                     <MoneyText :amount="r.amount" />
                   </td>
                 </tr>
@@ -467,59 +468,56 @@ function onCancelled(sale: Sale): void {
 </template>
 
 <style scoped>
-.daily-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.daily-nav__date { min-width: 8em; font-size: var(--fs-heading); text-align: center; }
-.daily-nav--fixed .daily-nav__date { text-align: left; }
-.daily-nav__picker { width: auto; }
+.daily-nav { gap: 8px 12px; }
+.daily-period { flex: 1 1 280px; max-width: 460px; }
+.daily-nav__date { flex: 1; min-width: 0; margin: 0; font-size: 18px; }
+.daily-nav__picker { width: auto; min-width: 0; flex: 0 1 180px; }
+.daily-period .r-btn { flex: none; padding: 0 12px; }
 
-.daily-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .daily-sub { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--c-text-sub); font-weight: 700; }
 
 .daily-closing { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; }
-.daily-closing__state { padding: 4px 16px; border-radius: 999px; font-size: 18px; font-weight: 800; }
-.daily-closing__state--none { background: var(--c-surface-alt); color: var(--c-text-sub); border: 1px solid var(--c-border); }
-.daily-closing__state--done { background: var(--c-success); color: var(--c-on-primary); }
-.daily-closing__state--changed { background: var(--c-change); color: var(--c-on-primary); }
+.daily-closing__state { font-size: 16px; font-weight: 800; }
+.daily-closing__state--none { background: var(--st-neutral-bg); color: var(--st-neutral-fg); }
+.daily-closing__state--done { background: var(--st-ok-bg); color: var(--st-ok-fg); }
+.daily-closing__state--changed { background: var(--st-warn-bg); color: var(--st-warn-fg); }
 
 .sale-row {
   display: grid;
-  grid-template-columns: 4em minmax(6em, auto) 1fr auto;
-  grid-template-areas: 'time total pay badge' 'time total user badge';
+  /* スマホ：1 段目に時刻・金額・状態、2 段目に支払方法・担当（狭い列に押し込んで 1 文字ずつ折り返さない） */
+  grid-template-columns: 4em minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-areas: 'time total total badge' '. pay user user';
   align-items: center;
   gap: 2px 12px;
   width: 100%;
-  min-height: var(--tap-min);
-  padding: 8px 12px;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius);
+  min-height: 60px;
+  padding: 8px 16px;
+  border: 0;
+  border-top: 1px solid var(--c-border-soft);
   background: var(--c-surface);
   color: var(--c-text);
   font-size: var(--fs-body);
   text-align: left;
 }
 
+li:first-child > .sale-row { border-top: 0; }
 .sale-row:active { background: var(--c-surface-alt); }
 .sale-row__time { grid-area: time; font-weight: 700; }
-.sale-row__total { grid-area: total; font-weight: 800; }
-.sale-row__pay { grid-area: pay; }
-.sale-row__user { grid-area: user; color: var(--c-text-sub); }
+.sale-row__total { grid-area: total; font-weight: 800; white-space: nowrap; }
+.sale-row__pay { grid-area: pay; min-width: 0; overflow-wrap: anywhere; }
+.sale-row__user { grid-area: user; min-width: 0; color: var(--c-text-sub); overflow-wrap: anywhere; }
 .sale-row .adm-badge { grid-area: badge; }
-.sale-row--cancelled { background: var(--c-surface-alt); color: var(--c-soldout); }
+.sale-row--cancelled { background: var(--c-surface-alt); color: var(--c-text-sub); }
 .sale-row--cancelled .sale-row__total { text-decoration: line-through; }
-.sale-row__badge--cancelled { border-color: var(--c-danger); color: var(--c-danger); }
 
-.daily-tables { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+.daily-tables { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
 .table-wrap { overflow-x: auto; }
-.daily-table { width: 100%; border-collapse: collapse; font-size: var(--fs-body); }
-.daily-table th,
-.daily-table td { padding: 10px 8px; border-bottom: 1px solid var(--c-border); text-align: left; white-space: nowrap; }
-.daily-table th { color: var(--c-text-sub); font-size: 16px; }
-.daily-table .num { text-align: right; font-variant-numeric: tabular-nums; }
-.daily-table .product-cell { min-width: 8em; white-space: normal; overflow-wrap: anywhere; }
+.daily-table th:not(:first-child) { text-align: right; }
+.daily-table td { height: 52px; }
+.daily-table .product-cell { min-width: 8em; overflow-wrap: anywhere; }
 .product-cell__sub { display: block; color: var(--c-text-sub); font-size: 14px; }
 
 @media (min-width: 768px) {
-  .daily-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .sale-row { grid-template-columns: 5em 8em 1fr 1fr auto; grid-template-areas: 'time total pay user badge'; }
   .daily-tables { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

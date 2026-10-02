@@ -186,6 +186,13 @@ export const ja = {
     submit: 'ログイン',
     throttled: 'しばらく待ってから再度お試しください（あと {sec} 秒）',
   },
+  // 管理の行き先（lib/adminNav）。スマホは管理メニュー → 各画面、パンくずで今いる場所を出す
+  nav: {
+    manage: '管理',
+    crumb: '現在の場所',
+    rail: '管理のメニュー',
+    shop: 'お店の操作',
+  },
   menu: {
     open: '{name}（{role}）のメニュー',
     password: 'パスワード変更',
@@ -583,6 +590,8 @@ export const ja = {
     taxExcluded: '（消費税 {amount}）',
     count: '{n} 点',
     paymentMethod: '支払方法',
+    detail: 'お会計の内容',
+    detailQuantity: '×{n}',
     taxType: '税区分',
     category: 'カテゴリ',
     toCheckout: 'お会計へ',
