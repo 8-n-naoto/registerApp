@@ -1,0 +1,6 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "paths": { "@/*": ["../resources/js/*"] } },
+  "include": ["./**/*.ts", "./**/*.vue", "../resources/js/**/*.ts", "../resources/js/**/*.vue"],
+  "exclude": ["./.dist", "./vite.config.ts", "../resources/js/**/*.spec.ts"]
+}
