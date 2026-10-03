@@ -72,6 +72,8 @@ export const AUDIT_ACTIONS = [
   'order_created', 'order_accepted', 'order_cancelled',
   'order_table_created', 'order_table_updated', 'order_table_deleted', 'order_table_token_regenerated',
   'order_table_opened', 'order_table_closed', 'order_settings_updated',
+  // 15 §4（レシートプリンター）
+  'printer_settings_updated',
 ] as const
 
 export type AuditActionCode = (typeof AUDIT_ACTIONS)[number]

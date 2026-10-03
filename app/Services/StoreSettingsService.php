@@ -52,4 +52,24 @@ final class StoreSettingsService
             return $store;
         });
     }
+
+    /**
+     * 15 §6：プリンターの宛先と紙の幅。host が null なら印刷の機能を止める（紙の幅は残す）
+     *
+     * @param  array{printer_host: string|null, printer_paper_width: int}  $data
+     */
+    public function updatePrinter(Store $store, array $data): Store
+    {
+        return DB::transaction(function () use ($store, $data): Store {
+            $original = $store->attributesToArray();
+            $store->fill($data)->save();
+
+            [$before, $after] = AuditLogger::diffModel($original, $store);
+            if ($after !== []) {
+                $this->audit->log(AuditAction::PrinterSettingsUpdated, $store, $before, $after, $store->id);
+            }
+
+            return $store;
+        });
+    }
 }

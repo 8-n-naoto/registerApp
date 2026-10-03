@@ -70,6 +70,9 @@ enum AuditAction: string
     case ShiftPatternCreated = 'shift_pattern_created';
     case ShiftPatternUpdated = 'shift_pattern_updated';
 
+    // 15 §6（レシートプリンター）
+    case PrinterSettingsUpdated = 'printer_settings_updated';
+
     public function label(): string
     {
         return match ($this) {
@@ -133,6 +136,7 @@ enum AuditAction: string
             self::ShiftRequestsSubmitted => '勤務の希望の提出',
             self::ShiftPatternCreated => '勤務の区分の追加',
             self::ShiftPatternUpdated => '勤務の区分の変更',
+            self::PrinterSettingsUpdated => 'プリンターの設定の変更',
         };
     }
 }

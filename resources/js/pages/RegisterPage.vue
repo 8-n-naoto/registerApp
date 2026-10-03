@@ -2,7 +2,7 @@
 // S02 会計（08 §5.3）。タブレット横は左に商品（62%）・右に注文と合計（38%）。
 // スマホ縦は上に税区分とカテゴリ、中央に商品、下に固定の合計バー（注文はシートで開く）。
 // 商品のタップから合計の表示までは通信しない（AC-S02-1）。起動時に GET /register/bootstrap を 1 回呼ぶ
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { fetchOrders } from '@/api/orders'
 import AppIcon from '@/components/AppIcon.vue'
@@ -10,6 +10,7 @@ import BigButton from '@/components/BigButton.vue'
 import BottomSheet from '@/components/BottomSheet.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import MoneyText from '@/components/MoneyText.vue'
+import ReceiptPrint from '@/components/ReceiptPrint.vue'
 import CheckoutDialog from '@/components/register/CheckoutDialog.vue'
 import DiscountForm from '@/components/register/DiscountForm.vue'
 import HeldList from '@/components/register/HeldList.vue'
@@ -23,6 +24,7 @@ import { fmt, ja } from '@/i18n/ja'
 import { useIsTablet } from '@/lib/breakpoint'
 import { canAddOne } from '@/lib/cart'
 import { useWakeLock } from '@/lib/wakeLock'
+import { saleKey, useReceiptPrinterStore } from '@/stores/receiptPrinter'
 import { useRegisterStore, type ConfirmExtra, type Discount, type StaleOrders } from '@/stores/register'
 import type { Product, Sale } from '@/types/api'
 
@@ -132,6 +134,27 @@ const undoing = ref(false)
 const undone = ref(false)
 const undoError = ref<string | null>(null)
 
+// ── レシート（15 §8.2）。送信は裏で続け、ポップアップを閉じた後の送信中・失敗は上の帯に出す
+const printerStore = useReceiptPrinterStore()
+const printer = computed(() => register.bootstrap?.store?.printer ?? null)
+const printSale = ref<Sale | null>(null)
+const printBanner = computed(() => {
+  const sale = printSale.value
+  if (done.value !== null || sale === null || printer.value === null) return null
+  const job = printerStore.jobFor(saleKey(sale))
+  return job !== null && job.state !== 'printed' ? sale : null
+})
+
+function startPrint(sale: Sale): void {
+  printSale.value = sale
+  if (printer.value) void printerStore.print(printer.value, sale, 'receipt')
+}
+
+function closePrintBanner(): void {
+  printerStore.dismiss()
+  printSale.value = null
+}
+
 function openCheckout(): void {
   if (!register.canCheckout) return
   register.startCheckout()
@@ -140,7 +163,7 @@ function openCheckout(): void {
   checkoutOpen.value = true
 }
 
-async function confirm(extra: ConfirmExtra): Promise<void> {
+async function confirm(extra: ConfirmExtra, print: boolean): Promise<void> {
   checkoutError.value = null
   const outcome = await register.confirm(extra)
   if (outcome.ok) {
@@ -148,6 +171,8 @@ async function confirm(extra: ConfirmExtra): Promise<void> {
     undone.value = false
     undoError.value = null
     done.value = outcome.sale
+    // 確定に成功したときだけ送る（409 などの失敗では送らない）
+    if (print) startPrint(outcome.sale)
     void refreshUnpaid()
     return
   }
@@ -245,6 +270,24 @@ async function undo(): Promise<void> {
     >
       {{ t.storageUnavailable }}
     </p>
+    <div
+      v-if="printBanner && printer"
+      class="register__notice register__print r-banner"
+      data-testid="print-banner"
+    >
+      <ReceiptPrint
+        :sale="printBanner"
+        :printer="printer"
+        kind="receipt"
+      />
+      <button
+        type="button"
+        class="register__notice-close r-btn r-btn--plain r-btn--sm"
+        @click="closePrintBanner"
+      >
+        {{ ja.common.close }}
+      </button>
+    </div>
     <OutboxBanner class="register__outbox" />
 
     <p
@@ -372,6 +415,7 @@ async function undo(): Promise<void> {
       :payment-methods="register.bootstrap?.payment_methods ?? []"
       :submitting="register.submitting"
       :error="checkoutError"
+      :printable="printer !== null"
       @confirm="confirm"
       @back="checkoutOpen = false"
       @pay="register.setPaymentMethod($event)"
@@ -382,9 +426,11 @@ async function undo(): Promise<void> {
       :undoing="undoing"
       :undone="undone"
       :undo-error="undoError"
+      :printer="printer"
       @receipt="showReceipt"
       @next="next"
       @undo="undo"
+      @print="printSale = done"
     />
   </div>
 </template>
@@ -418,6 +464,7 @@ async function undo(): Promise<void> {
 .tab--on { background: var(--c-surface); color: var(--c-primary-ink); }
 
 .register__notice { align-items: center; margin: 8px 16px 0; white-space: pre-line; }
+.register__print :deep(.receipt-print) { flex: 1 1 0; justify-content: flex-start; width: auto; min-width: 0; }
 .register__outbox { margin: 8px 16px 0; }
 .register__notice-close { flex-shrink: 0; }
 

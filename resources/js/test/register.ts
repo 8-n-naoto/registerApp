@@ -15,7 +15,7 @@ export function makeProduct(id: number, name: string, extra: Partial<Product> = 
  */
 export function makeBootstrap(extra: Partial<RegisterBootstrap> = {}): RegisterBootstrap {
   return {
-    store: { id: 1, name: 'テスト店 A', price_mode: 'tax_included', rounding: 'floor', day_cutoff_time: '00:00', stock_enabled: true },
+    store: { id: 1, name: 'テスト店 A', price_mode: 'tax_included', rounding: 'floor', day_cutoff_time: '00:00', stock_enabled: true, printer: null },
     current_business_date: '2026-09-29',
     server_time: '2026-09-29T13:00:00+09:00',
     tax_types: [

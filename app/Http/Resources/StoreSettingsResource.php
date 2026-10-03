@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * 06 §2.1 StoreSettings（stock_enabled は 12 §4）
+ * 06 §2.1 StoreSettings（stock_enabled は 12 §4、printer は 15 §5。未登録なら null）
  *
  * @mixin Store
  */
@@ -23,6 +23,10 @@ class StoreSettingsResource extends JsonResource
             'rounding' => $this->rounding->value,
             'day_cutoff_time' => substr($this->day_cutoff_time, 0, 5),
             'stock_enabled' => $this->stock_enabled,
+            'printer' => $this->printer_host === null ? null : [
+                'host' => $this->printer_host,
+                'paper_width' => $this->printer_paper_width,
+            ],
         ];
     }
 }

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>プリンターの確認</title>
+<!--
+  docs/15 §13 P-0：レシートプリンター（mC-Print3・WebPRNT）を店の端末から直接呼べるかの確認用。アプリ本体とは独立した 1 枚。
+  (1) 証明書の信頼 (2) CORS で応答が読めるか (3) 漢字が文字のまま出るか (4) Chrome の許可の出方 (5) 印刷までの時間 を確かめる。
+  外部のファイルは読み込まない。入力した宛先は端末の中だけで使い、どこにも保存・送信しない（プリンターへの送信を除く）
+-->
+<style>
+  :root { --bg: #f7f6f2; --fg: #1d1b16; --muted: #5d5a52; --card: #fff; --line: #d9d5ca; --pri: #1f5f4a; --pri-fg: #fff; --ok: #1d6b3a; --ng: #a32020; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1b1a17; --fg: #f1efe8; --muted: #b5b1a6; --card: #262521; --line: #3d3b35; --pri: #5fb292; --pri-fg: #10241c; --ok: #7fd39c; --ng: #ff8f8f; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 16px/1.6 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; }
+  main { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  p { margin: 0 0 12px; color: var(--muted); }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 0 0 16px; }
+  label { display: block; font-weight: 600; margin: 0 0 6px; }
+  input, select { width: 100%; min-height: 48px; font-size: 16px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); }
+  .row { margin: 0 0 12px; }
+  .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+  button, a.button { min-height: 48px; padding: 0 20px; font-size: 16px; font-weight: 600; border-radius: 8px; border: 1px solid var(--pri); background: var(--pri); color: var(--pri-fg); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+  button.secondary, a.button { background: transparent; color: var(--pri); }
+  button:disabled { opacity: .5; cursor: default; }
+  .result { font-weight: 700; font-size: 18px; margin: 0 0 8px; }
+  .ok { color: var(--ok); }
+  .ng { color: var(--ng); }
+  pre { white-space: pre-wrap; word-break: break-all; font-size: 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin: 0; max-height: 320px; overflow: auto; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; font-size: 14px; }
+  dt { color: var(--muted); }
+  dd { margin: 0; word-break: break-all; }
+</style>
+</head>
+<body>
+<main>
+  <h1>プリンターの確認</h1>
+  <p>レシートプリンターと同じ Wi-Fi の端末で開きます。先に［プリンターの画面を開く］で証明書の警告が出ないこと（信頼済み）を確かめてから［テスト印刷］を押します。結果の欄を写真に撮って共有してください。</p>
+
+  <section>
+    <div class="row">
+      <label for="host">プリンターの IP アドレス</label>
+      <input id="host" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="例：192.168.1.50">
+    </div>
+    <div class="row">
+      <label for="codepage">漢字の指定</label>
+      <select id="codepage">
+        <option value="utf8">utf8（第一候補）</option>
+        <option value="shift_jis">shift_jis</option>
+      </select>
+    </div>
+    <div class="buttons">
+      <button id="print" type="button">テスト印刷</button>
+      <button id="status" type="button" class="secondary">状態だけ確認（印刷しない）</button>
+      <a id="open" class="button" href="#" target="_blank" rel="noopener">プリンターの画面を開く</a>
+    </div>
+  </section>
+
+  <section aria-live="polite">
+    <p id="result" class="result">まだ送っていません</p>
+    <dl>
+      <dt>かかった時間</dt><dd id="elapsed">—</dd>
+      <dt>HTTP</dt><dd id="http">—</dd>
+      <dt>エラー</dt><dd id="error">—</dd>
+      <dt>このページ</dt><dd id="origin"></dd>
+      <dt>ブラウザ</dt><dd id="ua"></dd>
+    </dl>
+    <p style="margin-top:12px">プリンターの応答（そのまま）</p>
+    <pre id="raw">—</pre>
+  </section>
+</main>
+<script>
+(function () {
+  'use strict'
+  var $ = function (id) { return document.getElementById(id) }
+  var HOST_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/i
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;').replace(/\n/g, '&#10;')
+  }
+
+  function text(line, cp, big) {
+    var w = big ? '2' : '1'
+    return '<text codepage="' + cp + '" international="japan" width="' + w + '" height="' + w + '" emphasis="false">' + esc(line + '\n') + '</text>'
+  }
+
+  function testRequest(cp) {
+    var now = new Date()
+    return '<initialization/>' +
+      '<alignment position="center"/>' +
+      text('プリンターの確認', cp, true) +
+      text(now.toLocaleString('ja-JP'), cp, false) +
+      '<alignment position="left"/>' +
+      text('漢字：会計 領収書 合計 お釣り 取消', cp, false) +
+      text('かな：あいうえお アイウエオ ｱｲｳｴｵ', cp, false) +
+      text('記号：¥1,234 （税込） ・ ×', cp, false) +
+      text('123456789012345678901234567890123456789012345678', cp, false) +
+      text('指定：' + cp, cp, false) +
+      '<cutpaper feed="true" type="partial"/>'
+  }
+
+  function envelope(request) {
+    return '<StarWebPrint xmlns="http://www.star-m.jp" xmlns:i="http://www.w3.org/2001/XMLSchema-instance"><Request>' + esc(request) + '</Request></StarWebPrint>'
+  }
+
+  function host() {
+    var h = $('host').value.trim().toLowerCase()
+    return HOST_RE.test(h) ? h : null
+  }
+
+  function show(ok, message) {
+    var el = $('result')
+    el.textContent = message
+    el.className = 'result ' + (ok ? 'ok' : 'ng')
+  }
+
+  function send(request) {
+    var h = host()
+    if (!h) { show(false, 'IP アドレスの形が正しくありません'); return }
+    var buttons = [$('print'), $('status')]
+    buttons.forEach(function (b) { b.disabled = true })
+    $('result').textContent = '送信中…'
+    $('result').className = 'result'
+    $('http').textContent = '—'
+    $('error').textContent = '—'
+    $('raw').textContent = '—'
+    var controller = typeof AbortController === 'function' ? new AbortController() : null
+    var timer = setTimeout(function () { if (controller) controller.abort() }, 10000)
+    var started = performance.now()
+    fetch('https://' + h + '/StarWebPRNT/SendMessage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/xml; charset=UTF-8' },
+      body: envelope(request),
+      signal: controller ? controller.signal : undefined,
+    }).then(function (res) {
+      $('http').textContent = res.status + ' ' + res.statusText
+      return res.text().then(function (body) {
+        $('elapsed').textContent = Math.round(performance.now() - started) + ' ms'
+        $('raw').textContent = body
+        var ok = /success="true"/.test(body)
+        show(ok, ok ? '応答を読めました（CORS 可）。紙と漢字を確認してください' : '応答は読めましたがプリンターがエラーを返しました')
+      })
+    }).catch(function (err) {
+      $('elapsed').textContent = Math.round(performance.now() - started) + ' ms'
+      $('error').textContent = (err && err.name ? err.name + '：' : '') + (err && err.message ? err.message : String(err))
+      var aborted = err && err.name === 'AbortError'
+      show(false, aborted
+        ? '10 秒で応答がありません（電源・Wi-Fi・IP を確認）'
+        : '応答を読めませんでした。紙が出た場合は CORS 不可、出ない場合は証明書・許可・IP を確認')
+    }).then(function () {
+      clearTimeout(timer)
+      buttons.forEach(function (b) { b.disabled = false })
+    })
+  }
+
+  $('origin').textContent = location.origin
+  $('ua').textContent = navigator.userAgent
+  $('host').addEventListener('input', function () {
+    var h = host()
+    $('open').setAttribute('href', h ? 'https://' + h + '/' : '#')
+  })
+  $('print').addEventListener('click', function () { send(testRequest($('codepage').value)) })
+  // 空の要求：印刷せずに状態（status）だけ返る
+  $('status').addEventListener('click', function () { send('') })
+})()
+</script>
+</body>
+</html>

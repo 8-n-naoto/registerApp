@@ -1,10 +1,12 @@
 <script setup lang="ts">
 // S03 簡易領収書（08 §5.4）：/sales/:id/receipt。admin は ?store_id= で店舗を指定する。
 // ［印刷］は window.print()。印刷時はボタンを隠す（@media print）
+// 15 §8.3 プリンターがある店舗は本文の上に［レシートを印刷］（「領収書（再発行）」）。admin は店舗を持たないので出ない
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchSale } from '@/api/register'
 import AppIcon from '@/components/AppIcon.vue'
+import ReceiptPrint from '@/components/ReceiptPrint.vue'
 import SaleReceipt from '@/components/SaleReceipt.vue'
 import { ja } from '@/i18n/ja'
 import { errorBody, errorStatus, isNetworkError } from '@/lib/apiError'
@@ -19,6 +21,7 @@ const auth = useAuthStore()
 const sale = ref<Sale | null>(null)
 const loading = ref(true)
 const failed = ref<string | null>(null)
+const printer = computed(() => auth.me?.store?.printer ?? null)
 
 const storeId = computed(() => {
   const raw = route.query.store_id
@@ -96,10 +99,17 @@ function close(): void {
         />
         <span class="r-banner__d">{{ failed }}</span>
       </div>
-      <SaleReceipt
-        v-else-if="sale"
-        :sale="sale"
-      />
+      <template v-else-if="sale">
+        <ReceiptPrint
+          v-if="printer"
+          class="receipt-page__thermal"
+          :sale="sale"
+          :printer="printer"
+          kind="reprint"
+          size="md"
+        />
+        <SaleReceipt :sale="sale" />
+      </template>
     </div>
   </main>
 </template>
@@ -113,10 +123,12 @@ function close(): void {
 
 .receipt-page__message { max-width: 360px; margin: 24px auto; }
 .receipt-page__bar button:disabled { opacity: 0.5; }
+.receipt-page__thermal { max-width: 360px; margin: 0 auto 16px; }
 
 @media print {
   .receipt-page { min-height: 0; background: #fff; }
   .receipt-page__body { padding: 0; }
   .receipt-page__bar { display: none; }
+  .receipt-page__thermal { display: none; }
 }
 </style>

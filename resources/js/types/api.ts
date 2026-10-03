@@ -22,6 +22,13 @@ export interface StoreSettings {
   rounding: Rounding
   day_cutoff_time: string      // 'HH:MM'
   stock_enabled: boolean       // 12 §6.6：false なら会計で在庫を減らさず、売切・残数を出さない
+  printer: PrinterSettings | null  // 15 §4：未設定なら null（印刷の表示を出さない）
+}
+
+/** 15 §4 レシートプリンター（WebPRNT の宛先）。1 店舗 1 台 */
+export interface PrinterSettings {
+  host: string                 // IP アドレスかホスト名（スキーム・ポートなし）
+  paper_width: 80 | 58
 }
 
 export interface Me {

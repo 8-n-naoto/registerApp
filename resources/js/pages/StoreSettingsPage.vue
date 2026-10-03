@@ -1,11 +1,12 @@
 <script setup lang="ts">
-// S09 店舗設定（08 §5.10）：店舗名・価格の扱い・端数処理・締め時刻、注文（12 §8.8）、税区分、支払方法
+// S09 店舗設定（08 §5.10）：店舗名・価格の扱い・端数処理・締め時刻、注文（12 §8.8）、レシートプリンター（15 §8.4）、税区分、支払方法
 import { onMounted, ref } from 'vue'
 import { fetchStoreSettings, updateStoreSettings } from '@/api/settings'
 import AppHeader from '@/components/AppHeader.vue'
 import BigButton from '@/components/BigButton.vue'
 import SegmentedControl from '@/components/SegmentedControl.vue'
 import OrderSettingsPanel from '@/components/settings/OrderSettingsPanel.vue'
+import PrinterSettingsPanel from '@/components/settings/PrinterSettingsPanel.vue'
 import PaymentMethodPanel from '@/components/settings/PaymentMethodPanel.vue'
 import TaxTypePanel from '@/components/settings/TaxTypePanel.vue'
 import { ja } from '@/i18n/ja'
@@ -276,6 +277,7 @@ onMounted(load)
         </section>
 
         <OrderSettingsPanel />
+        <PrinterSettingsPanel />
         <TaxTypePanel v-model="taxTypes" />
         <PaymentMethodPanel v-model="paymentMethods" />
       </template>

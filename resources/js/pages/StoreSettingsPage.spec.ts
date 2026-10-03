@@ -24,7 +24,7 @@ vi.mock('@/api/settings', () => api)
 
 function bundle(): StoreSettingsBundle {
   return {
-    store: { id: 1, name: 'テスト店 A', price_mode: 'tax_included', rounding: 'floor', day_cutoff_time: '04:30', stock_enabled: true },
+    store: { id: 1, name: 'テスト店 A', price_mode: 'tax_included', rounding: 'floor', day_cutoff_time: '04:30', stock_enabled: true, printer: null },
     tax_types: [
       { id: 1, name: '店内', rate_permille: 100, sort_order: 1, is_default: true, is_active: true },
       { id: 2, name: 'テイクアウト', rate_permille: 80, sort_order: 2, is_default: false, is_active: true },

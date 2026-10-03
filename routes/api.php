@@ -117,6 +117,9 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
         Route::get('/settings/orders', [Api\OrderSettingsController::class, 'show']);              // #64
         Route::put('/settings/orders', [Api\OrderSettingsController::class, 'update']);            // #65
 
+        // レシートプリンター（15 §6）
+        Route::put('/settings/printer', [Api\PrinterSettingsController::class, 'update']);         // #105
+
         // スタッフ
         Route::get('/staff', [Api\StaffController::class, 'index']);                                // #38
         Route::post('/staff', [Api\StaffController::class, 'store']);                               // #39

@@ -47,7 +47,7 @@ class StoreSettingsApiTest extends TestCase
         $res->assertExactJson([
             'store' => [
                 'id' => $this->store->id, 'name' => 'テスト店', 'price_mode' => $this->store->price_mode->value,
-                'rounding' => $this->store->rounding->value, 'day_cutoff_time' => '00:00', 'stock_enabled' => true,
+                'rounding' => $this->store->rounding->value, 'day_cutoff_time' => '00:00', 'stock_enabled' => true, 'printer' => null,
             ],
             'tax_types' => [
                 ['id' => $res->json('tax_types.0.id'), 'name' => '店内', 'rate_permille' => 100, 'sort_order' => 1, 'is_default' => true, 'is_active' => true],
@@ -66,7 +66,7 @@ class StoreSettingsApiTest extends TestCase
             ->putJson('/api/settings/store', $this->payload(['store_id' => 999]))->assertOk()
             ->assertExactJson([
                 'id' => $this->store->id, 'name' => '新しい店名', 'price_mode' => 'tax_excluded',
-                'rounding' => 'round', 'day_cutoff_time' => '05:30', 'stock_enabled' => false,
+                'rounding' => 'round', 'day_cutoff_time' => '05:30', 'stock_enabled' => false, 'printer' => null,
             ]);
 
         $log = AuditLog::query()->withoutGlobalScopes()->where('action', 'store_settings_updated')->firstOrFail();

@@ -33,6 +33,8 @@ use Illuminate\Support\Carbon;
  * @property int|null $week_start_day
  * @property int|null $legal_holiday_day
  * @property int|null $minimum_wage
+ * @property string|null $printer_host
+ * @property int $printer_paper_width
  */
 class Store extends Model
 {
@@ -47,6 +49,7 @@ class Store extends Model
         'customer_session_minutes' => 180,
         'polling_mode' => 'always',
         'order_rev' => 0,
+        'printer_paper_width' => 80,
     ];
 
     protected $fillable = [
@@ -64,6 +67,8 @@ class Store extends Model
         'week_start_day',
         'legal_holiday_day',
         'minimum_wage',
+        'printer_host',
+        'printer_paper_width',
     ];
 
     protected function casts(): array
@@ -84,6 +89,7 @@ class Store extends Model
             'week_start_day' => 'integer',
             'legal_holiday_day' => 'integer',
             'minimum_wage' => 'integer',
+            'printer_paper_width' => 'integer',
         ];
     }
 

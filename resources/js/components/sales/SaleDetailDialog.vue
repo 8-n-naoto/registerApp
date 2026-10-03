@@ -7,11 +7,13 @@ import { cancelSale, fetchSale } from '@/api/register'
 import BigButton from '@/components/BigButton.vue'
 import BottomSheet from '@/components/BottomSheet.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import ReceiptPrint from '@/components/ReceiptPrint.vue'
 import SaleReceipt from '@/components/SaleReceipt.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { errorBody, isNetworkError } from '@/lib/apiError'
 import { formatDateTime } from '@/lib/date'
 import { formatYen } from '@/lib/money'
+import { useAuthStore } from '@/stores/auth'
 import type { Sale } from '@/types/api'
 
 const props = defineProps<{
@@ -23,6 +25,9 @@ const props = defineProps<{
 const emit = defineEmits<{ close: []; cancelled: [sale: Sale]; stale: [] }>()
 
 const t = ja.saleDetail
+// 15 §8.3 プリンターがある店舗は［レシートを印刷］（「領収書（再発行）」）。admin（閲覧のみ）には出さない
+const auth = useAuthStore()
+const printer = computed(() => (props.readOnly ? null : (auth.me?.store?.printer ?? null)))
 
 const sale = ref<Sale | null>(null)
 const loading = ref(false)
@@ -164,6 +169,13 @@ async function doCancel(): Promise<void> {
         >
           {{ t.receipt }}
         </RouterLink>
+        <ReceiptPrint
+          v-if="printer"
+          :sale="sale"
+          :printer="printer"
+          kind="reprint"
+          size="md"
+        />
         <BigButton
           v-if="canCancel"
           variant="danger"

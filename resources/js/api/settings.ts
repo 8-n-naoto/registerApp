@@ -71,3 +71,13 @@ export async function fetchOrderSettings(): Promise<OrderSettings> {
 export async function updateOrderSettings(input: OrderSettings): Promise<OrderSettings> {
   return (await http.put<OrderSettings>('/settings/orders', input)).data
 }
+
+/** 15 §4 #105 レシートプリンター（owner のみ）。host を空（null）にすると印刷を使わない */
+export interface PrinterSettingsInput {
+  host: string | null
+  paper_width: 80 | 58
+}
+
+export async function updatePrinterSettings(input: PrinterSettingsInput): Promise<StoreSettings> {
+  return (await http.put<StoreSettings>('/settings/printer', input)).data
+}

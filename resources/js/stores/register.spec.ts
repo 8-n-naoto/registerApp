@@ -267,7 +267,7 @@ describe('registerStore（08 §7.2）', () => {
   it('別の店舗で読み込んだら前の店舗の注文を持ち越さない', async () => {
     const register = await loaded()
     register.add(product(1))
-    api.fetchBootstrap.mockResolvedValue(makeBootstrap({ store: { id: 2, name: 'B', price_mode: 'tax_included', rounding: 'floor', day_cutoff_time: '00:00', stock_enabled: true } }))
+    api.fetchBootstrap.mockResolvedValue(makeBootstrap({ store: { id: 2, name: 'B', price_mode: 'tax_included', rounding: 'floor', day_cutoff_time: '00:00', stock_enabled: true, printer: null } }))
     await register.load()
     expect(register.lines).toEqual([])
   })

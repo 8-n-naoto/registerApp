@@ -4,20 +4,30 @@
 // ［取り消す］を押したら数えるのを止め、結果をこのポップアップの中で出す：
 // 成功は「会計を取り消しました」に表示を切り替え（領収書・お釣りは出さない）、失敗は理由を出して取り消しボタンを消す
 // 14 §7.4 端末に保存した会計（まだ送っていない）は領収書を出さず、「端末に保存しました」を出す
+// 15 §8.2 プリンターがある店舗はレシートの印刷の状態（送信中・成功・失敗＋［もう一度印刷］）か、小さく［レシートを印刷］を出す。
+// 印刷した会計を取り消したら、レシートの回収のお願いを足す
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
 import BigButton from '@/components/BigButton.vue'
 import MoneyText from '@/components/MoneyText.vue'
+import ReceiptPrint from '@/components/ReceiptPrint.vue'
 import { fmt, ja } from '@/i18n/ja'
-import type { Sale } from '@/types/api'
+import { saleKey, useReceiptPrinterStore } from '@/stores/receiptPrinter'
+import type { PrinterSettings, Sale } from '@/types/api'
 
 const UNDO_SECONDS = 5
 
-const props = defineProps<{ sale: Sale; undoing: boolean; undone: boolean; undoError: string | null }>()
-const emit = defineEmits<{ receipt: []; next: []; undo: [] }>()
+const props = defineProps<{ sale: Sale; undoing: boolean; undone: boolean; undoError: string | null; printer: PrinterSettings | null }>()
+const emit = defineEmits<{ receipt: []; next: []; undo: []; print: [] }>()
 
 const t = ja.register
 const offline = computed(() => props.sale.is_offline && props.sale.id === 0)
+const printerStore = useReceiptPrinterStore()
+/** 印刷を送った（送信中を含む）会計か。取り消したときに回収のお願いを出す */
+const printed = computed(() => {
+  const job = printerStore.jobFor(saleKey(props.sale))
+  return job !== null && job.state !== 'failed'
+})
 const remaining = ref(UNDO_SECONDS)
 let timer: ReturnType<typeof setInterval> | null = null
 
@@ -39,6 +49,13 @@ function other(action: 'receipt' | 'next'): void {
   remaining.value = 0
   if (action === 'receipt') emit('receipt')
   else emit('next')
+}
+
+/** 手で［レシートを印刷］を押したら、ほかのボタンと同じく取り消しの残り時間を消す */
+function pressPrint(): void {
+  stopTimer()
+  remaining.value = 0
+  emit('print')
 }
 
 function undo(): void {
@@ -78,6 +95,14 @@ function undo(): void {
           class="done__body"
         >
           {{ t.undoneBody }}
+        </p>
+        <p
+          v-if="printed"
+          class="done__collect"
+          role="alert"
+          data-testid="done-collect"
+        >
+          {{ ja.print.collectReceipt }}
         </p>
         <dl class="done__sums">
           <div class="done__row done__row--sub">
@@ -169,6 +194,13 @@ function undo(): void {
         >
           {{ ja.outbox.savedOffline }}
         </p>
+        <ReceiptPrint
+          v-if="printer"
+          :sale="sale"
+          :printer="printer"
+          kind="receipt"
+          @press="pressPrint"
+        />
         <div class="done__actions">
           <BigButton
             v-if="!offline"
@@ -233,5 +265,6 @@ function undo(): void {
 .done__body { margin: 0; color: var(--c-text); font-size: 18px; font-weight: 700; }
 .done__void { text-decoration: line-through; text-decoration-thickness: 3px; color: var(--c-text-sub); }
 .done__offline { width: 100%; margin: 0; padding: 12px 16px; border-radius: 8px; background: var(--st-info-bg); color: var(--st-info-fg); font-size: 16px; font-weight: 700; }
+.done__collect { width: 100%; margin: 0; padding: 12px 16px; border-radius: 8px; background: var(--st-warn-bg); color: var(--st-warn-fg); font-size: 16px; font-weight: 700; }
 .done__error { width: 100%; margin: 0; padding: 12px 16px; border-radius: 8px; background: var(--st-danger-bg); color: var(--st-danger-fg); font-size: 16px; font-weight: 700; }
 </style>

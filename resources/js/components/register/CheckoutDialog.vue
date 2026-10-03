@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // お会計ダイアログ（08 §5.3）：詳細（明細・小計・値引き・税・点数）、合計、支払方法、現金なら預かり金（即入力・数字キー）とお釣り / 「あと ¥N」、
 // 客数、メモ、［確定］［戻る］。
+// 15 §8.1 プリンターがある店舗は［レシート］の切替（開くたびに「印刷しない」）。
 // タブレットは中央、スマホは全画面。通信エラーで閉じずに残るよう、入力は開き直したときだけ初期化する
 import { computed, nextTick, ref, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
@@ -8,6 +9,7 @@ import BigButton from '@/components/BigButton.vue'
 import CheckoutDetail from '@/components/register/CheckoutDetail.vue'
 import MoneyText from '@/components/MoneyText.vue'
 import NumericKeypad from '@/components/NumericKeypad.vue'
+import SegmentedControl from '@/components/SegmentedControl.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { formatYen } from '@/lib/money'
 import { PricingError, settle } from '@/lib/pricing'
@@ -25,14 +27,21 @@ const props = defineProps<{
   paymentMethods: PaymentMethod[]
   submitting: boolean
   error: string | null
+  /** 店舗にプリンターがあるときだけ true（切替を出す） */
+  printable?: boolean
 }>()
 
-const emit = defineEmits<{ confirm: [extra: ConfirmExtra]; back: []; pay: [id: number] }>()
+const emit = defineEmits<{ confirm: [extra: ConfirmExtra, print: boolean]; back: []; pay: [id: number] }>()
 
 const t = ja.register
 const received = ref<number | null>(null)
 const customerCount = ref<number | null>(null)
 const memo = ref('')
+const print = ref<'off' | 'on'>('off')
+const PRINT_OPTIONS = [
+  { value: 'off', label: ja.print.off },
+  { value: 'on', label: ja.print.on },
+] as const
 const panel = ref<HTMLElement | null>(null)
 
 watch(
@@ -42,6 +51,7 @@ watch(
     received.value = null
     customerCount.value = null
     memo.value = ''
+    print.value = 'off'
     await nextTick()
     panel.value?.focus()
   },
@@ -75,7 +85,7 @@ function confirm(): void {
     received: props.paymentMethod.is_cash ? received.value : null,
     customer_count: customerCount.value,
     memo: text === '' ? null : text,
-  })
+  }, props.printable === true && print.value === 'on')
 }
 
 function back(): void {
@@ -202,6 +212,19 @@ function back(): void {
                 :disabled="submitting"
               >
             </label>
+            <div
+              v-if="printable"
+              class="checkout__row checkout__print"
+              data-testid="checkout-print"
+            >
+              <span class="checkout__label r-sum__l">{{ ja.print.toggleLabel }}</span>
+              <SegmentedControl
+                v-model="print"
+                :options="PRINT_OPTIONS"
+                :label="ja.print.toggleLabel"
+                :disabled="submitting"
+              />
+            </div>
           </div>
 
           <div
