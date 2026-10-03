@@ -1,10 +1,13 @@
 <script setup lang="ts">
 // 通信エラーの赤い帯（08 §6・§8）。次に通信できたとき、または［閉じる］で消える
+// 14 §7.5 送信待ちの会計があるときは「会計は保存されていません」と出さず、端末に保存していることを出す
 import AppIcon from '@/components/AppIcon.vue'
 import { ja } from '@/i18n/ja'
+import { useOutboxStore } from '@/stores/outbox'
 import { useUiStore } from '@/stores/ui'
 
 const ui = useUiStore()
+const outbox = useOutboxStore()
 </script>
 
 <template>
@@ -17,7 +20,7 @@ const ui = useUiStore()
       name="wifioff"
       :size="24"
     />
-    <span class="network-bar__msg">{{ ja.error.network }}</span>
+    <span class="network-bar__msg">{{ outbox.count > 0 ? ja.outbox.networkBar : ja.error.network }}</span>
     <button
       type="button"
       class="network-bar__close r-btn r-btn--on-blue r-btn--sm"

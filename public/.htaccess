@@ -25,7 +25,7 @@
 </IfModule>
 
 <IfModule mod_headers.c>
-    Header always set X-Robots-Tag "noindex, nofollow"
+    Header always set X-Robots-Tag "noindex, nofollow, noarchive"
     Header always set X-Content-Type-Options "nosniff"
     Header always set Referrer-Policy "same-origin"
 </IfModule>
@@ -40,6 +40,12 @@
 # PWA のマニフェストを正しい MIME 型で返す（nosniff のため必要）
 <IfModule mod_mime.c>
     AddType application/manifest+json .webmanifest
+</IfModule>
+
+# API の JSON・画面の HTML・JS・CSS を gzip で圧縮して返す
+# （レジの初期データ 59KB → 約 5KB、お客さんのメニュー 34KB → 約 3KB。回線が細い店内の Wi-Fi・スマホ回線で効く）
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE application/json text/html text/css text/javascript application/javascript application/manifest+json image/svg+xml
 </IfModule>
 
 # ハッシュ付きのビルド成果物は長く保持させる

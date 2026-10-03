@@ -10,7 +10,7 @@ import BigButton from '@/components/BigButton.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import KitchenCard from '@/components/orders/KitchenCard.vue'
 import { fmt, ja } from '@/i18n/ja'
-import { errorBody, errorStatus, isNetworkError } from '@/lib/apiError'
+import { errorBody, isNetworkError } from '@/lib/apiError'
 import { formatTokyoClock } from '@/lib/date'
 import { enableSound, loadSoundEnabled, playBeep, saveSoundEnabled } from '@/lib/kitchenSound'
 import { orderPlace } from '@/lib/orders'
@@ -29,7 +29,6 @@ useWakeLock()
 const tab = ref<'progress' | 'done'>('progress')
 const sound = ref(loadSoundEnabled())
 const now = ref(Date.now())
-const busyId = ref<number | null>(null)
 const actionError = ref<string | null>(null)
 
 type Confirming = { kind: 'all'; order: Order; count: number } | { kind: 'complete'; order: Order; item: OrderItem }
@@ -81,24 +80,44 @@ async function refresh(): Promise<void> {
   now.value = kitchen.serverNow()
 }
 
-async function run(order: Order, call: () => Promise<Order>): Promise<void> {
-  busyId.value = order.id
+/** 提供済みにした（戻した）あとの注文を、サーバーの応答を待たずに作る（items の served_at と、全品済みなら注文の served_at） */
+function withServed(order: Order, itemIds: number[] | 'all', served: boolean): Order {
+  const at = new Date(kitchen.serverNow()).toISOString()
+  const items = order.items.map((i) =>
+    itemIds === 'all' || itemIds.includes(i.id) ? { ...i, served_at: served ? (i.served_at ?? at) : null } : i,
+  )
+  const allServed = items.every((i) => i.served_at !== null)
+  return { ...order, items, served_at: allServed ? (order.served_at ?? at) : null }
+}
+
+/** 注文ごとの送信の列。同じ注文を続けて押しても順に送り、最後の応答だけを画面に反映する */
+const queues = new Map<number, { tail: Promise<void>; count: number }>()
+
+// 押した瞬間に画面を変え、送信は裏で順に行う（厨房は続けて何品も押すため、応答を待たせない）
+function run(order: Order, optimistic: Order, call: () => Promise<Order>): void {
   actionError.value = null
-  try {
-    kitchen.applyOrder(await call())
-  } catch (err) {
-    actionError.value = isNetworkError(err) ? t.network : (errorBody(err)?.message ?? ja.error.unexpected)
-    // 取り消された・状態が変わった：最新を取り直す
-    const status = errorStatus(err)
-    if (status === 404 || status === 409 || status === 422) await kitchen.refreshNow()
-  } finally {
-    busyId.value = null
-  }
+  kitchen.applyOrder(optimistic)
+  const queue = queues.get(order.id) ?? { tail: Promise.resolve(), count: 0 }
+  queue.count += 1
+  queues.set(order.id, queue)
+  queue.tail = queue.tail.then(async () => {
+    try {
+      const saved = await call()
+      if (queue.count === 1) kitchen.applyOrder(saved)
+    } catch (err) {
+      actionError.value = isNetworkError(err) ? t.network : (errorBody(err)?.message ?? ja.error.unexpected)
+      // 送れなかった・取り消された・状態が変わった：先に変えた表示をサーバーの最新に戻す
+      await kitchen.refreshNow()
+    } finally {
+      queue.count -= 1
+      if (queue.count === 0) queues.delete(order.id)
+    }
+  })
 }
 
 function onToggle(order: Order, item: OrderItem): void {
   if (item.served_at !== null) {
-    void run(order, () => setItemServed(item.id, false)) // 戻すときは確認しない
+    run(order, withServed(order, [item.id], false), () => setItemServed(item.id, false)) // 戻すときは確認しない
     return
   }
   const rest = order.items.filter((i) => i.served_at === null)
@@ -106,7 +125,7 @@ function onToggle(order: Order, item: OrderItem): void {
     confirming.value = { kind: 'complete', order, item }
     return
   }
-  void run(order, () => setItemServed(item.id, true))
+  run(order, withServed(order, [item.id], true), () => setItemServed(item.id, true))
 }
 
 function onServeAll(order: Order): void {
@@ -128,8 +147,10 @@ function runConfirm(): void {
   const c = confirming.value
   if (!c) return
   confirming.value = null
-  if (c.kind === 'all') void run(c.order, () => serveAllOrder(c.order.id))
-  else void run(c.order, () => setItemServed(c.item.id, true))
+  // 確認のあいだに一覧が取り直されていることがあるので、今の表示の注文から作る
+  const current = [...kitchen.inProgress, ...kitchen.done].find((o) => o.id === c.order.id) ?? c.order
+  if (c.kind === 'all') run(current, withServed(current, 'all', true), () => serveAllOrder(c.order.id))
+  else run(current, withServed(current, [c.item.id], true), () => setItemServed(c.item.id, true))
 }
 </script>
 
@@ -262,7 +283,7 @@ function runConfirm(): void {
           :key="order.id"
           :order="order"
           :now="now"
-          :busy="busyId === order.id"
+          :busy="false"
           :highlighted="kitchen.highlighted.has(order.id)"
           @toggle="(item) => onToggle(order, item)"
           @serve-all="onServeAll(order)"

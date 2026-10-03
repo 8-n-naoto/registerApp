@@ -1,5 +1,5 @@
 import { http } from '@/api/client'
-import type { Category, DiscountType, PaymentMethod, Product, Sale, StoreSettings, TaxType } from '@/types/api'
+import type { Category, DiscountType, PaymentMethod, PriceMode, Product, Rounding, Sale, StoreSettings, TaxType } from '@/types/api'
 
 // 06 §4 レジ（bootstrap・会計の確定・閲覧・取消）
 
@@ -42,6 +42,33 @@ export async function fetchBootstrap(): Promise<RegisterBootstrap> {
 /** #6 新規は 201、同じ client_uuid の再送は 200（どちらも Sale） */
 export async function createSale(input: SaleInput): Promise<Sale> {
   return (await http.post<Sale>('/sales', input)).data
+}
+
+/**
+ * 14 §5.1 オフライン会計の入力。通常の会計の項目に、端末で記録した時刻・担当者と、記録した時点の価格を加える
+ */
+export interface OfflineSaleInput extends Omit<SaleInput, 'items'> {
+  items: { product_id: number; quantity: number; option_ids: number[]; unit_price: number; option_prices: number[] }[]
+  sold_at: string // ISO 8601（端末の時刻）
+  operator_id: number | null
+  tax_rate_permille: number
+  price_mode: PriceMode
+  rounding: Rounding
+}
+
+/** #102 新規は 201、同じ client_uuid の再送（通常の会計で作られていた場合も）は 200 */
+export async function createOfflineSale(input: OfflineSaleInput): Promise<Sale> {
+  return (await http.post<Sale>('/sales/offline', input)).data
+}
+
+/** #103 owner：確認していない問題のあるオフライン会計 */
+export async function fetchOfflineIssues(): Promise<Sale[]> {
+  return (await http.get<Sale[]>('/sales/offline-issues')).data
+}
+
+/** #104 owner：問題を確認済みにする */
+export async function reviewOfflineSale(id: number): Promise<Sale> {
+  return (await http.post<Sale>(`/sales/${id}/offline-review`)).data
 }
 
 /** #7 admin は閲覧する店舗を storeId で指定する（06 §1.4） */

@@ -138,6 +138,26 @@ describe('OrderNewPage（S13）', () => {
     expect(router.currentRoute.value.query).toEqual({ order: '55' })
   })
 
+  it('送信中は押したボタンだけ回転を出し、もう一方は押せないだけにする', async () => {
+    await mountWithRouter()
+    await click(tile(1))
+    await click(buttons('厨房へ送信')[0])
+    let resolve: (v: ReturnType<typeof makeOrder>) => void = () => undefined
+    ordersApi.createOrder.mockImplementation(() => new Promise((r) => { resolve = r }))
+    await click(buttons('送信して会計へ')[0])
+
+    const checkout = buttons('送信して会計へ')[0]
+    const send = buttons('厨房へ送信').at(-1)
+    expect(checkout?.getAttribute('aria-busy')).toBe('true')
+    expect(send?.getAttribute('aria-busy')).toBe('false')
+    expect(send?.disabled).toBe(true)
+    await click(send)
+    expect(ordersApi.createOrder).toHaveBeenCalledTimes(1)
+
+    resolve(makeOrder({ id: 55, order_no: 8 }))
+    await flushPromises()
+  })
+
   it('［送信して会計へ］が失敗したら画面に残り、品目を残してエラーを出す', async () => {
     const { router } = await mountWithRouter()
     await click(tile(1))

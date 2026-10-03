@@ -14,8 +14,23 @@ function base(token: string): string {
   return `/public/tables/${encodeURIComponent(token)}`
 }
 
+/** main.ts が先に取りに行ったメニュー（最初の 1 回だけ使う） */
+let early: { token: string; promise: Promise<PublicMenu> } | null = null
+
+/** QR から開いたとき、画面の JS を読み込むあいだにメニューを取りに行く（main.ts から 1 回だけ呼ぶ） */
+export function prefetchMenu(token: string): void {
+  const promise = http.get<PublicMenu>(`${base(token)}/menu`).then((res) => res.data)
+  promise.catch(() => undefined) // 失敗は fetchMenu を呼んだ画面が受け取る
+  early = { token, promise }
+}
+
 /** #46 */
 export async function fetchMenu(token: string): Promise<PublicMenu> {
+  if (early?.token === token) {
+    const { promise } = early
+    early = null
+    return promise
+  }
   return (await http.get<PublicMenu>(`${base(token)}/menu`)).data
 }
 

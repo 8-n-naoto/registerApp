@@ -249,7 +249,8 @@ describe('registerStore（08 §7.2）', () => {
     expect(api.cancelSale).toHaveBeenCalledWith(501)
     expect(api.fetchBootstrap).toHaveBeenCalledTimes(2)
     expect(register.lastSale).toBeNull()
-    expect(register.notice?.kind).toBe('info')
+    // 結果は完了のポップアップの中で出す（上の帯は出さない）
+    expect(register.notice).toBeNull()
   })
 
   it('取消に失敗したら知らせる', async () => {
@@ -259,7 +260,8 @@ describe('registerStore（08 §7.2）', () => {
     await register.confirm(EXTRA)
     api.cancelSale.mockRejectedValue(apiError(422, { message: 'x', code: 'CANCEL_NOT_ALLOWED' }))
     expect(await register.undoLastSale()).toBe(false)
-    expect(register.notice).toEqual({ kind: 'error', text: '取り消せませんでした。売上確認の画面から取り消してください' })
+    expect(register.lastSale).not.toBeNull()
+    expect(register.notice).toBeNull()
   })
 
   it('別の店舗で読み込んだら前の店舗の注文を持ち越さない', async () => {

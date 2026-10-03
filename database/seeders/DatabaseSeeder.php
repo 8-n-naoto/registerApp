@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * 開発用シーダー（05 §6.3）。local / testing のときだけ動き、本番では何もしない。
- * パスワードはすべて password（ローカル専用）。ログイン ID：admin / owner-a / staff-a / owner-b / staff-b
+ * 動作確認で操作者の切替などを試せるよう、役割ごとに 2 人ずつ作る。パスワードはすべて password（ローカル専用）。
+ * ログイン ID：admin / admin-2、owner-a / owner-a2 / staff-a / staff-a2、owner-b / owner-b2 / staff-b / staff-b2
  */
 class DatabaseSeeder extends Seeder
 {
@@ -53,11 +54,14 @@ class DatabaseSeeder extends Seeder
 
         DB::transaction(function () use ($initializer): void {
             $this->user(Role::Admin, 'admin', '管理者', null);
+            $this->user(Role::Admin, 'admin-2', '管理者 2', null);
 
             foreach (['a' => 'テスト店 A', 'b' => 'テスト店 B'] as $suffix => $name) {
                 $store = Store::query()->create(['name' => $name]);
                 $this->user(Role::Owner, "owner-{$suffix}", "{$name} オーナー", $store);
+                $this->user(Role::Owner, "owner-{$suffix}2", "{$name} オーナー 2", $store);
                 $this->user(Role::Staff, "staff-{$suffix}", "{$name} スタッフ", $store);
+                $this->user(Role::Staff, "staff-{$suffix}2", "{$name} スタッフ 2", $store);
                 $initializer->initialize($store);
                 $this->catalog($store);
             }

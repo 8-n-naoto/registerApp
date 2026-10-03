@@ -152,6 +152,30 @@ describe('KitchenPage（S14）', () => {
     expect(itemButton(1).textContent?.trim()).toBe('提供済')
   })
 
+  it('［提供済］は応答を待たずに表示を変え、続けて押した品目は順に送る（先の応答で後の表示を戻さない）', async () => {
+    const three = makeOrder({ ...TWO_ITEMS, items: [...TWO_ITEMS.items, makeOrderItem({ id: 3, product_name: 'パン' })] })
+    ordersApi.fetchKitchenOrders.mockResolvedValue({ changed: true, etag: null, data: data({ in_progress: [three] }) })
+    let resolveFirst: (o: Order) => void = () => undefined
+    ordersApi.setItemServed
+      .mockImplementationOnce(() => new Promise<Order>((r) => { resolveFirst = r }))
+      .mockResolvedValueOnce(served(three, [1, 2]))
+    await mountPage()
+
+    await click(itemButton(1))
+    expect(itemButton(1).textContent?.trim()).toBe('✓提供済') // 応答はまだ
+    expect(itemButton(1).disabled).toBe(false)
+    await click(itemButton(2))
+    expect(itemButton(2).textContent?.trim()).toBe('✓提供済')
+    expect(ordersApi.setItemServed).toHaveBeenCalledTimes(1) // 2 品目は 1 品目の応答のあとに送る
+
+    resolveFirst(served(three, [1]))
+    await flushPromises()
+    expect(ordersApi.setItemServed).toHaveBeenLastCalledWith(2, true)
+    expect(itemButton(1).textContent?.trim()).toBe('✓提供済')
+    expect(itemButton(2).textContent?.trim()).toBe('✓提供済')
+    expect(itemButton(3).textContent?.trim()).toBe('提供済')
+  })
+
   it('AC-S14-4：最後の品目は確認する。［やめる］では何も変わらず、［完了にする］で完了タブへ移る', async () => {
     const one = served(TWO_ITEMS, [1])
     ordersApi.fetchKitchenOrders.mockResolvedValue({ changed: true, etag: null, data: data({ in_progress: [one] }) })

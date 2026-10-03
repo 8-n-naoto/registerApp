@@ -72,6 +72,11 @@ export function makeSale(extra: Partial<Sale> = {}): Sale {
       { id: 1, product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: null, category_id: null, category_name: null, unit_price: 400, options_price: 0, quantity: 1, line_total: 400, options: [] },
       { id: 2, product_id: 2, product_name: 'ケーキ', product_code: 'P0002', product_memo: null, category_id: null, category_name: null, unit_price: 380, options_price: 0, quantity: 1, line_total: 380, options: [] },
     ],
+    is_offline: false,
+    client_sold_at: null,
+    synced_at: null,
+    sync_issues: null,
+    issues_reviewed_at: null,
     ...extra,
   }
 }

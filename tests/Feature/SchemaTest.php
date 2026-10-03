@@ -108,6 +108,9 @@ class SchemaTest extends TestCase
                 ['cancelled_at', true, null], ['cancelled_by', true, null], ['user_id', false, null],
                 ['device_name', true, null], ['created_at', true, null], ['updated_at', true, null],
                 ['stock_applied', false, '1'],
+                ['is_offline', false, '0'], ['client_sold_at', true, null], ['synced_at', true, null],
+                ['synced_by', true, null], ['sync_issues', true, null], ['issues_reviewed_at', true, null],
+                ['issues_reviewed_by', true, null],
             ]],
             'sale_items' => ['sale_items', [
                 ['id', false, null], ['sale_id', false, null], ['product_id', false, null],

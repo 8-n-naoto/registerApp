@@ -15,7 +15,8 @@ async function freshRouter() {
   return router
 }
 
-describe('ナビゲーションガード（08 §4）', () => {
+// 最初のテストはルーター全体を初めて読み込む（変換を含む）。全テストの並列実行中は約 4〜5 秒かかり既定の 5 秒に掛かるので延ばす
+describe('ナビゲーションガード（08 §4）', { timeout: 20000 }, () => {
   beforeEach(() => {
     fetchMe.mockReset()
   })

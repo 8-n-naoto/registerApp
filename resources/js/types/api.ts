@@ -111,7 +111,24 @@ export interface Sale {
   device_name: string | null
   store_name: string
   items: SaleItem[]
+  // 14 §5.1 オフライン会計（通信できない間に端末へ記録し、後から送った会計）
+  is_offline: boolean
+  client_sold_at: string | null  // 端末で記録した時刻
+  synced_at: string | null
+  sync_issues: OfflineSyncIssues | null  // 送信時の問題（無ければ null）
+  issues_reviewed_at: string | null
 }
+
+/** 14 §6 オフライン会計の送信時に記録した問題。あるものだけ入る */
+export interface OfflineSyncIssues {
+  price_changed?: { product_id?: number; product_option_id?: number; name: string; recorded: number; current: number }[]
+  settings_changed?: { recorded: OfflinePriceSettings; current: OfflinePriceSettings }
+  stock_short?: { product_id: number; product_name: string; short: number }[]
+  time_adjusted?: { recorded: string }
+  operator_unknown?: { operator_id: number | null }
+  order_conflict?: { order_ids: number[] }
+}
+export interface OfflinePriceSettings { tax_rate_permille: number; price_mode: PriceMode; rounding: Rounding }
 export interface SaleSummaryRow {       // 一覧用（明細なし）
   id: number; sold_at: string; total: number; payment_method_name: string
   tax_type_name: string; user_name: string; status: SaleStatus; item_count: number

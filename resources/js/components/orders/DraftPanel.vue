@@ -236,7 +236,15 @@ function clear(): void {
 .line__hint { color: var(--c-primary-ink); font-size: 14px; text-decoration: underline; }
 .line__count { text-align: center; }
 .line__amount { flex: none; }
-.line__remove { border-color: transparent; background: transparent; color: var(--c-text-sub); }
+.line__remove { flex-shrink: 0; border-color: transparent; background: transparent; color: var(--c-text-sub); }
+
+/* 注文の列が狭いとき（幅 768px のタブレットなど）は、商品名が潰れないよう数量・金額を下の行に置く（レジの OrderPanel と同じ） */
+.draft__lines { container-type: inline-size; }
+@container (max-width: 400px) {
+  .line { flex-wrap: wrap; }
+  .line__name { flex: 1 1 100%; }
+  .line__amount { margin-left: auto; }
+}
 
 .line__memo-edit { display: flex; flex: 1 1 100%; flex-direction: column; gap: 4px; }
 .line__memo-row { display: flex; gap: 8px; }

@@ -26,6 +26,7 @@ class SpaShellTest extends TestCase
             'ログイン' => ['/login'],
             '深い階層' => ['/sales/12/receipt'],
             '存在しない画面' => ['/xxx'],
+            'お客さんの注文（QR）' => ['/t/abc'],
         ];
     }
 
@@ -35,7 +36,8 @@ class SpaShellTest extends TestCase
         $this->get($path)
             ->assertOk()
             ->assertSee('<div id="app"></div>', false)
-            ->assertSee('<meta name="app-base" content="">', false);
+            ->assertSee('<meta name="app-base" content="">', false)
+            ->assertSee('<meta name="robots" content="noindex, nofollow, noarchive">', false);
     }
 
     public function test_app_base_は_app_base_path_の設定を出す(): void

@@ -3,6 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    {{-- 検索エンジンに載せない（Google・Bing など。Chrome・Edge・Safari の検索はこれらの結果を使う）。.htaccess の X-Robots-Tag と同じ値 --}}
+    <meta name="robots" content="noindex, nofollow, noarchive">
     <meta name="app-base" content="{{ config('app.base_path') }}">
     <meta name="theme-color" content="#2F63DB">
     <meta name="apple-mobile-web-app-capable" content="yes">

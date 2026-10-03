@@ -5,11 +5,13 @@ import { RouterLink, useRouter } from 'vue-router'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { useAuthStore } from '@/stores/auth'
+import { useOutboxStore } from '@/stores/outbox'
 
 // blue：青い面（ホーム）の白枠ボタン。light：白い面（管理の見出し）の操作者の札（丸の頭文字＋名前）
 const props = withDefaults(defineProps<{ tone?: 'blue' | 'light' }>(), { tone: 'blue' })
 
 const auth = useAuthStore()
+const outbox = useOutboxStore()
 const router = useRouter()
 const open = ref(false)
 const loggingOut = ref(false)
@@ -20,6 +22,10 @@ const name = computed(() => auth.me?.user.name ?? '')
 const initial = computed(() => Array.from(name.value)[0] ?? '')
 const roleLabel = computed(() => (auth.role ? ja.role[auth.role] : ''))
 const label = computed(() => fmt(ja.menu.open, { name: name.value, role: roleLabel.value }))
+const confirmMessage = computed(() => [
+  auth.working ? fmt(ja.menu.logoutWorkingMessage, { name: name.value }) : '',
+  outbox.count > 0 ? fmt(ja.outbox.logoutWarning, { n: outbox.count }) : '',
+].filter((s) => s !== '').join('\n'))
 
 function onDocumentPointer(event: PointerEvent): void {
   if (root.value && event.target instanceof Node && !root.value.contains(event.target)) open.value = false
@@ -41,9 +47,9 @@ onBeforeUnmount(() => {
   open.value = false
 })
 
-/** 勤務中ならログアウト = 退勤になることを確かめる */
+/** 勤務中ならログアウト = 退勤になること、送信待ちの会計があれば端末に残ることを確かめる（14 §7.5） */
 function requestLogout(): void {
-  if (auth.working) {
+  if (auth.working || outbox.count > 0) {
     open.value = false
     confirming.value = true
     return
@@ -141,9 +147,9 @@ async function logout(): Promise<void> {
     </div>
     <ConfirmDialog
       :open="confirming"
-      :title="ja.menu.logoutWorkingTitle"
-      :message="fmt(ja.menu.logoutWorkingMessage, { name })"
-      :confirm-label="ja.menu.logoutWorkingConfirm"
+      :title="auth.working ? ja.menu.logoutWorkingTitle : ja.menu.logout"
+      :message="confirmMessage"
+      :confirm-label="auth.working ? ja.menu.logoutWorkingConfirm : ja.menu.logout"
       danger
       :loading="loggingOut"
       @confirm="logout"

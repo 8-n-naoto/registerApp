@@ -1,13 +1,16 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
-import { cancelSale, createSale, fetchBootstrap, type RegisterBootstrap, type StockShortage } from '@/api/register'
+import { cancelSale, createSale, type OfflineSaleInput, type RegisterBootstrap, type SaleInput, type StockShortage } from '@/api/register'
 import { fmt, ja } from '@/i18n/ja'
 import { errorBody, errorStatus, isNetworkError } from '@/lib/apiError'
 import { addOne, canAddOne, isCartLines, lineKey, MAX_LINES, MAX_QUANTITY, reconcile, removeOne, toPricingItems, type CartLine } from '@/lib/cart'
 import { loadDeviceName } from '@/lib/deviceName'
 import { nameWithMemo } from '@/lib/productLabel'
-import { calculateAmounts, PricingError, type PricingAmounts } from '@/lib/pricing'
+import { calculateAmounts, PricingError, settle, type PricingAmounts } from '@/lib/pricing'
 import { uuidV4 } from '@/lib/uuid'
+import { useAuthStore } from '@/stores/auth'
+import { useCatalogStore } from '@/stores/catalog'
+import { OUTBOX_VERSION, useOutboxStore } from '@/stores/outbox'
 import type { DiscountType, Order, Product, Sale } from '@/types/api'
 
 export interface Discount {
@@ -40,7 +43,7 @@ export const ORDER_IDS_MAX = 20 // 12 §5.15 order_ids は 20 件まで
 
 /** 会計の確定の結果。失敗時の closeDialog は「ダイアログを閉じて注文を直してもらう」エラーか */
 export type ConfirmOutcome =
-  | { ok: true; sale: Sale }
+  | { ok: true; sale: Sale; offline?: boolean } // offline：端末に保存した（14 §7.4）
   | { ok: false; message: string; closeDialog: boolean; staleOrders?: StaleOrders }
 
 export interface ConfirmExtra {
@@ -220,33 +223,48 @@ export const useRegisterStore = defineStore('register', () => {
     return result.removed
   }
 
-  /** GET /register/bootstrap。初回は端末に保存した注文を復元する。quiet は画面を「読み込み中」にしない */
+  /** マスタを画面に反映する。初回（または別の店舗）は端末に保存した注文を復元する */
+  function apply(source: RegisterBootstrap): string[] {
+    const previous = products.value
+    // 共有の応答（catalog）を書き換えないよう複製する（deductStock が手元の在庫を書き換えるため）
+    const data = structuredClone(source)
+    // 店舗の在庫管理が OFF（12 §6.6）：どの商品も在庫管理 OFF として扱い、売切・残数・在庫による数量の制限を出さない
+    bootstrap.value = data.store.stock_enabled ? data : { ...data, products: data.products.map((p) => ({ ...p, track_stock: false })) }
+    if (restoredFor !== data.store.id) {
+      // 別の店舗でログインし直した：前の店舗の注文を持ち越さない
+      taxTypeId.value = null
+      lines.value = []
+      discount.value = null
+      held.value = []
+      linkedOrders.value = []
+      pendingUuid.value = null
+      lastSale.value = null
+      restore()
+      restoredFor = data.store.id
+    }
+    const removed = applyMasters(previous)
+    if (removed.length > 0) notice.value = { kind: 'error', text: fmt(ja.register.removedItems, { names: removed.join('、') }) }
+    persist()
+    return removed
+  }
+
+  /**
+   * GET /register/bootstrap。quiet は画面を「読み込み中」にしない。
+   * まだ持っていなくても、注文の入力（S13）や先読みで受け取った応答があれば先にそれで描き、裏で最新を取り直す
+   */
   async function load(options: { quiet?: boolean } = {}): Promise<string[]> {
-    if (!options.quiet) loading.value = true
+    const catalog = useCatalogStore()
+    let quiet = options.quiet === true
+    if (bootstrap.value === null && catalog.data !== null) {
+      apply(catalog.data)
+      quiet = true
+    }
+    if (!quiet) loading.value = true
     loadError.value = null
     try {
-      const previous = products.value
-      const data = await fetchBootstrap()
-      // 店舗の在庫管理が OFF（12 §6.6）：どの商品も在庫管理 OFF として扱い、売切・残数・在庫による数量の制限を出さない
-      bootstrap.value = data.store.stock_enabled ? data : { ...data, products: data.products.map((p) => ({ ...p, track_stock: false })) }
-      if (restoredFor !== data.store.id) {
-        // 別の店舗でログインし直した：前の店舗の注文を持ち越さない
-        taxTypeId.value = null
-        lines.value = []
-        discount.value = null
-        held.value = []
-        linkedOrders.value = []
-        pendingUuid.value = null
-        lastSale.value = null
-        restore()
-        restoredFor = data.store.id
-      }
-      const removed = applyMasters(previous)
-      if (removed.length > 0) notice.value = { kind: 'error', text: fmt(ja.register.removedItems, { names: removed.join('、') }) }
-      persist()
-      return removed
+      return apply(await catalog.fetch())
     } catch (err) {
-      if (!options.quiet) loadError.value = isNetworkError(err) ? ja.register.loadFailed : (errorBody(err)?.message ?? ja.register.loadFailed)
+      if (!quiet) loadError.value = isNetworkError(err) ? ja.register.loadFailed : (errorBody(err)?.message ?? ja.register.loadFailed)
       return []
     } finally {
       loading.value = false
@@ -433,35 +451,166 @@ export const useRegisterStore = defineStore('register', () => {
     const uuid = pendingUuid.value ?? uuidV4()
     const sold = lines.value
 
+    const input: SaleInput = {
+      client_uuid: uuid,
+      tax_type_id: tax.id,
+      payment_method_id: pay.id,
+      items: sold.map((l) => ({ product_id: l.product_id, quantity: l.quantity, option_ids: l.option_ids })),
+      discount: discount.value,
+      received: pay.is_cash ? extra.received : null,
+      customer_count: extra.customer_count,
+      memo: extra.memo,
+      device_name: loadDeviceName() || null,
+      expected_total: total,
+      order_ids: orderIds.value,
+    }
+
     submitting.value = true
     try {
-      const sale = await createSale({
-        client_uuid: uuid,
-        tax_type_id: tax.id,
-        payment_method_id: pay.id,
-        items: sold.map((l) => ({ product_id: l.product_id, quantity: l.quantity, option_ids: l.option_ids })),
-        discount: discount.value,
-        received: pay.is_cash ? extra.received : null,
-        customer_count: extra.customer_count,
-        memo: extra.memo,
-        device_name: loadDeviceName() || null,
-        expected_total: total,
-        order_ids: orderIds.value,
-      })
-      deductStock(sold)
-      lastSale.value = sale
-      lines.value = []
-      discount.value = null
-      linkedOrders.value = []
-      pendingUuid.value = null
-      paymentMethodId.value = defaultPaymentMethodId()
-      notice.value = null
-      return { ok: true, sale }
+      // 14 §7.4 端末が通信できないと分かっているときは送らずに端末へ保存する
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        const saved = await saveOffline(input, sold)
+        if (saved) return finishConfirm(saved, sold, true)
+      }
+      const sale = await createSale(input)
+      return finishConfirm(sale, sold, false)
     } catch (err) {
+      // 通信できない（応答が無い・中継が落ちている）：同じ client_uuid で端末へ保存し、後で送る
+      if (isOfflineFailure(err)) {
+        const saved = await saveOffline(input, sold)
+        if (saved) return finishConfirm(saved, sold, true)
+      }
       return await confirmFailed(err)
     } finally {
       submitting.value = false
     }
+  }
+
+  function finishConfirm(sale: Sale, sold: readonly CartLine[], offline: boolean): ConfirmOutcome {
+    deductStock(sold)
+    lastSale.value = sale
+    lines.value = []
+    discount.value = null
+    linkedOrders.value = []
+    pendingUuid.value = null
+    paymentMethodId.value = defaultPaymentMethodId()
+    notice.value = null
+    return offline ? { ok: true, sale, offline: true } : { ok: true, sale }
+  }
+
+  /** 応答が無いか、サーバーの手前（中継・ロードバランサ）が落ちている */
+  function isOfflineFailure(err: unknown): boolean {
+    const status = errorStatus(err)
+    return isNetworkError(err) || status === 502 || status === 503 || status === 504
+  }
+
+  /**
+   * 14 §7.4 会計を送信待ち（outbox）に保存し、完了の表示に使う会計を返す。
+   * 価格・税率・端数処理は、いま画面に出しているマスタの値を記録する（サーバーはこの値で計算し直し、違いを記録する）。
+   * 保存できなければ null（会計を確定扱いにしない）
+   */
+  async function saveOffline(input: SaleInput, sold: readonly CartLine[]): Promise<Sale | null> {
+    const b = bootstrap.value
+    const tax = taxType.value
+    const pay = paymentMethod.value
+    const me = useAuthStore().me
+    if (!b || !tax || !pay || !me || me.store?.id !== b.store.id) return null
+    let offline: OfflineSaleInput
+    let sale: Sale
+    try {
+      const pricingItems = toPricingItems(sold, products.value)
+      const amountsNow = calculateAmounts({
+        price_mode: b.store.price_mode,
+        rounding: b.store.rounding,
+        tax_rate_permille: tax.rate_permille,
+        items: pricingItems,
+        discount: input.discount,
+      })
+      const settlement = settle(amountsNow.total, pay.is_cash, input.received)
+      const soldAt = new Date().toISOString()
+      offline = {
+        ...input,
+        items: input.items.map((item, i) => ({
+          ...item,
+          unit_price: pricingItems[i]?.unit_price ?? 0,
+          option_prices: pricingItems[i]?.option_prices ?? [],
+        })),
+        sold_at: soldAt,
+        operator_id: me.user.id,
+        tax_rate_permille: tax.rate_permille,
+        price_mode: b.store.price_mode,
+        rounding: b.store.rounding,
+      }
+      sale = {
+        id: 0,
+        client_uuid: input.client_uuid,
+        business_date: b.current_business_date,
+        sold_at: soldAt,
+        tax_type_name: tax.name,
+        tax_rate_permille: tax.rate_permille,
+        price_mode: b.store.price_mode,
+        subtotal: amountsNow.subtotal,
+        discount_type: input.discount?.type ?? null,
+        discount_value: input.discount?.value ?? 0,
+        discount_amount: amountsNow.discount_amount,
+        total: amountsNow.total,
+        tax_amount: amountsNow.tax_amount,
+        payment_method_name: pay.name,
+        is_cash: pay.is_cash,
+        received: settlement.received,
+        change_amount: settlement.change_amount,
+        customer_count: input.customer_count,
+        memo: input.memo,
+        status: 'completed',
+        cancelled_at: null,
+        cancelled_by_name: null,
+        user_name: me.user.name,
+        device_name: input.device_name,
+        store_name: b.store.name,
+        items: sold.map((line, i) => {
+          const product = products.value.get(line.product_id)
+          const options = line.option_ids.map((id) => product?.options.find((o) => o.id === id))
+          const optionsPrice = pricingItems[i]?.option_prices.reduce((s, p) => s + p, 0) ?? 0
+          return {
+            id: 0,
+            product_id: line.product_id,
+            product_name: product?.name ?? '',
+            product_code: product?.code ?? '',
+            product_memo: product?.memo ?? null,
+            category_id: product?.category_id ?? null,
+            category_name: b.categories.find((c) => c.id === product?.category_id)?.name ?? null,
+            unit_price: pricingItems[i]?.unit_price ?? 0,
+            options_price: optionsPrice,
+            quantity: line.quantity,
+            line_total: amountsNow.line_totals[i] ?? 0,
+            options: options.flatMap((o) => (o ? [{ product_option_id: o.id, option_name: o.name, price: o.price }] : [])),
+          }
+        }),
+        is_offline: true,
+        client_sold_at: soldAt,
+        synced_at: null,
+        sync_issues: null,
+        issues_reviewed_at: null,
+      }
+    } catch {
+      return null // 計算できない（預り金の不足など）：通常の失敗として扱う
+    }
+    try {
+      await useOutboxStore().add({
+        version: OUTBOX_VERSION,
+        store_id: b.store.id,
+        client_uuid: input.client_uuid,
+        created_at: sale.sold_at,
+        input: offline,
+        sale,
+        status: 'pending',
+        attempts: 0,
+        last_error: null,
+      })
+    } catch {
+      return null
+    }
+    return sale
   }
 
   async function confirmFailed(err: unknown): Promise<ConfirmOutcome> {
@@ -503,19 +652,42 @@ export const useRegisterStore = defineStore('register', () => {
     return { ok: false, message: body?.message ?? ja.error.unexpected, closeDialog: false }
   }
 
-  /** 確定から 5 秒以内の［取り消す］（B 案。確認なし）。成功したら在庫表示を取り直す */
+  /**
+   * 確定から 5 秒以内の［取り消す］（B 案。確認なし）。結果は完了のポップアップの中で知らせるので、上の帯は出さない。
+   * 成功したら在庫表示を裏で取り直す（取り直しを待たずに「取り消しました」を出す）
+   */
   async function undoLastSale(): Promise<boolean> {
     const sale = lastSale.value
     if (!sale) return false
+    let saleId = sale.id
+    if (sale.is_offline && sale.id === 0) {
+      // 14 §7.4 まだ送っていなければ端末から消すだけ。送信中・送信済みならサーバーの会計を取り消す
+      const storeId = bootstrap.value?.store.id
+      if (storeId === undefined) return false
+      const result = await useOutboxStore().discard(storeId, sale.client_uuid)
+      if (result === null) return false
+      if (result === 'removed') {
+        restoreStock(sale)
+        lastSale.value = null
+        return true
+      }
+      saleId = result
+    }
     try {
-      await cancelSale(sale.id)
-      lastSale.value = null
-      notice.value = { kind: 'info', text: ja.register.undone }
-      await load({ quiet: true })
-      return true
+      await cancelSale(saleId)
     } catch {
-      notice.value = { kind: 'error', text: ja.register.undoFailed }
       return false
+    }
+    lastSale.value = null
+    void load({ quiet: true })
+    return true
+  }
+
+  /** 送らずに消した会計の分を、手元の在庫表示に戻す */
+  function restoreStock(sale: Sale): void {
+    for (const item of sale.items) {
+      const product = bootstrap.value?.products.find((p) => p.id === item.product_id)
+      if (product?.track_stock) product.stock_qty += item.quantity
     }
   }
 

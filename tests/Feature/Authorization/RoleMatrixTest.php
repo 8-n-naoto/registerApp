@@ -144,6 +144,10 @@ class RoleMatrixTest extends TestCase
         88 => ['POST', '/products/{id}/option-groups', ['owner'], null, 'product'],
         89 => ['PUT', '/option-groups/{id}', ['owner'], null, 'optionGroup'],
         90 => ['DELETE', '/option-groups/{id}', ['owner'], null, 'optionGroup'],
+        // 14 §5 オフライン会計
+        102 => ['POST', '/sales/offline', ['owner', 'staff'], null, null],
+        103 => ['GET', '/sales/offline-issues', ['owner'], null, null],
+        104 => ['POST', '/sales/{id}/offline-review', ['owner'], null, 'sale'],
     ];
 
     /** 本文以外で必要な検索条件（期間の集計は from / to が先に検証されるため、store_id の検証を確かめられるよう正しい期間を付ける） */

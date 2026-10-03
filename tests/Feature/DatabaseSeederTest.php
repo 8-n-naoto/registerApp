@@ -23,7 +23,7 @@ class DatabaseSeederTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $this->assertSame(2, Store::query()->count());
-        $this->assertSame(5, User::query()->count());
+        $this->assertSame(10, User::query()->count());
 
         foreach (Store::query()->get() as $store) {
             $this->assertNotNull($store->initialized_at);
@@ -40,7 +40,7 @@ class DatabaseSeederTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        foreach (['admin' => 'admin', 'owner-a' => 'owner', 'staff-b' => 'staff'] as $loginId => $role) {
+        foreach (['admin' => 'admin', 'admin-2' => 'admin', 'owner-a' => 'owner', 'owner-a2' => 'owner', 'staff-b' => 'staff', 'staff-b2' => 'staff'] as $loginId => $role) {
             $this->app['auth']->forgetGuards();
             $this->fromSpa()->postJson('/api/login', ['login_id' => $loginId, 'password' => 'password'])
                 ->assertOk()

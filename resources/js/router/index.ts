@@ -29,6 +29,8 @@ const routes: RouteRecordRaw[] = [
   { path: '/orders', name: 'orders', component: () => import('@/pages/OrdersPage.vue'), meta: { roles: ['owner', 'staff'] } },
   { path: '/kitchen', name: 'kitchen', component: () => import('@/pages/KitchenPage.vue'), meta: { roles: ['owner', 'staff'] } },
   { path: '/closing', name: 'closing', component: () => import('@/pages/ClosingPage.vue'), meta: { roles: ['owner', 'staff'] } },
+  // 14 §7.6 オフライン会計の確認（owner）
+  { path: '/sales/offline', name: 'sales-offline', component: () => import('@/pages/OfflineIssuesPage.vue'), meta: { roles: ['owner'] } },
   // スマホの管理メニュー（タブレットのレールの代わり）
   { path: '/manage', name: 'manage', component: () => import('@/pages/ManagePage.vue') },
   { path: '/account', name: 'account', component: () => import('@/pages/AccountPage.vue') },

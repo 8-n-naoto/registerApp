@@ -6,6 +6,8 @@ import AccountMenu from '@/components/AccountMenu.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import LaborWarningBanner from '@/components/LaborWarningBanner.vue'
 import OperatorBar from '@/components/OperatorBar.vue'
+import OfflineIssuesBanner from '@/components/register/OfflineIssuesBanner.vue'
+import OutboxBanner from '@/components/register/OutboxBanner.vue'
 import WaveBackground from '@/components/WaveBackground.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { navFor, pageTo } from '@/lib/adminNav'
@@ -68,6 +70,8 @@ const laborWarnings = computed(() => (auth.isOwner ? (auth.me?.labor_warnings ??
         class="home__warn"
         :warnings="laborWarnings"
       />
+      <OutboxBanner v-if="auth.isOwner || auth.isStaff" />
+      <OfflineIssuesBanner v-if="auth.isOwner" />
 
       <section
         class="home-shop h-card"

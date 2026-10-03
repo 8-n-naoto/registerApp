@@ -6,6 +6,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import type { SaleInput } from '@/api/register'
 import RegisterPage from '@/pages/RegisterPage.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useOutboxStore } from '@/stores/outbox'
 import { apiError, makeMe } from '@/test/helpers'
 import { stubMatchMedia } from '@/test/matchMedia'
 import { makeOrder, makeOrderItem } from '@/test/orders'
@@ -16,6 +17,7 @@ const api = vi.hoisted(() => ({
   createSale: vi.fn(),
   fetchSale: vi.fn(),
   cancelSale: vi.fn(),
+  createOfflineSale: vi.fn(),
 }))
 vi.mock('@/api/register', () => api)
 const ordersApi = vi.hoisted(() => ({ fetchOrders: vi.fn() }))
@@ -173,7 +175,34 @@ describe('S02 会計（08 §5.3）', () => {
     expect(dialog.querySelector('.checkout__received-value')?.textContent).toBe('¥—')
   })
 
-  it('AC-S02-7：通信断ではダイアログと入力が残り、エラーを出す', async () => {
+  it('AC-S02-7・14 §7.4：通信断では会計を端末に保存し、完了を出す（領収書は出さない）。［取り消す］で端末から消す', async () => {
+    const { AxiosError } = await import('axios')
+    await mountPage()
+    await click(tile(2))
+    await click(button('お会計へ'))
+    const dialog = document.querySelector<HTMLElement>('.checkout')
+    if (!dialog) throw new Error('dialog')
+    await click(button('ちょうど', dialog))
+    api.createSale.mockRejectedValue(new AxiosError('Network Error', 'ERR_NETWORK'))
+    await click(button('確定', dialog))
+
+    expect(document.querySelector('.checkout')).toBeNull()
+    expect(document.querySelector('[data-testid="done-offline"]')?.textContent).toContain('端末に保存しました')
+    expect([...document.querySelectorAll('button')].some((b) => b.textContent?.trim() === '領収書を表示')).toBe(false)
+    expect(lines()).toEqual([])
+    const outbox = useOutboxStore()
+    const keys = Object.keys(localStorage).filter((k) => k.startsWith('regi-offline:outbox:1:'))
+    expect(keys).toHaveLength(1)
+    expect(api.createOfflineSale).not.toHaveBeenCalled()
+
+    await click(button('取り消す（5）'))
+    expect(document.querySelector('[data-state="undone"]')).not.toBeNull()
+    expect(Object.keys(localStorage).filter((k) => k.startsWith('regi-offline:outbox:'))).toEqual([])
+    expect(outbox.count).toBe(0)
+    expect(api.cancelSale).not.toHaveBeenCalled()
+  })
+
+  it('AC-S02-7：通信断で端末にも保存できなければ、ダイアログと入力が残り、エラーを出す', async () => {
     const { AxiosError } = await import('axios')
     await mountPage()
     await click(tile(1))
@@ -182,7 +211,14 @@ describe('S02 会計（08 §5.3）', () => {
     if (!dialog) throw new Error('dialog')
     await click(button('ちょうど', dialog))
     api.createSale.mockRejectedValue(new AxiosError('Network Error', 'ERR_NETWORK'))
-    await click(button('確定', dialog))
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError')
+    })
+    try {
+      await click(button('確定', dialog))
+    } finally {
+      setItem.mockRestore()
+    }
 
     expect(document.querySelector('.checkout')).not.toBeNull()
     expect(dialog.querySelector('.checkout__received-value')?.textContent).toBe('¥400')
@@ -207,8 +243,46 @@ describe('S02 会計（08 §5.3）', () => {
     api.cancelSale.mockResolvedValue(makeSale({ status: 'cancelled' }))
     await click(button('取り消す（3）'))
     expect(api.cancelSale).toHaveBeenCalledWith(501)
+    // ポップアップの中で「取り消しました」に切り替わり、完了の表示・領収書は出さない。上の帯も出さない
+    const done = document.querySelector<HTMLElement>('.done')
+    expect(done?.dataset.state).toBe('undone')
+    expect(done?.textContent).toContain('会計を取り消しました')
+    expect(done?.textContent).toContain('在庫は元に戻りました')
+    expect(done?.textContent).not.toContain('会計が完了しました')
+    expect(done?.textContent).not.toContain('領収書を表示')
+    expect(done?.textContent).not.toContain('取り消す（')
+    expect(document.querySelector('.register__notice')).toBeNull()
+    vi.advanceTimersByTime(10000)
+    await flushPromises()
+    expect(document.querySelector<HTMLElement>('.done')?.dataset.state).toBe('undone')
+    await click(button('次の会計'))
     expect(document.querySelector('.done')).toBeNull()
-    expect(document.querySelector('.register__notice--info')?.textContent).toContain('会計を取り消しました')
+  })
+
+  it('取り消しの通信中に 5 秒を過ぎてもボタンを消さず、失敗したら理由をポップアップに出す', async () => {
+    vi.useFakeTimers()
+    await mountPage()
+    await click(tile(1))
+    await click(button('お会計へ'))
+    const dialog = document.querySelector<HTMLElement>('.checkout')
+    if (!dialog) throw new Error('dialog')
+    await click(button('ちょうど', dialog))
+    api.createSale.mockResolvedValue(makeSale())
+    await click(button('確定', dialog))
+
+    let reject: (e: unknown) => void = () => undefined
+    api.cancelSale.mockImplementation(() => new Promise((_, r) => { reject = r }))
+    await click(button('取り消す（5）'))
+    vi.advanceTimersByTime(6000)
+    await flushPromises()
+    expect(document.querySelector('.done [aria-busy="true"]')).not.toBeNull()
+
+    reject(apiError(422, { message: 'x', code: 'CANCEL_NOT_ALLOWED' }))
+    await flushPromises()
+    const done = document.querySelector<HTMLElement>('.done')
+    expect(done?.dataset.state).toBe('done')
+    expect(done?.querySelector('[role="alert"]')?.textContent).toContain('取り消せませんでした')
+    expect(done?.textContent).not.toContain('取り消す（')
   })
 
   it('5 秒経つと［取り消す］が消え、［次の会計］で閉じる', async () => {

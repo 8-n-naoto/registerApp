@@ -94,8 +94,13 @@ function openSend(): void {
   sendSheet.value = true
 }
 
+// どちらの送信を押したか。押したボタンだけ回転を出し、もう一方は押せないだけにする
+const sendingAs = ref<'send' | 'checkout' | null>(null)
+
 async function send(checkout = false): Promise<void> {
-  const outcome = await draft.send()
+  if (draft.submitting) return
+  sendingAs.value = checkout ? 'checkout' : 'send'
+  const outcome = await draft.send().finally(() => { sendingAs.value = null })
   sendSheet.value = false
   if (!outcome.ok) {
     showNotice({ kind: 'error', text: outcome.message })
@@ -304,8 +309,8 @@ async function send(checkout = false): Promise<void> {
         <BigButton
           size="xl"
           block
-          :disabled="!draft.canSend"
-          :loading="draft.submitting"
+          :disabled="!draft.canSend || draft.submitting"
+          :loading="draft.submitting && sendingAs === 'send'"
           @click="send()"
         >
           {{ t.send }}
@@ -314,8 +319,8 @@ async function send(checkout = false): Promise<void> {
           variant="secondary"
           size="lg"
           block
-          :disabled="!draft.canSend"
-          :loading="draft.submitting"
+          :disabled="!draft.canSend || draft.submitting"
+          :loading="draft.submitting && sendingAs === 'checkout'"
           @click="send(true)"
         >
           {{ t.sendAndCheckout }}

@@ -2,13 +2,14 @@ import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { createOrder } from '@/api/orders'
 import { fetchOrderTables } from '@/api/orderTables'
-import { fetchBootstrap, type RegisterBootstrap, type StockShortage } from '@/api/register'
+import type { RegisterBootstrap, StockShortage } from '@/api/register'
 import { fmt, ja } from '@/i18n/ja'
 import { errorBody, errorStatus, fieldErrors, isNetworkError } from '@/lib/apiError'
 import { isCartLines, lineKey, orderedQty, reconcile, toPricingItems, type CartLine } from '@/lib/cart'
 import { loadDeviceName } from '@/lib/deviceName'
 import { nameWithMemo } from '@/lib/productLabel'
 import { uuidV4 } from '@/lib/uuid'
+import { useCatalogStore } from '@/stores/catalog'
 import type { Order, OrderTable, Product } from '@/types/api'
 
 /** S13 の品目（register と同じ行の形 + 品目のメモ。12 §8.10） */
@@ -105,52 +106,68 @@ export const useOrderDraftStore = defineStore('orderDraft', () => {
   // ─── マスタ ───
 
   /** マスタに合わせて品目を直す（販売を終えた商品・オプションを外す）。外した商品名を返す */
-  function applyMasters(previous: ReadonlyMap<number, Product>): string[] {
+  function applyMasters(previous: ReadonlyMap<number, Product>, checkTable = true): string[] {
     const result = reconcile(lines.value, products.value, previous)
     if (result.lines.length !== lines.value.length) {
       const keep = new Set(result.lines.map((l) => l.key))
       lines.value = lines.value.filter((l) => keep.has(l.key))
       pendingUuid.value = null
     }
-    if (tableId.value !== null && !activeTables.value.some((t) => t.id === tableId.value)) tableId.value = null
+    if (checkTable && tableId.value !== null && !activeTables.value.some((t) => t.id === tableId.value)) tableId.value = null
     return result.removed
   }
 
-  /** 商品（GET /register/bootstrap）とテーブル（#56）を読む。初回は端末に保存した注文を戻す */
+  /** 商品とテーブルを画面に反映する。初回（または別の店舗）は端末に保存した注文を戻す */
+  function apply(source: RegisterBootstrap, tableList: OrderTable[] | null): string[] {
+    const previous = products.value
+    const data = structuredClone(source) // 共有の応答（catalog）を書き換えない
+    // 割引の商品はレジだけで使う（docs/10「割引の商品」）。割引の商品だけのカテゴリはタブを出さない
+    const discounts = data.products.filter((p) => p.is_discount)
+    const orderable = data.products.filter((p) => !p.is_discount)
+    const categories = data.categories.map((c) => ({
+      ...c,
+      product_count: c.product_count - discounts.filter((p) => p.category_id === c.id).length,
+    }))
+    // 店舗の在庫管理が OFF（12 §6.6）：売切・残数・在庫による数量の制限を出さない
+    bootstrap.value = {
+      ...data,
+      categories,
+      products: data.store.stock_enabled ? orderable : orderable.map((p) => ({ ...p, track_stock: false })),
+    }
+    if (tableList !== null) tables.value = tableList
+    if (restoredFor !== data.store.id) {
+      lines.value = []
+      tableId.value = null
+      label.value = ''
+      note.value = ''
+      pendingUuid.value = null
+      restore()
+      restoredFor = data.store.id
+    }
+    // テーブルを読む前（先に描いたとき）は、選んであるテーブルを外さない
+    const removed = applyMasters(previous, tableList !== null)
+    persist()
+    return removed
+  }
+
+  /**
+   * 商品（GET /register/bootstrap）とテーブル（#56）を読む。quiet は画面を「読み込み中」にしない。
+   * まだ商品を持っていなくても、レジ（S02）や先読みで受け取った応答があれば先にそれで描き、裏で最新を取り直す
+   */
   async function load(options: { quiet?: boolean } = {}): Promise<string[]> {
-    if (!options.quiet) loading.value = true
+    const catalog = useCatalogStore()
+    let quiet = options.quiet === true
+    if (bootstrap.value === null && catalog.data !== null) {
+      apply(catalog.data, null)
+      quiet = true
+    }
+    if (!quiet) loading.value = true
     loadError.value = null
     try {
-      const previous = products.value
-      const [data, tableList] = await Promise.all([fetchBootstrap(), fetchOrderTables()])
-      // 割引の商品はレジだけで使う（docs/10「割引の商品」）。割引の商品だけのカテゴリはタブを出さない
-      const discounts = data.products.filter((p) => p.is_discount)
-      const orderable = data.products.filter((p) => !p.is_discount)
-      const categories = data.categories.map((c) => ({
-        ...c,
-        product_count: c.product_count - discounts.filter((p) => p.category_id === c.id).length,
-      }))
-      // 店舗の在庫管理が OFF（12 §6.6）：売切・残数・在庫による数量の制限を出さない
-      bootstrap.value = {
-        ...data,
-        categories,
-        products: data.store.stock_enabled ? orderable : orderable.map((p) => ({ ...p, track_stock: false })),
-      }
-      tables.value = tableList
-      if (restoredFor !== data.store.id) {
-        lines.value = []
-        tableId.value = null
-        label.value = ''
-        note.value = ''
-        pendingUuid.value = null
-        restore()
-        restoredFor = data.store.id
-      }
-      const removed = applyMasters(previous)
-      persist()
-      return removed
+      const [data, tableList] = await Promise.all([catalog.fetch(), fetchOrderTables()])
+      return apply(data, tableList)
     } catch (err) {
-      if (!options.quiet) loadError.value = isNetworkError(err) ? ja.orderNew.loadFailed : (errorBody(err)?.message ?? ja.orderNew.loadFailed)
+      if (!quiet) loadError.value = isNetworkError(err) ? ja.orderNew.loadFailed : (errorBody(err)?.message ?? ja.orderNew.loadFailed)
       return []
     } finally {
       loading.value = false

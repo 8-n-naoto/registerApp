@@ -712,7 +712,12 @@ function openHistory(): void {
 .cart__text { min-width: 0; overflow-wrap: anywhere; }
 .cart__controls { display: flex; flex: 1 1 100%; align-items: center; justify-content: space-between; gap: 8px; }
 .cart__controls .stepper { align-self: auto; }
-.cart__remove { color: var(--c-danger); }
+/* タブレットでは明細が 1 行に並ぶ（ui.css の .o-line）ため、操作の幅を 100% にすると商品名が 1 文字ずつ折り返す */
+@media (min-width: 768px) {
+  .cart__controls { flex: none; }
+}
+/* 幅 375px のスマホでは数量・金額と並べると「削除」が 1 文字ずつ折り返すため、折り返さず左右の余白を詰める */
+.cart__remove { flex-shrink: 0; padding-inline: 12px; color: var(--c-danger); white-space: nowrap; }
 
 .history__order { overflow: hidden; }
 .history__no { font-size: 20px; font-weight: 800; }

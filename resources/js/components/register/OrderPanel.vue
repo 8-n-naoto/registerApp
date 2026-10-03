@@ -326,7 +326,18 @@ function clear(): void {
 
 .line { background: var(--c-surface); touch-action: pan-y; }
 .line__name { overflow-wrap: anywhere; }
-.line__remove { border-color: transparent; background: transparent; color: var(--c-text-sub); }
+.line__remove { flex-shrink: 0; border-color: transparent; background: transparent; color: var(--c-text-sub); }
+
+/*
+ * タブレットでは明細を 1 行に並べるが、注文の列は画面の 45% までなので、幅 768px では 345px しかなく
+ * 商品名が 9px まで縮んで 1 文字ずつ折り返す。列が狭いときはスマホと同じく商品名の下に数量・金額を置く
+ */
+.order__lines { container-type: inline-size; }
+@container (max-width: 400px) {
+  .line { flex-wrap: wrap; }
+  .line__name { flex: 1 1 100%; }
+  .line__amount { margin-left: auto; }
+}
 
 .order__foot { gap: 8px; }
 .order__sums { margin: 0; }
@@ -352,5 +363,6 @@ function clear(): void {
 .order__error { margin: 0; color: var(--c-danger); font-weight: 700; }
 
 .order__acts { display: flex; gap: 12px; }
-.order__checkout { flex: 1 1 auto; min-width: 0; }
+/* 幅 100% を基準にすると［保留］が縮んで 1 文字ずつ折り返すため、残りの幅だけを使う */
+.order__checkout { flex: 1 1 0; min-width: 0; }
 </style>

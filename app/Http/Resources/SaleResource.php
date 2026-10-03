@@ -44,6 +44,12 @@ class SaleResource extends JsonResource
             'user_name' => $this->user->name ?? '',
             'device_name' => $this->device_name,
             'store_name' => $this->store->name ?? '',
+            // 14 §5.1 オフライン会計の印と送信時の問題
+            'is_offline' => $this->is_offline,
+            'client_sold_at' => $this->client_sold_at?->toIso8601String(),
+            'synced_at' => $this->synced_at?->toIso8601String(),
+            'sync_issues' => $this->sync_issues,
+            'issues_reviewed_at' => $this->issues_reviewed_at?->toIso8601String(),
             'items' => $this->items->map(fn (SaleItem $item): array => [
                 'id' => $item->id,
                 'product_id' => $item->product_id,

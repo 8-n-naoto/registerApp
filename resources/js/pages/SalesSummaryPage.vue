@@ -665,10 +665,12 @@ const hourValues = computed(() => report.value?.by_hour.map((r) => r.total) ?? [
 .summary-table th:not(:first-child) { text-align: right; }
 .summary-table[data-test='ranking'] th:nth-child(2) { text-align: left; }
 .summary-table td { height: 52px; }
-.summary-table .product-cell { min-width: 8em; overflow-wrap: anywhere; }
+/* 幅 375px のスマホで順位の表が 14px はみ出して横スクロールになるため 8em → 7em（商品名 5 文字は 1 行に収まる） */
+.summary-table .product-cell { min-width: 7em; overflow-wrap: anywhere; }
 .product-cell__sub { display: block; color: var(--c-text-sub); font-size: 14px; }
 
 @media (min-width: 768px) {
-  .summary-tables { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* 画面幅ではなく欄の幅で列数を決める（幅 768〜1024px で 2 列にすると税の表が横にはみ出して横スクロールになるため。日次売上と同じ） */
+  .summary-tables { grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); }
 }
 </style>

@@ -34,6 +34,7 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
     Route::middleware('role:owner,staff')->group(function () {
         Route::get('/register/bootstrap', [Api\RegisterController::class, 'bootstrap']);            // #5
         Route::post('/sales', [Api\SaleController::class, 'store']);                                // #6
+        Route::post('/sales/offline', [Api\SaleController::class, 'storeOffline']);                  // #102（14 §5.1）
         Route::post('/sales/{sale}/cancel', [Api\SaleController::class, 'cancel'])->whereNumber('sale'); // #8
         Route::put('/closings/{date}', [Api\ClosingController::class, 'update']);                   // #13
 
@@ -139,6 +140,10 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
         Route::get('/shift-patterns', [Api\ShiftPatternController::class, 'index']);                       // #91
         Route::post('/shift-patterns', [Api\ShiftPatternController::class, 'store']);                      // #92
         Route::put('/shift-patterns/{shiftPattern}', [Api\ShiftPatternController::class, 'update'])->whereNumber('shiftPattern'); // #93
+
+        // オフライン会計の確認（14 §5.2・§5.3）
+        Route::get('/sales/offline-issues', [Api\SaleController::class, 'offlineIssues']);           // #103
+        Route::post('/sales/{sale}/offline-review', [Api\SaleController::class, 'offlineReview'])->whereNumber('sale'); // #104
 
         // テーブル・QR（12 §5.12）
         Route::post('/order-tables', [Api\OrderTableController::class, 'store']);                  // #57

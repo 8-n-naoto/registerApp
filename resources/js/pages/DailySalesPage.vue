@@ -519,6 +519,7 @@ li:first-child > .sale-row { border-top: 0; }
 
 @media (min-width: 768px) {
   .sale-row { grid-template-columns: 5em 8em 1fr 1fr auto; grid-template-areas: 'time total pay user badge'; }
-  .daily-tables { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* 画面幅ではなく欄の幅で列数を決める（幅 768〜1024px で 2 列にすると税の表が横にはみ出して横スクロールになるため） */
+  .daily-tables { grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); }
 }
 </style>

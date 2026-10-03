@@ -35,6 +35,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { name: 'sales-daily', label: '日次売上', roles: ALL },
       { name: 'sales-summary', label: '期間集計', roles: ['owner', 'admin'] },
       { name: 'closing', label: 'レジ締め', roles: STORE },
+      { name: 'sales-offline', label: 'オフライン会計', roles: OWNER },
     ],
   },
   { key: 'products', label: '商品', icon: 'box', pages: [{ name: 'products', label: '商品・カテゴリ', roles: OWNER }] },

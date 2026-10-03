@@ -16,6 +16,7 @@ import HeldList from '@/components/register/HeldList.vue'
 import OptionPicker from '@/components/register/OptionPicker.vue'
 import OrderPanel from '@/components/register/OrderPanel.vue'
 import OrderPickDialog from '@/components/register/OrderPickDialog.vue'
+import OutboxBanner from '@/components/register/OutboxBanner.vue'
 import ProductArea from '@/components/register/ProductArea.vue'
 import SaleDone from '@/components/register/SaleDone.vue'
 import { fmt, ja } from '@/i18n/ja'
@@ -128,6 +129,8 @@ const checkoutOpen = ref(false)
 const checkoutError = ref<string | null>(null)
 const done = ref<Sale | null>(null)
 const undoing = ref(false)
+const undone = ref(false)
+const undoError = ref<string | null>(null)
 
 function openCheckout(): void {
   if (!register.canCheckout) return
@@ -142,6 +145,8 @@ async function confirm(extra: ConfirmExtra): Promise<void> {
   const outcome = await register.confirm(extra)
   if (outcome.ok) {
     checkoutOpen.value = false
+    undone.value = false
+    undoError.value = null
     done.value = outcome.sale
     void refreshUnpaid()
     return
@@ -159,6 +164,8 @@ async function confirm(extra: ConfirmExtra): Promise<void> {
 
 function next(): void {
   done.value = null
+  undone.value = false
+  undoError.value = null
   register.forgetLastSale()
 }
 
@@ -168,11 +175,14 @@ function showReceipt(): void {
   if (sale) void router.push({ name: 'receipt', params: { id: sale.id } })
 }
 
+// 取り消しの結果は完了のポップアップの中で見せる。成功したら「取り消しました」に切り替え、［次の会計］で閉じる
 async function undo(): Promise<void> {
+  if (undoing.value) return
   undoing.value = true
-  await register.undoLastSale()
+  const ok = await register.undoLastSale()
   undoing.value = false
-  done.value = null
+  if (ok) undone.value = true
+  else undoError.value = ja.register.undoFailed
 }
 </script>
 
@@ -235,6 +245,7 @@ async function undo(): Promise<void> {
     >
       {{ t.storageUnavailable }}
     </p>
+    <OutboxBanner class="register__outbox" />
 
     <p
       v-if="register.loading && !register.bootstrap"
@@ -369,6 +380,8 @@ async function undo(): Promise<void> {
       v-if="done"
       :sale="done"
       :undoing="undoing"
+      :undone="undone"
+      :undo-error="undoError"
       @receipt="showReceipt"
       @next="next"
       @undo="undo"
@@ -405,6 +418,7 @@ async function undo(): Promise<void> {
 .tab--on { background: var(--c-surface); color: var(--c-primary-ink); }
 
 .register__notice { align-items: center; margin: 8px 16px 0; white-space: pre-line; }
+.register__outbox { margin: 8px 16px 0; }
 .register__notice-close { flex-shrink: 0; }
 
 .register__message { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 48px 16px; text-align: center; }

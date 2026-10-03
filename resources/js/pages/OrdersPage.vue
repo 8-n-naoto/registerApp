@@ -45,7 +45,8 @@ type Confirming =
 const confirming = ref<Confirming | null>(null)
 const confirmBusy = ref(false)
 const confirmError = ref<string | null>(null)
-const acceptingId = ref<number | null>(null)
+/** 受付を送っている注文。続けて別の注文を受け付けられるよう、1 件ずつ持つ */
+const accepting = ref(new Set<number>())
 
 const tabs = computed<{ key: Tab; label: string }[]>(() => [
   { key: 'tables', label: t.tabTables },
@@ -61,31 +62,50 @@ function messageOf(err: unknown): string {
   return isNetworkError(err) ? t.network : (errorBody(err)?.message ?? ja.error.unexpected)
 }
 
+/** タブごとに最後に取った一覧。タブを切り替えたら先にこれを出し、裏で取り直す（「読み込み中」で待たせない） */
+const tabCache = new Map<OrderView, Order[]>()
+
+function showOrders(view: OrderView, list: Order[]): void {
+  tabCache.set(view, list)
+  if (tab.value === view) orders.value = list // 取得中に別のタブへ移っていたら、そのタブの表示は変えない
+}
+
+/** 最後に始めた取得の番号。追い越された古い応答で新しい表示を戻さない */
+let loadSeq = 0
+
 async function load(): Promise<void> {
+  const seq = ++loadSeq
   loading.value = true
   loadFailed.value = null
   try {
     const current = tab.value
-    const pendingP = fetchOrders('pending')
+    // 受付を送っている最中の注文は、取得した時点でまだ確認待ちでも出し直さない
+    const pendingP = fetchOrders('pending').then((list) => list.filter((o) => !accepting.value.has(o.id)))
     if (current === 'tables') {
       const [list, unpaid, pending] = await Promise.all([fetchOrderTables(), fetchOrders('unpaid'), pendingP])
+      if (seq !== loadSeq) return
       tables.value = list
       takeouts.value = unpaid.filter((o) => o.order_table_id === null)
       pendingCount.value = pending.length
+      tabCache.set('pending', pending)
     } else if (current === 'pending') {
       const pending = await pendingP
-      orders.value = pending
+      if (seq !== loadSeq) return
+      showOrders('pending', pending)
       pendingCount.value = pending.length
     } else {
       const [list, pending] = await Promise.all([fetchOrders(current), pendingP])
-      orders.value = list
+      if (seq !== loadSeq) return
+      showOrders(current, list)
       pendingCount.value = pending.length
+      tabCache.set('pending', pending)
     }
     now.value = Date.now()
   } catch (err) {
+    if (seq !== loadSeq) return
     loadFailed.value = isNetworkError(err) ? t.loadFailed : (errorBody(err)?.message ?? t.loadFailed)
   } finally {
-    loading.value = false
+    if (seq === loadSeq) loading.value = false
   }
 }
 
@@ -94,7 +114,7 @@ onMounted(load)
 function selectTab(key: Tab): void {
   if (tab.value === key) return
   tab.value = key
-  orders.value = []
+  orders.value = key === 'tables' ? [] : (tabCache.get(key) ?? [])
   notice.value = null
   actionError.value = null
   void load()
@@ -112,17 +132,23 @@ function elapsedMinutes(table: OrderTable): number {
 }
 
 // ── 受付（確認なし）
+// 押した瞬間に確認待ちから外して「受け付けました」を出す。失敗したら理由を出し、続く取り直しで元の状態に戻る
 async function accept(order: Order): Promise<void> {
-  acceptingId.value = order.id
-  notice.value = null
+  accepting.value.add(order.id)
   actionError.value = null
+  if (tab.value === 'pending') showOrders('pending', orders.value.filter((o) => o.id !== order.id))
+  pendingCount.value = Math.max(0, pendingCount.value - 1)
+  notice.value = fmt(t.acceptDone, { no: order.order_no })
   try {
-    await acceptOrder(order.id)
-    notice.value = fmt(t.acceptDone, { no: order.order_no })
+    const accepted = await acceptOrder(order.id)
+    if (tab.value !== 'pending' && tab.value !== 'tables') {
+      showOrders(tab.value, orders.value.map((o) => (o.id === accepted.id ? accepted : o)))
+    }
   } catch (err) {
+    notice.value = null
     actionError.value = messageOf(err)
   } finally {
-    acceptingId.value = null
+    accepting.value.delete(order.id)
   }
   await load()
 }
@@ -383,7 +409,7 @@ async function runConfirm(): Promise<void> {
               v-if="order.status === 'pending'"
               type="button"
               class="r-btn r-btn--primary"
-              :disabled="acceptingId !== null"
+              :disabled="accepting.has(order.id)"
               @click="accept(order)"
             >
               {{ t.accept }}

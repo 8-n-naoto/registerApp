@@ -67,7 +67,21 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       strictPort: true,
       hmr: { host: 'localhost' }, // public/hot に http://localhost:5173 が書かれるようにする
-      watch: { usePolling: true, interval: 300 },
+      watch: {
+        usePolling: true,
+        interval: 300,
+        // ポーリングはバインドマウント上で重いため、画面の再読み込みに関係しないフォルダは監視しない
+        // （.git・node_modules は Vite が既定で除外する）
+        ignored: [
+          '**/vendor/**',
+          '**/storage/**',
+          '**/public/**',
+          '**/bootstrap/cache/**',
+          '**/docs/**',
+          '**/_archive/**',
+          '**/demo/**',
+        ],
+      },
     },
     build: {
       // iOS 16 の Safari まで動かす（§8）

@@ -11,6 +11,8 @@ import type { Me, Role } from '@/types/api'
 // 担当者の欄（OperatorBar）が開いたときに GET /me で勤怠の状態を読み直す
 const fetchMe = vi.fn<() => Promise<Me>>()
 vi.mock('@/api/auth', () => ({ fetchMe: () => fetchMe(), login: vi.fn(), logout: vi.fn(), updatePassword: vi.fn() }))
+// 14 §7.6 未確認のオフライン会計の件数
+vi.mock('@/api/register', () => ({ fetchOfflineIssues: vi.fn(() => Promise.resolve([])), createOfflineSale: vi.fn() }))
 vi.mock('@/api/attendance', () => ({ fetchOperators: vi.fn(() => Promise.resolve([])), startBreak: vi.fn(), endBreak: vi.fn() }))
 
 function mountAs(role: Role, me: Me = makeMe(role)) {
@@ -39,10 +41,10 @@ describe('S00 ホーム（08 §5.2）', () => {
     fetchMe.mockReset()
   })
 
-  it('owner は管理のカード 5 枚（レールと同じ順）とボタン 11 個', () => {
+  it('owner は管理のカード 5 枚（レールと同じ順）とボタン 12 個', () => {
     const w = mountAs('owner')
     expect(w.findAll('.home-card__title').map((e) => e.text())).toEqual(['売上', '商品', 'スタッフ', '店舗設定', '記録'])
-    expect(w.findAll('.home-card__btn')).toHaveLength(11)
+    expect(w.findAll('.home-card__btn')).toHaveLength(12)
   })
 
   it('スタッフのカードは勤怠・勤務表（owner / staff とも）', () => {

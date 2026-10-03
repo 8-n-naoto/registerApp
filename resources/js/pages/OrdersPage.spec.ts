@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import { ja } from '@/i18n/ja'
 import OrdersPage from '@/pages/OrdersPage.vue'
 import { useAuthStore } from '@/stores/auth'
 import { apiError, makeMe } from '@/test/helpers'
@@ -173,6 +174,47 @@ describe('OrdersPage（S15）', () => {
     await click(button('受け付ける', card('[data-order="201"]')))
     expect(ordersApi.acceptOrder).toHaveBeenCalledWith(201)
     expect(document.querySelector('.adm-ok')?.textContent).toContain('#3 を受け付けました')
+  })
+
+  it('［受け付ける］は応答を待たずに確認待ちから外して件数を減らし、失敗したら理由を出して取り直す', async () => {
+    let rejectAccept: (e: unknown) => void = () => undefined
+    ordersApi.acceptOrder.mockImplementation(() => new Promise((_, rej) => { rejectAccept = rej }))
+    await mountPage()
+    await click(card('[data-tab="pending"]'))
+    await click(button('受け付ける', card('[data-order="201"]')))
+    // 応答はまだ：すでに一覧から消え、件数は 0、受け付けた旨を出している
+    expect(document.querySelector('[data-order="201"]')).toBeNull()
+    expect(card('[data-tab="pending"]').textContent).toContain('0')
+    expect(document.querySelector('.adm-ok')?.textContent).toContain('#3 を受け付けました')
+
+    rejectAccept(apiError(409, { message: 'この注文は受け付けできません' }))
+    await flushPromises()
+    expect(document.querySelector('.adm-ok')).toBeNull()
+    expect(document.querySelector('.adm-error')?.textContent).toContain('この注文は受け付けできません')
+    expect(document.querySelector('[data-order="201"]')).not.toBeNull() // 取り直した結果で戻る
+  })
+
+  it('タブを戻ったときは前に取った一覧を先に出し、古いタブの応答で今のタブの表示を変えない', async () => {
+    await mountPage()
+    await click(card('[data-tab="today"]'))
+    expect(document.querySelector('[data-order="202"]')).not.toBeNull()
+
+    let resolveToday: (v: unknown) => void = () => undefined
+    ordersApi.fetchOrders.mockImplementation((view: string) =>
+      view === 'today' ? new Promise((r) => { resolveToday = r }) : Promise.resolve([PENDING]),
+    )
+    await click(card('[data-tab="pending"]'))
+    card('[data-tab="today"]').click()
+    await Promise.resolve()
+    // 取得中でも前回の一覧を出している
+    expect(document.querySelector('[data-order="202"]')).not.toBeNull()
+    expect(document.body.textContent).not.toContain(ja.common.loading)
+
+    await click(card('[data-tab="pending"]'))
+    resolveToday([ACTIVE])
+    await flushPromises()
+    expect(document.querySelector('[data-order="203"]')).toBeNull()
+    expect(document.querySelector('[data-order="201"]')).not.toBeNull()
   })
 
   it('AC-S15-3：会計済みの注文には［取り消す］が無く、未会計は確認してから取り消す', async () => {

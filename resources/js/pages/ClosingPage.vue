@@ -377,7 +377,8 @@ async function save(): Promise<void> {
 .closing-diff--even { color: var(--c-success); }
 .closing-actions { justify-content: flex-start; }
 
+/* 画面幅ではなく欄の幅で列数を決める（幅 768px のタブレットで 3 列にすると枚数の欄が 45px まで縮むため） */
 @media (min-width: 768px) {
-  .closing-denoms__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .closing-denoms__grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 }
 </style>

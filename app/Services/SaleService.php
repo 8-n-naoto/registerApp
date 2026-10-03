@@ -6,7 +6,9 @@ use App\Enums\AuditAction;
 use App\Enums\DiscountType;
 use App\Enums\ErrorCode;
 use App\Enums\OrderStatus;
+use App\Enums\PriceMode;
 use App\Enums\Role;
+use App\Enums\Rounding;
 use App\Enums\SaleStatus;
 use App\Exceptions\BusinessException;
 use App\Models\Order;
@@ -31,6 +33,7 @@ use Illuminate\Support\Facades\DB;
  * 会計の作成は操作ログに記録しない（06 §1.8。会計そのものが記録）。
  * 06 §4.4 会計の取消（07 §5.2 在庫の戻し）
  * 12 §5.15・§5.16：注文から会計（order_ids）と、会計の取消での注文の紐づけの解除
+ * 14 §5〜6：オフライン会計の送信（confirmOffline）と、送信時の問題の確認（offlineIssues・reviewOffline）
  *
  * @phpstan-type SaleInput array{
  *     client_uuid: string,
@@ -45,6 +48,24 @@ use Illuminate\Support\Facades\DB;
  *     expected_total: int,
  *     order_ids: list<int>,
  * }
+ * @phpstan-type OfflineSaleInput array{
+ *     client_uuid: string,
+ *     tax_type_id: int,
+ *     payment_method_id: int,
+ *     items: list<array{product_id: int, quantity: int, option_ids: list<int>, unit_price: int, option_prices: list<int>}>,
+ *     discount: array{type: DiscountType, value: int}|null,
+ *     received: int|null,
+ *     customer_count: int|null,
+ *     memo: string|null,
+ *     device_name: string|null,
+ *     expected_total: int,
+ *     order_ids: list<int>,
+ *     sold_at: string,
+ *     operator_id: int|null,
+ *     tax_rate_permille: int,
+ *     price_mode: PriceMode,
+ *     rounding: Rounding,
+ * }
  */
 final class SaleService
 {
@@ -58,23 +79,46 @@ final class SaleService
      */
     public function confirm(Store $store, User $user, array $input): array
     {
+        return $this->idempotent($store, $input['client_uuid'], fn (): ?Sale => $this->create($store, $user, $input));
+    }
+
+    /**
+     * 14 §5.1 オフライン会計の送信。通常の会計と同じく client_uuid で冪等。
+     * 価格・在庫・時刻・担当者・注文の食い違いでは拒否せず、受け付けて sync_issues に記録する（14 §6）
+     *
+     * @param  OfflineSaleInput  $input
+     * @return array{Sale, bool} [会計, 新規に作成したか]
+     */
+    public function confirmOffline(Store $store, User $syncer, array $input): array
+    {
+        return $this->idempotent($store, $input['client_uuid'], fn (): ?Sale => $this->createOffline($store, $syncer, $input));
+    }
+
+    /**
+     * 07 §4 の冪等：トランザクションの外と内で client_uuid を確かめ、同時に来た同じ UUID は一意制約で既存を返す
+     *
+     * @param  \Closure(): ?Sale  $create  トランザクション内で呼ぶ。既にあれば null を返す
+     * @return array{Sale, bool}
+     */
+    private function idempotent(Store $store, string $clientUuid, \Closure $create): array
+    {
         // 手順 1（トランザクション外で先に見る）
-        $existing = $this->find($store, $input['client_uuid']);
+        $existing = $this->find($store, $clientUuid);
         if ($existing !== null) {
             return [$existing, false];
         }
 
         try {
-            $sale = DB::transaction(fn (): ?Sale => $this->create($store, $user, $input));
+            $sale = DB::transaction($create);
         } catch (UniqueConstraintViolationException $e) {
             // 手順 8：同じ UUID が同時に来た。ロールバック済み（在庫の減算も戻っている）。
             // 他の一意制約の違反と取り違えないよう、同じ UUID の会計が無ければ投げ直す
-            return [$this->find($store, $input['client_uuid']) ?? throw $e, false];
+            return [$this->find($store, $clientUuid) ?? throw $e, false];
         }
 
         if ($sale === null) {
             // トランザクション内の再確認で見つかった
-            $existing = $this->find($store, $input['client_uuid']);
+            $existing = $this->find($store, $clientUuid);
 
             return [$existing ?? throw new \LogicException('client_uuid の会計が見つかりません'), false];
         }
@@ -217,6 +261,356 @@ final class SaleService
         $this->markClosingChanged($store, $businessDate);
 
         return $sale;
+    }
+
+    /** 14 §6.4 端末の時刻として受け付ける範囲。外れたら受け付けた時刻にして time_adjusted を記録する */
+    public const OFFLINE_FUTURE_LIMIT_MINUTES = 10;
+
+    public const OFFLINE_PAST_LIMIT_DAYS = 7;
+
+    /**
+     * 14 §6 オフライン会計のトランザクション内の処理。同じ UUID の会計が既にあれば null
+     *
+     * @param  OfflineSaleInput  $input
+     */
+    private function createOffline(Store $store, User $syncer, array $input): ?Sale
+    {
+        if (Sale::query()->where('store_id', $store->id)->where('client_uuid', $input['client_uuid'])->exists()) {
+            return null;
+        }
+
+        $issues = [];
+        $now = CarbonImmutable::now(BusinessDate::TIMEZONE);
+
+        // §6.1 マスタ：販売終了・削除済みも含めて自店舗の範囲で取得（記録した時点では売れていた）
+        [$taxType, $paymentMethod, $products, $options] = $this->loadOfflineMasters($store, $input);
+
+        // §6.2 価格：端末が記録した価格で計算し、現在のマスタと違えば price_changed を記録する
+        $pricingItems = [];
+        $priceChanged = [];
+        foreach ($input['items'] as $i => $item) {
+            $product = $products[$item['product_id']];
+            if (count($item['option_prices']) !== count($item['option_ids'])) {
+                $message = 'オプションの価格の数が合いません';
+                throw new BusinessException(ErrorCode::Validation, $message, 422, errors: ["items.{$i}.option_prices" => [$message]]);
+            }
+            if ($product->signedPrice() !== $item['unit_price']) {
+                $priceChanged[] = ['product_id' => $product->id, 'name' => $product->name, 'recorded' => $item['unit_price'], 'current' => $product->signedPrice()];
+            }
+            foreach ($item['option_ids'] as $k => $optionId) {
+                $option = $options[$optionId];
+                if ($option->price !== $item['option_prices'][$k]) {
+                    $priceChanged[] = ['product_option_id' => $option->id, 'name' => $option->name, 'recorded' => $item['option_prices'][$k], 'current' => $option->price];
+                }
+            }
+            $pricingItems[] = [
+                'unit_price' => $item['unit_price'],
+                'option_prices' => $item['option_prices'],
+                'quantity' => $item['quantity'],
+            ];
+        }
+        if ($priceChanged !== []) {
+            $issues['price_changed'] = $priceChanged;
+        }
+        $settingsNow = ['tax_rate_permille' => $taxType->rate_permille, 'price_mode' => $store->price_mode->value, 'rounding' => $store->rounding->value];
+        $settingsRecorded = ['tax_rate_permille' => $input['tax_rate_permille'], 'price_mode' => $input['price_mode']->value, 'rounding' => $input['rounding']->value];
+        if ($settingsNow !== $settingsRecorded) {
+            $issues['settings_changed'] = ['recorded' => $settingsRecorded, 'current' => $settingsNow];
+        }
+
+        try {
+            $amounts = PriceCalculator::amounts($input['price_mode'], $input['rounding'], $input['tax_rate_permille'], $pricingItems, $input['discount']);
+        } catch (PricingException $e) {
+            $key = $e->itemIndex === null ? 'items' : "items.{$e->itemIndex}.option_ids";
+            throw new BusinessException(ErrorCode::Validation, $e->getMessage(), 422, errors: [$key => [$e->getMessage()]]);
+        }
+        // 同じ価格で計算して合わないのは端末の不具合。受け付けずに 422（端末側は「送れない会計」として残す）
+        if ($amounts['total'] !== $input['expected_total']) {
+            throw new BusinessException(ErrorCode::TotalMismatch, '端末の合計とサーバーの計算が合いません', 422, details: ['server_total' => $amounts['total']]);
+        }
+        if ($amounts['total'] > self::MAX_TOTAL) {
+            $message = '1 回の会計の合計は 99,999,999 円までです';
+            throw new BusinessException(ErrorCode::Validation, $message, 422, errors: ['items' => [$message]]);
+        }
+        try {
+            $settlement = PriceCalculator::settle($amounts['total'], $paymentMethod->is_cash, $input['received']);
+        } catch (PricingException $e) {
+            throw new BusinessException(ErrorCode::Validation, $e->getMessage(), 422, errors: ['received' => [$e->getMessage()]]);
+        }
+
+        // §6.3 在庫：足りなければ 0 で止め、足りなかった数を stock_short に記録する
+        if ($store->stock_enabled) {
+            $short = $this->decrementStockClamped($store, $input['items'], $products);
+            if ($short !== []) {
+                $issues['stock_short'] = $short;
+            }
+        }
+
+        // §6.4 時刻：端末の時刻を使う。未来すぎる・古すぎるときは受け付けた時刻にする
+        $recordedAt = CarbonImmutable::parse($input['sold_at'])->setTimezone(BusinessDate::TIMEZONE);
+        $soldAt = $recordedAt;
+        if ($recordedAt->greaterThan($now->addMinutes(self::OFFLINE_FUTURE_LIMIT_MINUTES))
+            || $recordedAt->lessThan($now->subDays(self::OFFLINE_PAST_LIMIT_DAYS))) {
+            $soldAt = $now;
+            $issues['time_adjusted'] = ['recorded' => $recordedAt->toIso8601String()];
+        }
+        $businessDate = BusinessDate::of($soldAt, $store->day_cutoff_time);
+
+        // §6.5 担当者：同じ店舗の利用者なら記録した担当者、確かめられなければ送った人
+        $operatorId = $syncer->id;
+        $operator = $input['operator_id'] === null ? null
+            : User::query()->where('store_id', $store->id)->whereIn('role', [Role::Owner, Role::Staff])->find($input['operator_id']);
+        if ($operator !== null) {
+            $operatorId = $operator->id;
+        } else {
+            $issues['operator_unknown'] = ['operator_id' => $input['operator_id']];
+        }
+
+        $sale = new Sale([
+            'client_uuid' => $input['client_uuid'],
+            'business_date' => $businessDate,
+            'sold_at' => $soldAt,
+            'tax_type_id' => $taxType->id,
+            'tax_type_name' => $taxType->name,
+            'tax_rate_permille' => $input['tax_rate_permille'],
+            'price_mode' => $input['price_mode'],
+            'rounding' => $input['rounding'],
+            'subtotal' => $amounts['subtotal'],
+            'discount_type' => $input['discount']['type'] ?? null,
+            'discount_value' => $input['discount']['value'] ?? 0,
+            'discount_amount' => $amounts['discount_amount'],
+            'total' => $amounts['total'],
+            'tax_amount' => $amounts['tax_amount'],
+            'payment_method_id' => $paymentMethod->id,
+            'payment_method_name' => $paymentMethod->name,
+            'is_cash' => $paymentMethod->is_cash,
+            'received' => $settlement['received'],
+            'change_amount' => $settlement['change_amount'],
+            'customer_count' => $input['customer_count'],
+            'memo' => $input['memo'],
+            'status' => SaleStatus::Completed,
+            'user_id' => $operatorId,
+            'device_name' => $input['device_name'],
+            'stock_applied' => $store->stock_enabled,
+        ]);
+        $sale->store_id = $store->id;
+        $sale->is_offline = true;
+        $sale->client_sold_at = Carbon::instance($recordedAt);
+        $sale->synced_at = Carbon::instance($now);
+        $sale->synced_by = $syncer->id;
+
+        // §6.6 注文：未会計のものだけ紐づけ、紐づけられないものは order_conflict に記録する
+        $sale->save();
+        $conflicts = $this->linkOrdersLenient($store, $sale, $input['order_ids']);
+        if ($conflicts !== []) {
+            $issues['order_conflict'] = ['order_ids' => $conflicts];
+        }
+
+        $sale->sync_issues = $issues === [] ? null : $issues;
+        $sale->save();
+
+        foreach ($input['items'] as $i => $item) {
+            $product = $products[$item['product_id']];
+            $saleItem = $sale->items()->create([
+                'product_id' => $product->id,
+                'product_name' => $product->name,
+                'product_code' => $product->code,
+                'product_memo' => $product->memo,
+                'category_id' => $product->category?->id,
+                'category_name' => $product->category?->name,
+                'unit_price' => $item['unit_price'],
+                'options_price' => array_sum($item['option_prices']),
+                'quantity' => $item['quantity'],
+                'line_total' => $amounts['line_totals'][$i],
+                'sort_order' => $i,
+            ]);
+            foreach ($item['option_ids'] as $k => $optionId) {
+                $saleItem->options()->create([
+                    'product_option_id' => $optionId,
+                    'option_name' => $options[$optionId]->name,
+                    'price' => $item['option_prices'][$k],
+                ]);
+            }
+        }
+
+        // §6.7 締めた後の営業日なら「締め後に変更あり」
+        $this->markClosingChanged($store, $businessDate);
+
+        $this->audit->log(AuditAction::SaleOfflineSynced, $sale, null, [
+            'client_uuid' => $sale->client_uuid,
+            'total' => $sale->total,
+            'sold_at' => $soldAt->toIso8601String(),
+            'user_id' => $operatorId,
+            'issues' => array_keys($issues),
+        ], $store->id);
+
+        return $sale;
+    }
+
+    /**
+     * 14 §6.1：販売終了・削除済みを含めて自店舗の範囲で取得する。自店舗に無い ID とオプションの商品違いは 422
+     *
+     * @param  OfflineSaleInput  $input
+     * @return array{TaxType, PaymentMethod, array<int, Product>, array<int, ProductOption>}
+     */
+    private function loadOfflineMasters(Store $store, array $input): array
+    {
+        $taxType = TaxType::query()->where('store_id', $store->id)->find($input['tax_type_id']);
+        $paymentMethod = PaymentMethod::query()->where('store_id', $store->id)->find($input['payment_method_id']);
+        if ($taxType === null || $paymentMethod === null) {
+            throw new BusinessException(
+                ErrorCode::ItemUnavailable,
+                $taxType === null ? '税区分が見つかりません' : '支払方法が見つかりません',
+                422,
+                details: ['product_ids' => []],
+            );
+        }
+
+        $productIds = array_values(array_unique(array_column($input['items'], 'product_id')));
+        $optionIds = array_values(array_unique(array_merge(...array_column($input['items'], 'option_ids'))));
+
+        /** @var array<int, Product> $products */
+        $products = Product::query()->withTrashed()->where('store_id', $store->id)->whereIn('id', $productIds)
+            ->with(['category' => fn ($q) => $q->withTrashed()->select(['id', 'name'])])->get()->keyBy('id')->all();
+        /** @var array<int, ProductOption> $options */
+        $options = $optionIds === [] ? [] : ProductOption::query()->withTrashed()->where('store_id', $store->id)
+            ->whereIn('id', $optionIds)->get()->keyBy('id')->all();
+
+        $missing = [];
+        foreach ($input['items'] as $item) {
+            $ok = isset($products[$item['product_id']]);
+            foreach ($item['option_ids'] as $optionId) {
+                $option = $options[$optionId] ?? null;
+                if ($option === null || $option->product_id !== $item['product_id']) {
+                    $ok = false;
+                }
+            }
+            if (! $ok) {
+                $missing[$item['product_id']] = true;
+            }
+        }
+        if ($missing !== []) {
+            $ids = array_keys($missing);
+            sort($ids);
+            throw new BusinessException(ErrorCode::ItemUnavailable, '見つからない商品・オプションがあります', 422, details: ['product_ids' => $ids]);
+        }
+
+        return [$taxType, $paymentMethod, $products, $options];
+    }
+
+    /**
+     * 14 §6.3：在庫管理 ON・未削除の商品を減らす。足りなければ 0 にして、足りなかった数を返す
+     *
+     * @param  list<array{product_id: int, quantity: int, option_ids: list<int>, unit_price: int, option_prices: list<int>}>  $items
+     * @param  array<int, Product>  $products
+     * @return list<array{product_id: int, product_name: string, short: int}>
+     */
+    private function decrementStockClamped(Store $store, array $items, array $products): array
+    {
+        $need = [];
+        foreach ($items as $item) {
+            if ($products[$item['product_id']]->track_stock) {
+                $need[$item['product_id']] = ($need[$item['product_id']] ?? 0) + $item['quantity'];
+            }
+        }
+        ksort($need);
+
+        $short = [];
+        foreach ($need as $productId => $qty) {
+            // トランザクション内（SQLite は書き込みを直列化する）で読んでから減らす。削除済みは SoftDeletes で除かれる
+            $current = Product::query()->where('store_id', $store->id)->where('track_stock', true)->find($productId);
+            if ($current === null) {
+                continue;
+            }
+            $take = min(max($current->stock_qty, 0), $qty);
+            if ($take > 0) {
+                Product::query()->whereKey($productId)->decrement('stock_qty', $take);
+            }
+            if ($take < $qty) {
+                $short[] = ['product_id' => $productId, 'product_name' => $current->name, 'short' => $qty - $take];
+            }
+        }
+
+        return $short;
+    }
+
+    /**
+     * 14 §6.6：自店舗の受付済み・未会計の注文だけ紐づけ、紐づけられなかった ID を返す
+     *
+     * @param  list<int>  $orderIds
+     * @return list<int>
+     */
+    private function linkOrdersLenient(Store $store, Sale $sale, array $orderIds): array
+    {
+        if ($orderIds === []) {
+            return [];
+        }
+
+        $linked = [];
+        foreach ($orderIds as $id) {
+            $updated = Order::query()
+                ->where('store_id', $store->id)
+                ->whereKey($id)
+                ->where('status', OrderStatus::Active)
+                ->whereNull('sale_id')
+                ->update(['sale_id' => $sale->id]);
+            if ($updated > 0) {
+                $linked[] = $id;
+            }
+        }
+
+        if ($linked !== []) {
+            $tableIds = Order::query()->whereKey($linked)->whereNotNull('order_table_id')->distinct()->pluck('order_table_id')->all();
+            if ($tableIds !== []) {
+                OrderTable::query()
+                    ->where('store_id', $store->id)
+                    ->whereKey($tableIds)
+                    ->whereNotNull('opened_at')
+                    ->whereDoesntHave('unpaidOrders')
+                    ->update(['opened_at' => null]);
+            }
+            Store::bumpOrderRev($store->id);
+        }
+
+        return array_values(array_diff($orderIds, $linked));
+    }
+
+    /**
+     * 14 §5.2：確認していない問題のあるオフライン会計（新しい順・最大 100 件）
+     *
+     * @return list<Sale>
+     */
+    public function offlineIssues(Store $store): array
+    {
+        return array_values(Sale::query()
+            ->where('store_id', $store->id)
+            ->where('is_offline', true)
+            ->whereNotNull('sync_issues')
+            ->whereNull('issues_reviewed_at')
+            ->with(Sale::WITH_ALL)
+            ->orderByDesc('sold_at')
+            ->orderByDesc('id')
+            ->limit(100)
+            ->get()
+            ->all());
+    }
+
+    /** 14 §5.3：問題を確認済みにする。確認済みならそのまま返す */
+    public function reviewOffline(Store $store, User $user, Sale $sale): Sale
+    {
+        if (! $sale->is_offline || $sale->sync_issues === null) {
+            throw new BusinessException(ErrorCode::Validation, '確認が必要なオフライン会計ではありません', 422);
+        }
+        if ($sale->issues_reviewed_at === null) {
+            DB::transaction(function () use ($store, $user, $sale): void {
+                $sale->issues_reviewed_at = Carbon::now(BusinessDate::TIMEZONE);
+                $sale->issues_reviewed_by = $user->id;
+                $sale->save();
+                $this->audit->log(AuditAction::SaleOfflineReviewed, $sale, null, ['issues' => array_keys($sale->sync_issues ?? [])], $store->id);
+            });
+        }
+
+        return $sale->load(Sale::WITH_ALL);
     }
 
     /**
@@ -454,9 +848,19 @@ final class SaleService
         foreach ($sale->items()->get(['product_id', 'quantity']) as $item) {
             $back[$item->product_id] = ($back[$item->product_id] ?? 0) + $item->quantity;
         }
+        // 14 §6.3：オフライン会計で足りずに減らせなかった数は戻さない
+        $shortages = $sale->sync_issues['stock_short'] ?? [];
+        foreach (is_array($shortages) ? $shortages : [] as $short) {
+            if (is_array($short) && is_int($short['product_id'] ?? null) && is_int($short['short'] ?? null) && isset($back[$short['product_id']])) {
+                $back[$short['product_id']] -= $short['short'];
+            }
+        }
         ksort($back);
 
         foreach ($back as $productId => $qty) {
+            if ($qty <= 0) {
+                continue;
+            }
             // SoftDeletes のスコープで削除済みは対象外。影響行数 0 は何もしない
             Product::query()
                 ->whereKey($productId)

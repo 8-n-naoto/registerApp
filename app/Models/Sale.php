@@ -45,6 +45,13 @@ use Illuminate\Support\Carbon;
  * @property int $user_id
  * @property string|null $device_name
  * @property bool $stock_applied 在庫の減算を行ったか（確定時点の stores.stock_enabled の写し。12 §6.6）
+ * @property bool $is_offline 14 §3：通信できない間に端末へ記録し、後から送った会計か
+ * @property Carbon|null $client_sold_at 14 §3：端末で記録した時刻（補正前の値をそのまま残す）
+ * @property Carbon|null $synced_at
+ * @property int|null $synced_by 送信したときにログインしていた人（user_id は記録した担当者）
+ * @property array<string, mixed>|null $sync_issues 14 §6.3：送信時に見つかった問題。無ければ null
+ * @property Carbon|null $issues_reviewed_at
+ * @property int|null $issues_reviewed_by
  */
 class Sale extends Model
 {
@@ -103,6 +110,11 @@ class Sale extends Model
             'status' => SaleStatus::class,
             'cancelled_at' => 'datetime',
             'stock_applied' => 'boolean',
+            'is_offline' => 'boolean',
+            'client_sold_at' => 'datetime',
+            'synced_at' => 'datetime',
+            'sync_issues' => 'array',
+            'issues_reviewed_at' => 'datetime',
         ];
     }
 

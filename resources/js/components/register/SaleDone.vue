@@ -1,7 +1,10 @@
 <script setup lang="ts">
 // 確定後の完了表示（08 §5.3）：合計・預かり・お釣りを大きく。［領収書を表示］［次の会計］。
-// 確定から 5 秒間だけ［取り消す（N）］を出す（B 案。確認なし）。5 秒経つか、ほかのボタンを押すと消える
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+// 確定から 5 秒間だけ［取り消す（N）］を出す（B 案。確認なし）。5 秒経つか、ほかのボタンを押すと消える。
+// ［取り消す］を押したら数えるのを止め、結果をこのポップアップの中で出す：
+// 成功は「会計を取り消しました」に表示を切り替え（領収書・お釣りは出さない）、失敗は理由を出して取り消しボタンを消す
+// 14 §7.4 端末に保存した会計（まだ送っていない）は領収書を出さず、「端末に保存しました」を出す
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
 import BigButton from '@/components/BigButton.vue'
 import MoneyText from '@/components/MoneyText.vue'
@@ -10,10 +13,11 @@ import type { Sale } from '@/types/api'
 
 const UNDO_SECONDS = 5
 
-defineProps<{ sale: Sale; undoing: boolean }>()
+const props = defineProps<{ sale: Sale; undoing: boolean; undone: boolean; undoError: string | null }>()
 const emit = defineEmits<{ receipt: []; next: []; undo: [] }>()
 
 const t = ja.register
+const offline = computed(() => props.sale.is_offline && props.sale.id === 0)
 const remaining = ref(UNDO_SECONDS)
 let timer: ReturnType<typeof setInterval> | null = null
 
@@ -36,16 +40,72 @@ function other(action: 'receipt' | 'next'): void {
   if (action === 'receipt') emit('receipt')
   else emit('next')
 }
+
+function undo(): void {
+  if (props.undoing) return
+  // 通信中に 0 秒になってボタンが消えないよう、押した時点で数えるのを止める
+  stopTimer()
+  emit('undo')
+}
 </script>
 
 <template>
   <Teleport to="body">
     <div class="done-backdrop r-scrim r-scrim--center">
       <section
+        v-if="undone"
+        class="done r-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="done-title"
+        aria-describedby="done-body"
+        data-state="undone"
+      >
+        <span class="c-done__mark done__mark--undone">
+          <AppIcon
+            name="x"
+            :size="48"
+          />
+        </span>
+        <h2
+          id="done-title"
+          class="done__title r-h1"
+        >
+          {{ t.undoneTitle }}
+        </h2>
+        <p
+          id="done-body"
+          class="done__body"
+        >
+          {{ t.undoneBody }}
+        </p>
+        <dl class="done__sums">
+          <div class="done__row done__row--sub">
+            <dt>{{ t.undoneTotal }}</dt>
+            <dd class="done__void">
+              <MoneyText
+                :amount="sale.total"
+                size="amount"
+                tone="inherit"
+              />
+            </dd>
+          </div>
+        </dl>
+        <BigButton
+          size="xl"
+          block
+          @click="other('next')"
+        >
+          {{ t.next }}
+        </BigButton>
+      </section>
+      <section
+        v-else
         class="done r-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="done-title"
+        data-state="done"
       >
         <span class="c-done__mark">
           <AppIcon
@@ -101,8 +161,17 @@ function other(action: 'receipt' | 'next'): void {
             </dd>
           </div>
         </dl>
+        <p
+          v-if="offline"
+          class="done__offline"
+          role="status"
+          data-testid="done-offline"
+        >
+          {{ ja.outbox.savedOffline }}
+        </p>
         <div class="done__actions">
           <BigButton
+            v-if="!offline"
             variant="secondary"
             size="lg"
             @click="other('receipt')"
@@ -117,13 +186,20 @@ function other(action: 'receipt' | 'next'): void {
             {{ t.next }}
           </BigButton>
         </div>
+        <p
+          v-if="undoError"
+          class="done__error"
+          role="alert"
+        >
+          {{ undoError }}
+        </p>
         <BigButton
-          v-if="remaining > 0"
+          v-else-if="remaining > 0 || undoing"
           variant="danger"
           size="md"
           block
           :loading="undoing"
-          @click="emit('undo')"
+          @click="undo"
         >
           {{ fmt(t.undo, { sec: remaining }) }}
         </BigButton>
@@ -153,4 +229,9 @@ function other(action: 'receipt' | 'next'): void {
 .done__method { font-size: 24px; font-weight: 700; }
 .done__actions { display: flex; flex-wrap: wrap; gap: 12px; width: 100%; }
 .done__next { flex: 1 1 auto; }
+.done__mark--undone { background: var(--st-danger-bg); color: var(--c-danger); }
+.done__body { margin: 0; color: var(--c-text); font-size: 18px; font-weight: 700; }
+.done__void { text-decoration: line-through; text-decoration-thickness: 3px; color: var(--c-text-sub); }
+.done__offline { width: 100%; margin: 0; padding: 12px 16px; border-radius: 8px; background: var(--st-info-bg); color: var(--st-info-fg); font-size: 16px; font-weight: 700; }
+.done__error { width: 100%; margin: 0; padding: 12px 16px; border-radius: 8px; background: var(--st-danger-bg); color: var(--st-danger-fg); font-size: 16px; font-weight: 700; }
 </style>
