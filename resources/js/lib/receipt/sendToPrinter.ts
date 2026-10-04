@@ -8,22 +8,34 @@ export type PrintResult = { ok: true } | { ok: false; reason: PrintFailure }
 
 export const SEND_TIMEOUT_MS = 10_000
 
-/** 宛先の URL（ホストは店舗設定の値。スキーム・パスはここでだけ組み立てる） */
-export function printerUrl(host: string): string {
-  return `https://${host}/StarWebPRNT/SendMessage`
+/**
+ * 宛先の URL（ホストは店舗設定の値。スキーム・パスはここでだけ組み立てる）。
+ * https のページ（本番）からは https のプリンターへ送る（iPad の Safari は https → http を必ず止める）。
+ * http のページ（手元の開発環境）からは、プリンターの HTTPS を有効にしていなくても届くよう http で送る
+ */
+export function printerUrl(host: string, pageProtocol: string = globalThis.location?.protocol ?? 'https:'): string {
+  const scheme = pageProtocol === 'http:' ? 'http' : 'https'
+  return `${scheme}://${host}/StarWebPRNT/SendMessage`
 }
 
 /**
- * 応答（XML）の判定。success・code・status（Automatic Status の 16 進）を読む。
+ * 応答（XML）の判定。<Response> の中に文字列で入った <root> の success・code・status（Automatic Status の 16 進）を読む
+ * （2026-10-05 mC-Print2 の実機：`<Response>&lt;root&gt;&lt;success&gt;true&lt;/success&gt;&lt;code&gt;0&lt;/code&gt;&lt;status&gt;298A02…&lt;/status&gt;&lt;/root&gt;</Response>`）。
  * status の位置は SDK の StarWebPrintTrader と同じ（3 バイト目：0x20 カバー開・0x08 オフライン、6 バイト目：0x08 紙切れ）
  */
 export function parseResponse(xml: string): PrintResult {
-  const doc = new DOMParser().parseFromString(xml, 'text/xml')
-  const res = doc.getElementsByTagName('response')[0] ?? doc.documentElement
-  if (doc.getElementsByTagName('parsererror').length > 0 || !res) return { ok: false, reason: 'unknown' }
-  const success = res.getAttribute('success') === 'true'
-  const code = res.getAttribute('code') ?? ''
-  const status = (res.getAttribute('status') ?? '').replace(/\s/g, '')
+  const parse = (text: string): Document | null => {
+    const doc = new DOMParser().parseFromString(text, 'text/xml')
+    return doc.getElementsByTagName('parsererror').length > 0 ? null : doc
+  }
+  const outer = parse(xml)
+  const inner = outer?.getElementsByTagName('Response')[0]?.textContent
+  const doc = inner ? parse(inner) : null
+  if (!doc) return { ok: false, reason: 'unknown' }
+  const pick = (name: string): string => doc.getElementsByTagName(name)[0]?.textContent?.trim() ?? ''
+  const success = pick('success') === 'true'
+  const code = pick('code')
+  const status = pick('status').replace(/\s/g, '')
   const byte = (index: number): number => {
     const v = Number.parseInt(status.substring(index * 2, index * 2 + 2), 16)
     return Number.isNaN(v) ? 0 : v

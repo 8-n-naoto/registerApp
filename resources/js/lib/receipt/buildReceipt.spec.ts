@@ -8,21 +8,19 @@ import type { Sale, SaleItem } from '@/types/api'
 function texts(request: string): string[] {
   return [...request.matchAll(/<text [^>]*>([\s\S]*?)<\/text>/g)].map((m) =>
     (m[1] ?? '')
-      .replace(/&#10;$/, '')
+      .replace(/\n$/, '')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&apos;/g, "'")
       .replace(/&amp;/g, '&'))
 }
 
 /** 倍角の行（width="2"）の中身 */
 function bigTexts(request: string): string[] {
-  return [...request.matchAll(/<text [^>]*width="2"[^>]*>([\s\S]*?)<\/text>/g)].map((m) => (m[1] ?? '').replace(/&#10;$/, ''))
+  return [...request.matchAll(/<text [^>]*width="2"[^>]*>([\s\S]*?)<\/text>/g)].map((m) => (m[1] ?? '').replace(/\n$/, ''))
 }
 
 function receipt(extra: Partial<Sale> = {}, paperWidth: 80 | 58 = 80, kind: 'receipt' | 'reprint' = 'receipt'): string {
-  return buildReceipt({ sale: makeSale(extra), paperWidth, kind })
+  return buildReceipt({ sale: makeSale(extra), paperWidth, kind }).toString()
 }
 
 /** 明細 1 行だけの会計 */
@@ -30,7 +28,7 @@ function withItem(extra: Partial<SaleItem>): string {
   const sale = makeSale()
   const first = sale.items[0]
   if (!first) throw new Error('item')
-  return buildReceipt({ sale: { ...sale, items: [{ ...first, ...extra }] }, paperWidth: 80, kind: 'receipt' })
+  return buildReceipt({ sale: { ...sale, items: [{ ...first, ...extra }] }, paperWidth: 80, kind: 'receipt' }).toString()
 }
 
 describe('15 §7.4 レシートの組み立て', () => {
@@ -99,15 +97,20 @@ describe('15 §7.4 レシートの組み立て', () => {
     expect(bigTexts(receipt())).not.toContain('取消')
   })
 
-  it('T8：商品名の < & " はエスケープされ、包んでも構造が壊れない', () => {
+  it('T8：商品名の < & はエスケープされ、包んでも構造が壊れない', () => {
     const req = withItem({ product_name: `<b>&"x'` })
-    expect(req).toContain('&lt;b&gt;&amp;&quot;x&apos;')
+    expect(req).toContain(`&lt;b&gt;&amp;"x'`)
     expect(req).not.toContain('<b>')
     const doc = new DOMParser().parseFromString(envelope(req), 'text/xml')
     expect(doc.getElementsByTagName('parsererror')).toHaveLength(0)
-    // <Request> の中身を取り出すと元の要求に戻る
-    expect(doc.getElementsByTagName('Request')[0]?.textContent).toBe(req)
-    expect(escapeXml('a\nb')).toBe('a&#10;b')
+    // <Request> の中身を取り出すと <root> で包んだ元の要求に戻る
+    expect(doc.getElementsByTagName('Request')[0]?.textContent).toBe(`<root>${req}</root>`)
+    // 実機は &#10; を戻さず文字のまま印字するため、改行は生のまま
+    expect(escapeXml('a\nb')).toBe('a\nb')
+  })
+
+  it('包むときは & < > だけをエスケープし、属性の " はそのまま（実機は &quot; を戻さない）', () => {
+    expect(envelope('<feed line="1"/>')).toContain('<Request>&lt;root&gt;&lt;feed line="1"/&gt;&lt;/root&gt;</Request>')
   })
 
   it('端末に保存した会計（id = 0）は番号の代わりに「オフライン会計」', () => {
@@ -121,7 +124,7 @@ describe('15 §7.4 レシートの組み立て', () => {
   })
 
   it('テスト印刷は店舗名・「テスト印刷」・桁の目安', () => {
-    const lines = texts(buildTestPage('テスト店 A', 58, new Date(2026, 9, 4, 10, 0)))
+    const lines = texts(buildTestPage('テスト店 A', 58, new Date(2026, 9, 4, 10, 0)).toString())
     expect(lines[0]).toBe('テスト店 A')
     expect(lines[1]).toBe('テスト印刷')
     expect(lines).toContain('1 行 32 桁')

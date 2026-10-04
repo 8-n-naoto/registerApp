@@ -79,8 +79,8 @@ export interface ReceiptInput {
   kind: Exclude<ReceiptKind, 'test'>
 }
 
-/** WebPRNT の要求（SendMessage の <Request> の中身）を返す */
-export function buildReceipt({ sale, paperWidth, kind }: ReceiptInput): string {
+/** レシートの行の並びを返す（送るときは raster.ts で画像の要求にする） */
+export function buildReceipt({ sale, paperWidth, kind }: ReceiptInput): WebPrntRequest {
   const t = ja.receipt
   const p = ja.print.receipt
   const cols = columnsOf(paperWidth)
@@ -131,11 +131,11 @@ export function buildReceipt({ sale, paperWidth, kind }: ReceiptInput): string {
   // 8 切断
   r.feed(1)
   r.cut()
-  return r.toString()
+  return r
 }
 
 /** テスト印刷（店舗設定の［この端末でテスト印刷］）。店舗名・日時・「テスト印刷」・桁の目安 */
-export function buildTestPage(storeName: string, paperWidth: 80 | 58, now: Date): string {
+export function buildTestPage(storeName: string, paperWidth: 80 | 58, now: Date): WebPrntRequest {
   const p = ja.print.receipt
   const cols = columnsOf(paperWidth)
   const iso = localIso(now.toISOString())
@@ -151,5 +151,5 @@ export function buildTestPage(storeName: string, paperWidth: 80 | 58, now: Date)
   r.line(p.testKanji)
   r.feed(1)
   r.cut()
-  return r.toString()
+  return r
 }

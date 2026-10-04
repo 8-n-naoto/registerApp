@@ -8,6 +8,8 @@
 <!--
   docs/15 §13 P-0：レシートプリンター（mC-Print3・WebPRNT）を店の端末から直接呼べるかの確認用。アプリ本体とは独立した 1 枚。
   (1) 証明書の信頼 (2) CORS で応答が読めるか (3) 漢字が文字のまま出るか (4) Chrome の許可の出方 (5) 印刷までの時間 を確かめる。
+  2026-10-05 実機（mC-Print2）：要求は <root> で包み、<Request> の中身は & < > だけをエスケープする（" を &quot; にすると属性が読まれない）。ここも修正済み。
+  アプリは画像（<bitimage>）で送る。このページは (1)(2)（証明書の信頼と通信の可否）の確認用として使う
   外部のファイルは読み込まない。入力した宛先は端末の中だけで使い、どこにも保存・送信しない（プリンターへの送信を除く）
 -->
 <style>
@@ -80,8 +82,9 @@
   var $ = function (id) { return document.getElementById(id) }
   var HOST_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/i
 
+  // & < > だけ。実機は &quot; や &#10; を戻さず文字のまま印字するため、改行は生のまま
   function esc(s) {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;').replace(/\n/g, '&#10;')
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   }
 
   function text(line, cp, big) {
@@ -104,8 +107,13 @@
       '<cutpaper feed="true" type="partial"/>'
   }
 
+  // <Request> の中身は & < > だけをエスケープする（実機は &quot; を戻さず、属性が読まれなくなる）
+  function escRequest(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  }
+
   function envelope(request) {
-    return '<StarWebPrint xmlns="http://www.star-m.jp" xmlns:i="http://www.w3.org/2001/XMLSchema-instance"><Request>' + esc(request) + '</Request></StarWebPrint>'
+    return '<StarWebPrint xmlns="http://www.star-m.jp" xmlns:i="http://www.w3.org/2001/XMLSchema-instance"><Request>' + escRequest('<root>' + request + '</root>') + '</Request></StarWebPrint>'
   }
 
   function host() {

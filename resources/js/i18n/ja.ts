@@ -1235,7 +1235,7 @@ export const ja = {
     // 店舗設定（S10）
     settings: {
       title: 'レシートプリンター',
-      lead: 'スター精密 mC-Print3 を店の Wi-Fi（有線 LAN）につなぎ、固定した IP アドレスを入れます。空にすると印刷を使いません',
+      lead: 'スター精密のレシートプリンター（mC-Print2・mC-Print3 など WebPRNT 対応機）を店の Wi-Fi（有線 LAN）につなぎ、固定した IP アドレスを入れます。空にすると印刷を使いません',
       host: 'プリンターの IP アドレス',
       hostHint: '例：192.168.1.50（プリンターの設定で固定したもの）',
       paperWidth: '紙の幅',

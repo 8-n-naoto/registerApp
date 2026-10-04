@@ -1,24 +1,34 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { parseResponse, printerUrl, sendToPrinter, SEND_TIMEOUT_MS } from '@/lib/receipt/sendToPrinter'
 
-const xml = (attrs: string): string =>
-  `<?xml version="1.0" encoding="UTF-8"?><StarWebPrint xmlns="http://www.star-m.jp"><Response><response ${attrs}/></Response></StarWebPrint>`
+/** 実機（mC-Print2、2026-10-05）の応答の形：<Response> の中に <root> がエスケープされた文字列で入る */
+const xml = (success: string, code: string, status: string): string =>
+  '<?xml version="1.0"?>\n<StarWebPrint xmlns="http://www.star-m.jp" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">\n'
+  + `<Response>&lt;root&gt;&lt;success&gt;${success}&lt;/success&gt;&lt;code&gt;${code}&lt;/code&gt;&lt;status&gt;${status}&lt;/status&gt;&lt;/root&gt;</Response>\n</StarWebPrint>\n`
 
 describe('15 §7.3 応答の判定（T9）', () => {
   it.each([
-    ['success="true" code="OK" status="23 86 00 00 00 00 00 00 00"', { ok: true }],
-    ['success="false" code="ERROR" status="23860000000800000000"', { ok: false, reason: 'paper_empty' }],
-    ['success="false" code="ERROR" status="23862000000000000000"', { ok: false, reason: 'cover_open' }],
-    ['success="false" code="1100" status=""', { ok: false, reason: 'offline' }],
-    ['success="false" code="ERROR" status="23860800000000000000"', { ok: false, reason: 'offline' }],
-    ['success="false" code="2001" status="23860000000000000000"', { ok: false, reason: 'busy' }],
-    ['success="false" code="9999" status=""', { ok: false, reason: 'unknown' }],
-  ])('%s', (attrs, expected) => {
-    expect(parseResponse(xml(attrs))).toEqual(expected)
+    [['true', '0', '298A020000000002000000060000'], { ok: true }],
+    [['true', '0', '23 86 00 00 00 00 00 00 00'], { ok: true }],
+    [['false', 'ERROR', '23860000000800000000'], { ok: false, reason: 'paper_empty' }],
+    [['false', 'ERROR', '23862000000000000000'], { ok: false, reason: 'cover_open' }],
+    [['false', '1100', ''], { ok: false, reason: 'offline' }],
+    [['false', 'ERROR', '23860800000000000000'], { ok: false, reason: 'offline' }],
+    [['false', '2001', '23860000000000000000'], { ok: false, reason: 'busy' }],
+    [['false', '9999', ''], { ok: false, reason: 'unknown' }],
+  ] as const)('%j', ([success, code, status], expected) => {
+    expect(parseResponse(xml(success, code, status))).toEqual(expected)
   })
 
   it('XML でない応答は unknown', () => {
     expect(parseResponse('<html')).toEqual({ ok: false, reason: 'unknown' })
+  })
+})
+
+describe('宛先', () => {
+  it('https のページからは https、http のページ（開発環境）からは http', () => {
+    expect(printerUrl('192.168.1.50', 'https:')).toBe('https://192.168.1.50/StarWebPRNT/SendMessage')
+    expect(printerUrl('192.168.1.50', 'http:')).toBe('http://192.168.1.50/StarWebPRNT/SendMessage')
   })
 })
 
@@ -28,14 +38,13 @@ describe('送信（T10）', () => {
   })
 
   it('宛先・本文の形で 1 回だけ送る', async () => {
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(xml('success="true" code="OK" status="23860000000000000000"')))
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(xml('true', '0', '298A020000000002000000060000')))
     expect(await sendToPrinter('192.168.1.50', '<initialization/>', fetchImpl)).toEqual({ ok: true })
     expect(fetchImpl).toHaveBeenCalledTimes(1)
     const [url, init] = fetchImpl.mock.calls[0] ?? []
     expect(url).toBe(printerUrl('192.168.1.50'))
-    expect(url).toBe('https://192.168.1.50/StarWebPRNT/SendMessage')
     expect(init?.method).toBe('POST')
-    expect(init?.body).toBe('<StarWebPrint xmlns="http://www.star-m.jp" xmlns:i="http://www.w3.org/2001/XMLSchema-instance"><Request>&lt;initialization/&gt;</Request></StarWebPrint>')
+    expect(init?.body).toBe('<StarWebPrint xmlns="http://www.star-m.jp" xmlns:i="http://www.w3.org/2001/XMLSchema-instance"><Request>&lt;root&gt;&lt;initialization/&gt;&lt;/root&gt;</Request></StarWebPrint>')
   })
 
   it('通信の失敗は unreachable で、自動で送り直さない', async () => {
