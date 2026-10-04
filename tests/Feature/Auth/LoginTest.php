@@ -109,6 +109,45 @@ class LoginTest extends TestCase
         $this->login('other')->assertOk();
     }
 
+    public function test_同じipから多数のidへの失敗が30回を超えると31回目は429で照合も記録もしない(): void
+    {
+        User::factory()->owner()->create(['login_id' => 'owner1']);
+
+        // ID ごとの上限（5 回）に掛からないよう、毎回違う ID で試す
+        for ($i = 0; $i < 30; $i++) {
+            $this->login('guess'.$i, 'wrong')->assertStatus(422);
+        }
+        $logCount = AuditLog::query()->count();
+        $this->login('owner1')
+            ->assertStatus(429)
+            ->assertJsonPath('code', 'TOO_MANY_ATTEMPTS')
+            ->assertHeader('Retry-After');
+        $this->login('guess-next', 'wrong')->assertStatus(429);
+        $this->assertGuest('web');
+        $this->assertSame($logCount, AuditLog::query()->count());
+
+        // 別の IP には影響しない
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.2'])->login('owner1')->assertOk();
+        $this->fromSpa()->postJson('/api/logout')->assertNoContent();
+
+        // 1 分たてば再びログインできる
+        $this->travel(61)->seconds();
+        $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1'])->login('owner1')->assertOk();
+    }
+
+    public function test_ipの上限は成功を数えず同じ店の端末が続けてログインしても掛からない(): void
+    {
+        $store = Store::factory()->create();
+        for ($i = 0; $i < 35; $i++) {
+            User::factory()->staff($store)->create(['login_id' => 'staff'.$i]);
+        }
+
+        for ($i = 0; $i < 35; $i++) {
+            $this->login('staff'.$i)->assertOk();
+            $this->fromSpa()->postJson('/api/logout')->assertNoContent();
+        }
+    }
+
     public function test_成功すると失敗の回数が消える(): void
     {
         User::factory()->owner()->create(['login_id' => 'owner1']);

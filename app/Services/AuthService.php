@@ -24,6 +24,12 @@ final class AuthService
 
     public const DECAY_SECONDS = 60;
 
+    /**
+     * IP ごとの失敗の上限（1 分あたり）。1 つの IP から多数の ID へ 1 回ずつ試す攻撃を止める。
+     * 同じ店内の端末は同じ IP から使うため、成功は数えず（消しもしない）失敗だけを数える
+     */
+    public const MAX_ATTEMPTS_PER_IP = 30;
+
     public function __construct(
         private readonly AuditLogger $audit,
         private readonly StoreInitializer $initializer,
@@ -32,7 +38,11 @@ final class AuthService
 
     public function login(Request $request, string $loginId, string $password, bool $remember): User
     {
-        // 1. 回数制限（login_id + IP。06 §1.6）
+        // 1. 回数制限（login_id + IP と IP のみ。06 §1.6）。超過時は照合も操作ログの記録もしない
+        $ipKey = 'login-ip:'.$request->ip();
+        if (RateLimiter::tooManyAttempts($ipKey, self::MAX_ATTEMPTS_PER_IP)) {
+            throw new TooManyRequestsHttpException(RateLimiter::availableIn($ipKey));
+        }
         $key = 'login:'.mb_strtolower($loginId).'|'.$request->ip();
         if (RateLimiter::tooManyAttempts($key, self::MAX_ATTEMPTS)) {
             throw new TooManyRequestsHttpException(RateLimiter::availableIn($key));
@@ -45,6 +55,7 @@ final class AuthService
         }
         if ($user === null || ! Hash::check($password, $user->password)) {
             RateLimiter::hit($key, self::DECAY_SECONDS);
+            RateLimiter::hit($ipKey, self::DECAY_SECONDS);
             $this->audit->log(AuditAction::LoginFailed, after: ['login_id' => $loginId], storeId: $user?->store_id);
 
             throw ValidationException::withMessages(['login_id' => ['ログイン ID またはパスワードが違います']]);

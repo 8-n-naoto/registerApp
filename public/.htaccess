@@ -5,6 +5,14 @@
 
     RewriteEngine On
 
+    # http → 同じパスの https へ 301（SEC-001）。サブフォルダの .htaccess は親（ドメイン直下）の
+    # RewriteRule を引き継がないため、ここで転送する。前段のプロキシが X-Forwarded-Proto で https を
+    # 伝える構成でも転送が繰り返されないようにし、ローカル（localhost）では転送しない
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+    RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:[0-9]+)?$
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
@@ -27,7 +35,26 @@
 <IfModule mod_headers.c>
     Header always set X-Robots-Tag "noindex, nofollow, noarchive"
     Header always set X-Content-Type-Options "nosniff"
-    Header always set Referrer-Policy "same-origin"
+
+    # Referrer-Policy（SEC-008）。お客さんの公開 API（…/api/public/tables/{token}/…）は URL のトークンを
+    # 漏らさないため no-referrer（ResolveTableToken と同じ値）、それ以外は same-origin。
+    # 書き換え（index.php）の後でも元の URL で判定できるよう THE_REQUEST（要求行）を見る。
+    # サブフォルダ名（/regi）に依存しないよう、パスの途中の /api/public/tables/ で判定する
+    Header always set Referrer-Policy "no-referrer" "expr=%{THE_REQUEST} =~ m#^[A-Z]+ [^ ?]*/api/public/tables/#"
+    Header always set Referrer-Policy "same-origin" "expr=%{THE_REQUEST} !~ m#^[A-Z]+ [^ ?]*/api/public/tables/#"
+
+    # HSTS（SEC-001）。http の応答に付いてもブラウザは無視するため条件は付けない。
+    # 同じドメインの他のフォルダ（/hiroseya など）にも効く。includeSubDomains・preload は付けない
+    Header always set Strict-Transport-Security "max-age=31536000"
+
+    # フレーム埋め込みの禁止（SEC-004）。レシート・QR の印刷は window.print() で iframe を使わない
+    Header always set X-Frame-Options "SAMEORIGIN"
+    # 使わない機能を止める。画面の消灯防止（レジ・厨房の Screen Wake Lock）だけ自サイトに許す
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), screen-wake-lock=(self)"
+    # CSP（SEC-004）。まず Report-Only で入れ、本番の開発者ツールで違反が出ないことを確かめてから
+    # Content-Security-Policy に切り替える（docs/11 §1.4）。img-src の data: はテーブルの QR（SVG の data: URI）用。
+    # 外部のフォント・CDN を使い始めるときはここに追加すること
+    Header always set Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
 </IfModule>
 
 # Service Worker は常に最新を取りに行かせる
