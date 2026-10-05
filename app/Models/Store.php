@@ -35,6 +35,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $minimum_wage
  * @property string|null $printer_host
  * @property int $printer_paper_width
+ * @property string|null $invoice_number
  */
 class Store extends Model
 {
@@ -69,6 +70,7 @@ class Store extends Model
         'minimum_wage',
         'printer_host',
         'printer_paper_width',
+        'invoice_number',
     ];
 
     protected function casts(): array

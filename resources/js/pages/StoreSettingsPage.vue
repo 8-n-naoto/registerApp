@@ -40,6 +40,7 @@ const rounding = ref<Rounding>('floor')
 const cutoffHour = ref('00')
 const cutoffMinute = ref('00')
 const stockEnabled = ref(true)
+const invoiceNumber = ref('')
 const taxTypes = ref<TaxType[]>([])
 const paymentMethods = ref<PaymentMethod[]>([])
 
@@ -60,6 +61,7 @@ async function load(): Promise<void> {
     cutoffHour.value = h
     cutoffMinute.value = m
     stockEnabled.value = data.store.stock_enabled
+    invoiceNumber.value = data.store.invoice_number ?? ''
     taxTypes.value = data.tax_types
     paymentMethods.value = data.payment_methods
   } catch (err) {
@@ -82,8 +84,10 @@ async function saveStore(): Promise<void> {
       rounding: rounding.value,
       day_cutoff_time: `${cutoffHour.value}:${cutoffMinute.value}`,
       stock_enabled: stockEnabled.value,
+      invoice_number: invoiceNumber.value.trim() === '' ? null : invoiceNumber.value.trim(),
     })
     name.value = store.name
+    invoiceNumber.value = store.invoice_number ?? ''
     if (auth.me) auth.me = { ...auth.me, store }
     saved.value = true
   } catch (err) {
@@ -248,6 +252,38 @@ onMounted(load)
                 class="adm-error r-err"
               >
                 {{ errors.stock_enabled }}
+              </p>
+            </div>
+
+            <div class="adm-field r-field">
+              <label
+                for="store-invoice-number"
+                class="adm-field__label r-label"
+              >{{ t.invoiceNumber }}</label>
+              <input
+                id="store-invoice-number"
+                v-model="invoiceNumber"
+                class="adm-input r-input tabular"
+                maxlength="30"
+                inputmode="text"
+                autocomplete="off"
+                autocapitalize="characters"
+                spellcheck="false"
+                placeholder="T1234567890123"
+                aria-describedby="store-invoice-number-help"
+                :aria-invalid="errors.invoice_number ? 'true' : undefined"
+              >
+              <p
+                id="store-invoice-number-help"
+                class="adm-help r-help"
+              >
+                {{ t.invoiceNumberHelp }}
+              </p>
+              <p
+                v-if="errors.invoice_number"
+                class="adm-error r-err"
+              >
+                {{ errors.invoice_number }}
               </p>
             </div>
 

@@ -56,6 +56,7 @@ class SchemaTest extends TestCase
                 ['legal_holiday_day', true, null], ['minimum_wage', true, null],
                 // 15 §4
                 ['printer_host', true, null], ['printer_paper_width', false, '80'],
+                ['invoice_number', true, null],
             ]],
             'users' => ['users', [
                 ['id', false, null], ['store_id', true, null], ['role', false, null], ['login_id', false, null],

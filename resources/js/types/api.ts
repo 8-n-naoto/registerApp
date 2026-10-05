@@ -22,6 +22,7 @@ export interface StoreSettings {
   rounding: Rounding
   day_cutoff_time: string      // 'HH:MM'
   stock_enabled: boolean       // 12 §6.6：false なら会計で在庫を減らさず、売切・残数を出さない
+  invoice_number: string | null  // インボイスの登録番号（T + 13 桁）。null ならレシートに出さない
   printer: PrinterSettings | null  // 15 §4：未設定なら null（印刷の表示を出さない）
 }
 
@@ -117,6 +118,7 @@ export interface Sale {
   user_name: string
   device_name: string | null
   store_name: string
+  store_invoice_number: string | null  // 店舗の登録番号（現在の値）。null ならレシートに出さない
   items: SaleItem[]
   // 14 §5.1 オフライン会計（通信できない間に端末へ記録し、後から送った会計）
   is_offline: boolean

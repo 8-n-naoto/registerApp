@@ -31,6 +31,12 @@ const discountLabel = computed(() =>
     <p class="receipt__store">
       {{ sale.store_name }}
     </p>
+    <p
+      v-if="sale.store_invoice_number"
+      class="receipt__invoice tabular"
+    >
+      {{ fmt(t.invoiceNumber, { number: sale.store_invoice_number }) }}
+    </p>
     <p class="receipt__meta tabular">
       <span>{{ formatDateTime(sale.sold_at) }}</span>
       <span>{{ fmt(t.saleId, { id: sale.id }) }}</span>
@@ -123,6 +129,7 @@ const discountLabel = computed(() =>
 
 .receipt__title { font-size: 24px; text-align: center; letter-spacing: 0.3em; }
 .receipt__store { margin-top: 8px; font-size: 18px; font-weight: 700; text-align: center; }
+.receipt__invoice { margin-top: 4px; font-size: 14px; text-align: center; color: #4b5563; }
 .receipt__meta { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 14px; color: #4b5563; }
 
 .receipt__items { margin: 12px 0 0; padding: 8px 0; list-style: none; border-top: 1px dashed #9ca3af; border-bottom: 1px dashed #9ca3af; }

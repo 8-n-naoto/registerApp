@@ -9,6 +9,7 @@ export interface StoreSettingsInput {
   rounding: Rounding
   day_cutoff_time: string
   stock_enabled: boolean
+  invoice_number: string | null
 }
 
 export interface TaxTypeInput {

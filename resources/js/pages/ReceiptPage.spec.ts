@@ -52,6 +52,13 @@ describe('S03 簡易領収書（08 §5.4）', () => {
       expect(text).toContain(s)
     }
     expect(w.find('.receipt__watermark').exists()).toBe(false)
+    expect(text).not.toContain('登録番号')
+  })
+
+  it('店舗に登録番号があれば店舗名の下に出す', async () => {
+    api.fetchSale.mockResolvedValue(makeSale({ store_invoice_number: 'T1234567890123' }))
+    const { w } = await mountPage('/sales/501/receipt')
+    expect(w.find('.receipt__invoice').text()).toBe('登録番号 T1234567890123')
   })
 
   it('商品のメモを商品名の後ろに括弧で出し、商品コードは出さない', async () => {

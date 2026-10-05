@@ -44,6 +44,8 @@ class SaleResource extends JsonResource
             'user_name' => $this->user->name ?? '',
             'device_name' => $this->device_name,
             'store_name' => $this->store->name ?? '',
+            // レシートの登録番号。店舗名と同じく店舗の現在の値（未登録なら null）
+            'store_invoice_number' => $this->store->invoice_number ?? null,
             // 14 §5.1 オフライン会計の印と送信時の問題
             'is_offline' => $this->is_offline,
             'client_sold_at' => $this->client_sold_at?->toIso8601String(),

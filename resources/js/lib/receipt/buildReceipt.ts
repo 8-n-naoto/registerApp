@@ -93,6 +93,8 @@ export function buildReceipt({ sale, paperWidth, kind }: ReceiptInput): WebPrntR
   // 1・2 店舗名と表題（倍角は 1 行の桁数が半分になる）
   r.align('center')
   for (const text of wrap(sale.store_name, Math.floor(cols / 2))) r.line(text, { width: 2, height: 2, emphasis: true })
+  // 登録番号（インボイス）。未登録の店舗は行ごと出さない
+  if (sale.store_invoice_number) r.line(fmt(t.invoiceNumber, { number: sale.store_invoice_number }))
   r.line(kind === 'reprint' ? p.reprintTitle : t.title, { emphasis: true })
   if (sale.status === 'cancelled') r.line(t.cancelled, { width: 2, height: 2, emphasis: true })
 

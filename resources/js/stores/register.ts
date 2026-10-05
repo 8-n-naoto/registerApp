@@ -567,6 +567,7 @@ export const useRegisterStore = defineStore('register', () => {
         user_name: me.user.name,
         device_name: input.device_name,
         store_name: b.store.name,
+        store_invoice_number: b.store.invoice_number,
         items: sold.map((line, i) => {
           const product = products.value.get(line.product_id)
           const options = line.option_ids.map((id) => product?.options.find((o) => o.id === id))

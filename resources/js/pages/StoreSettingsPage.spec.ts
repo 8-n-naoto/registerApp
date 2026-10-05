@@ -24,7 +24,7 @@ vi.mock('@/api/settings', () => api)
 
 function bundle(): StoreSettingsBundle {
   return {
-    store: { id: 1, name: 'テスト店 A', price_mode: 'tax_included', rounding: 'floor', day_cutoff_time: '04:30', stock_enabled: true, printer: null },
+    store: { id: 1, name: 'テスト店 A', price_mode: 'tax_included', rounding: 'floor', day_cutoff_time: '04:30', stock_enabled: true, invoice_number: null, printer: null },
     tax_types: [
       { id: 1, name: '店内', rate_permille: 100, sort_order: 1, is_default: true, is_active: true },
       { id: 2, name: 'テイクアウト', rate_permille: 80, sort_order: 2, is_default: false, is_active: true },
@@ -78,10 +78,43 @@ describe('S09 店舗設定（08 §5.10）', () => {
     await w.find('form').trigger('submit')
     await flushPromises()
 
-    expect(api.updateStoreSettings).toHaveBeenCalledWith({ name: '新店名', price_mode: 'tax_excluded', rounding: 'floor', day_cutoff_time: '02:05', stock_enabled: true })
+    expect(api.updateStoreSettings).toHaveBeenCalledWith({ name: '新店名', price_mode: 'tax_excluded', rounding: 'floor', day_cutoff_time: '02:05', stock_enabled: true, invoice_number: null })
     expect(useAuthStore().me?.store?.name).toBe('新店名')
     expect(w.text()).toContain('保存しました')
     expect(w.text()).toContain('会計のときに消費税を足します')
+  })
+
+  it('登録番号を読み込み、入力して保存する。空欄は null で送る', async () => {
+    const data = bundle()
+    data.store.invoice_number = 'T1111111111111'
+    api.fetchStoreSettings.mockResolvedValue(data)
+    const w = await mountPage()
+    const input = w.find<HTMLInputElement>('#store-invoice-number')
+    expect(input.element.value).toBe('T1111111111111')
+
+    api.updateStoreSettings.mockResolvedValue({ ...data.store, invoice_number: 'T1234567890123' })
+    await input.setValue(' T1234567890123 ')
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(api.updateStoreSettings).toHaveBeenLastCalledWith(expect.objectContaining({ invoice_number: 'T1234567890123' }))
+    expect(useAuthStore().me?.store?.invoice_number).toBe('T1234567890123')
+
+    api.updateStoreSettings.mockResolvedValue({ ...data.store, invoice_number: null })
+    await input.setValue('  ')
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(api.updateStoreSettings).toHaveBeenLastCalledWith(expect.objectContaining({ invoice_number: null }))
+    expect(input.element.value).toBe('')
+  })
+
+  it('登録番号の入力エラーを欄の下に出す', async () => {
+    const w = await mountPage()
+    api.updateStoreSettings.mockRejectedValue(apiError(422, { message: '入力内容を確認してください', errors: { invoice_number: ['登録番号は T と 13 桁の数字で入力してください'] } }))
+    await w.find('#store-invoice-number').setValue('T123')
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(w.text()).toContain('登録番号は T と 13 桁の数字で入力してください')
+    expect(w.find('#store-invoice-number').attributes('aria-invalid')).toBe('true')
   })
 
   it('AC-S09-5：在庫管理のスイッチを OFF にして保存する', async () => {

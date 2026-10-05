@@ -41,6 +41,8 @@ export const ja = {
     cutoffHelp: 'この時刻より前の会計は前日の売上に入ります（例：2:00 にすると、深夜 1:30 の会計は前日分）。変えても過去の会計の営業日は変わりません',
     stockEnabled: '在庫管理を使う',
     stockEnabledHelp: 'OFF にすると、会計で在庫が減らず、売切の表示も出ません。商品ごとの在庫数は残ります',
+    invoiceNumber: 'インボイスの登録番号',
+    invoiceNumberHelp: '「T」と 13 桁の数字（例：T1234567890123）。入力するとレシートに印字します。空欄なら表示しません',
     taxHeading: '税区分',
     taxAdd: '＋税区分を追加',
     taxName: 'ボタン名',
@@ -870,6 +872,7 @@ export const ja = {
   },
   receipt: {
     title: '領収書',
+    invoiceNumber: '登録番号 {number}',
     saleId: '会計 ID {id}',
     subtotal: '小計',
     discount: '値引き',

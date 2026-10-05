@@ -15,7 +15,7 @@ export function makeProduct(id: number, name: string, extra: Partial<Product> = 
  */
 export function makeBootstrap(extra: Partial<RegisterBootstrap> = {}): RegisterBootstrap {
   return {
-    store: { id: 1, name: 'テスト店 A', price_mode: 'tax_included', rounding: 'floor', day_cutoff_time: '00:00', stock_enabled: true, printer: null },
+    store: { id: 1, name: 'テスト店 A', price_mode: 'tax_included', rounding: 'floor', day_cutoff_time: '00:00', stock_enabled: true, invoice_number: null, printer: null },
     current_business_date: '2026-09-29',
     server_time: '2026-09-29T13:00:00+09:00',
     tax_types: [
@@ -68,6 +68,7 @@ export function makeSale(extra: Partial<Sale> = {}): Sale {
     user_name: '山田',
     device_name: null,
     store_name: 'テスト店 A',
+    store_invoice_number: null,
     items: [
       { id: 1, product_id: 1, product_name: 'コーヒー', product_code: 'P0001', product_memo: null, category_id: null, category_name: null, unit_price: 400, options_price: 0, quantity: 1, line_total: 400, options: [] },
       { id: 2, product_id: 2, product_name: 'ケーキ', product_code: 'P0002', product_memo: null, category_id: null, category_name: null, unit_price: 380, options_price: 0, quantity: 1, line_total: 380, options: [] },

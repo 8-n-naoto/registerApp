@@ -95,6 +95,14 @@ class SaleShowCancelApiTest extends TestCase
 
     // ─── GET /sales/{id} ───
 
+    public function test_会計の応答に店舗の登録番号が入る(): void
+    {
+        $id = $this->sale([[$this->a, 1]], 400);
+        $this->store->update(['invoice_number' => 'T1234567890123']);
+
+        $this->getJson("/api/sales/{$id}")->assertOk()->assertJsonPath('store_invoice_number', 'T1234567890123');
+    }
+
     public function test_ownerは自店舗の会計を明細込みで見られる(): void
     {
         $id = $this->sale([[$this->a, 2], [$this->b, 1]], 1300);
@@ -105,6 +113,7 @@ class SaleShowCancelApiTest extends TestCase
             ->assertJsonPath('status', 'completed')
             ->assertJsonPath('user_name', '店長')
             ->assertJsonPath('store_name', 'A 店')
+            ->assertJsonPath('store_invoice_number', null)
             ->assertJsonCount(2, 'items')
             ->assertJsonPath('items.0.product_name', 'A')
             ->assertJsonPath('items.0.quantity', 2);

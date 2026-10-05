@@ -47,7 +47,7 @@ class StoreSettingsApiTest extends TestCase
         $res->assertExactJson([
             'store' => [
                 'id' => $this->store->id, 'name' => 'テスト店', 'price_mode' => $this->store->price_mode->value,
-                'rounding' => $this->store->rounding->value, 'day_cutoff_time' => '00:00', 'stock_enabled' => true, 'printer' => null,
+                'rounding' => $this->store->rounding->value, 'day_cutoff_time' => '00:00', 'stock_enabled' => true, 'invoice_number' => null, 'printer' => null,
             ],
             'tax_types' => [
                 ['id' => $res->json('tax_types.0.id'), 'name' => '店内', 'rate_permille' => 100, 'sort_order' => 1, 'is_default' => true, 'is_active' => true],
@@ -66,7 +66,7 @@ class StoreSettingsApiTest extends TestCase
             ->putJson('/api/settings/store', $this->payload(['store_id' => 999]))->assertOk()
             ->assertExactJson([
                 'id' => $this->store->id, 'name' => '新しい店名', 'price_mode' => 'tax_excluded',
-                'rounding' => 'round', 'day_cutoff_time' => '05:30', 'stock_enabled' => false, 'printer' => null,
+                'rounding' => 'round', 'day_cutoff_time' => '05:30', 'stock_enabled' => false, 'invoice_number' => null, 'printer' => null,
             ]);
 
         $log = AuditLog::query()->withoutGlobalScopes()->where('action', 'store_settings_updated')->firstOrFail();
@@ -100,6 +100,44 @@ class StoreSettingsApiTest extends TestCase
         foreach (['00:00', '11:59'] as $ok) {
             $this->putJson('/api/settings/store', $this->payload(['day_cutoff_time' => $ok]))->assertOk();
         }
+    }
+
+    public function test_登録番号は揃えて保存し空なら消す_省略なら変えない(): void
+    {
+        $this->actingAs(User::factory()->owner($this->store)->create());
+
+        // 全角・小文字・ハイフン・空白は T + 13 桁に揃える
+        $this->putJson('/api/settings/store', $this->payload(['invoice_number' => ' ｔ1234-5678-90123 ']))
+            ->assertOk()->assertJsonPath('invoice_number', 'T1234567890123');
+        $this->assertSame('T1234567890123', $this->store->fresh()?->invoice_number);
+
+        $log = AuditLog::query()->withoutGlobalScopes()->where('action', 'store_settings_updated')->latest('id')->firstOrFail();
+        $this->assertNull($log->before['invoice_number'] ?? null);
+        $this->assertSame('T1234567890123', $log->after['invoice_number'] ?? null);
+
+        // 省略（古い画面）は変えない
+        $this->putJson('/api/settings/store', $this->payload())->assertOk()->assertJsonPath('invoice_number', 'T1234567890123');
+
+        // 空・null は消す
+        $this->putJson('/api/settings/store', $this->payload(['invoice_number' => '']))->assertOk()->assertJsonPath('invoice_number', null);
+        $this->assertNull($this->store->fresh()?->invoice_number);
+        $this->putJson('/api/settings/store', $this->payload(['invoice_number' => 'T1234567890123']))->assertOk();
+        $this->putJson('/api/settings/store', $this->payload(['invoice_number' => null]))->assertOk()->assertJsonPath('invoice_number', null);
+
+        foreach (['1234567890123', 'T123456789012', 'T12345678901234', 'X1234567890123', 'T123456789012A', ['T1234567890123']] as $bad) {
+            $this->putJson('/api/settings/store', $this->payload(['invoice_number' => $bad]))
+                ->assertUnprocessable()->assertJsonValidationErrors(['invoice_number']);
+        }
+    }
+
+    public function test_登録番号はmeに自店舗の値で入る(): void
+    {
+        $this->store->update(['invoice_number' => 'T1234567890123']);
+        $other = Store::factory()->create(['invoice_number' => 'T9999999999999']);
+        $owner = User::factory()->owner($this->store)->create();
+
+        $this->actingAs($owner)->getJson('/api/me')->assertOk()->assertJsonPath('store.invoice_number', 'T1234567890123');
+        $this->assertSame('T9999999999999', $other->fresh()?->invoice_number);
     }
 
     public function test_staffとadminは使えない(): void

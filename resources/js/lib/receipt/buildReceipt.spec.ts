@@ -119,6 +119,13 @@ describe('15 §7.4 レシートの組み立て', () => {
     expect(lines.some((l) => l.includes('会計 ID'))).toBe(false)
   })
 
+  it('登録番号は店舗名の次の行に出し、未登録なら行ごと出さない', () => {
+    const lines = texts(receipt({ store_invoice_number: 'T1234567890123' }))
+    expect(lines[1]).toBe('登録番号 T1234567890123')
+    expect(lines[2]).toBe('領収書')
+    expect(texts(receipt()).some((l) => l.includes('登録番号'))).toBe(false)
+  })
+
   it('会計 ID を右に出す', () => {
     expect(texts(receipt()).some((l) => l.endsWith('会計 ID 501'))).toBe(true)
   })
