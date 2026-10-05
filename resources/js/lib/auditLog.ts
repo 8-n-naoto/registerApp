@@ -1,4 +1,5 @@
 import { fmt, ja } from '@/i18n/ja'
+import { formatDateTime } from '@/lib/date'
 import { permilleToPercent } from '@/lib/percent'
 import { PRODUCT_COLORS } from '@/lib/productColors'
 import type { AuditLogRow } from '@/types/api'
@@ -9,7 +10,10 @@ import type { AuditLogRow } from '@/types/api'
 const HIDDEN_KEYS = new Set(['password', 'password_hash', 'current_password', 'new_password', 'remember_token', 'token'])
 
 /** 値を表示名に置き換える項目（商品名などの自由入力は置き換えない） */
-const ENUM_KEYS = new Set(['price_mode', 'rounding', 'status', 'selection'])
+const ENUM_KEYS = new Set(['price_mode', 'rounding', 'status', 'selection', 'polling_mode'])
+
+/** 日時の値（ISO 8601）。サーバーは店舗の時差付きで記録する */
+const ISO_DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
 
 const t = ja.auditLog
 
@@ -27,6 +31,8 @@ function formatValue(key: string, value: unknown): string {
     const enums: Record<string, string> = t.values
     return enums[value] ?? value
   }
+  // 打刻・テーブルの利用開始などの日時（ISO 8601）は「2026/10/5 03:19」にする
+  if (typeof value === 'string' && ISO_DATETIME.test(value)) return formatDateTime(value)
   if (typeof value === 'number' || typeof value === 'string') return String(value)
   if (Array.isArray(value)) {
     return value.every((v) => typeof v === 'string' || typeof v === 'number') ? value.join('、') || t.empty : fmt(t.count, { n: value.length })
@@ -74,6 +80,11 @@ export const AUDIT_ACTIONS = [
   'order_table_opened', 'order_table_closed', 'order_settings_updated',
   // 15 §4（レシートプリンター）
   'printer_settings_updated',
+  // 勤怠・勤務表
+  'attendance_clocked_in', 'attendance_clocked_out', 'attendance_break_started', 'attendance_break_ended', 'operator_switched',
+  'attendance_created', 'attendance_updated', 'attendance_deleted', 'labor_settings_updated', 'labor_member_updated',
+  'shift_month_updated', 'shift_created', 'shift_updated', 'shift_deleted', 'shift_requests_submitted',
+  'shift_pattern_created', 'shift_pattern_updated',
 ] as const
 
 export type AuditActionCode = (typeof AUDIT_ACTIONS)[number]

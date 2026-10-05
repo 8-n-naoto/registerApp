@@ -26,6 +26,17 @@ describe('auditLog', () => {
     expect(describeChanges({ before: null, after: { tax_types: [{ id: 1 }, { id: 2 }] } })).toBe('税区分 2 件')
   })
 
+  it('注文・打刻の項目は日本語、日時は「年/月/日 時:分」', () => {
+    expect(describeChanges({ before: null, after: { order_no: 1, table_name: 'T1', item_count: 2, subtotal: 480 } }))
+      .toBe('注文番号 1、テーブル T1、点数 2、小計 480')
+    expect(describeChanges({ before: null, after: { clock_out_at: '2026-10-05T03:19:47+09:00' } })).toBe('退勤 2026/10/5 03:19')
+    expect(describeChanges({ before: { status: 'pending' }, after: { status: 'active' } })).toBe('状態 確認待ち → 受付済み')
+  })
+
+  it('勤怠の操作も絞り込みに出す', () => {
+    expect(isAuditAction('attendance_clocked_out')).toBe(true)
+  })
+
   it('対象は「種類 #ID」', () => {
     expect(describeTarget({ target_type: 'product', target_id: 12 })).toBe('商品 #12')
     expect(describeTarget({ target_type: 'store', target_id: null })).toBe('店舗')
