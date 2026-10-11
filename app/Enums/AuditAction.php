@@ -43,6 +43,7 @@ enum AuditAction: string
     case OrderCreated = 'order_created';
     case OrderAccepted = 'order_accepted';
     case OrderCancelled = 'order_cancelled';
+    case OrderItemCancelled = 'order_item_cancelled';
     case OrderTableCreated = 'order_table_created';
     case OrderTableUpdated = 'order_table_updated';
     case OrderTableDeleted = 'order_table_deleted';
@@ -112,6 +113,7 @@ enum AuditAction: string
             self::OrderCreated => 'お客さんの注文',
             self::OrderAccepted => '注文の受付',
             self::OrderCancelled => '注文の取消',
+            self::OrderItemCancelled => '注文の品目の取消',
             self::OrderTableCreated => 'テーブルの追加',
             self::OrderTableUpdated => 'テーブルの変更',
             self::OrderTableDeleted => 'テーブルの削除',

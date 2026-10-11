@@ -24,6 +24,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $served_at
  * @property int|null $served_by
  * @property int $sort_order
+ * @property Carbon|null $cancelled_at 17 §3.1。入っている品目は小計・提供の完了・在庫の引当・会計への取り込みから除く
+ * @property int|null $cancelled_by
  */
 class OrderItem extends Model
 {
@@ -49,6 +51,7 @@ class OrderItem extends Model
             'line_total' => 'integer',
             'served_at' => 'datetime',
             'sort_order' => 'integer',
+            'cancelled_at' => 'datetime',
         ];
     }
 

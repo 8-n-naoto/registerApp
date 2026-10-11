@@ -25,7 +25,7 @@ import { useIsTablet } from '@/lib/breakpoint'
 import { canAddOne } from '@/lib/cart'
 import { useWakeLock } from '@/lib/wakeLock'
 import { saleKey, useReceiptPrinterStore } from '@/stores/receiptPrinter'
-import { useRegisterStore, type ConfirmExtra, type Discount, type StaleOrders } from '@/stores/register'
+import { useRegisterStore, type ChangedOrder, type ConfirmExtra, type Discount, type StaleOrders } from '@/stores/register'
 import type { Product, Sale } from '@/types/api'
 
 const t = ja.register
@@ -161,6 +161,27 @@ function openCheckout(): void {
   checkoutError.value = null
   orderSheet.value = false
   checkoutOpen.value = true
+  void checkOrderChanges()
+}
+
+// 17 §6.3 カートに入れた注文の品目が後から取り消されていないか、開くたびに確かめる（取り直せなければ確かめずに進める）
+const orderChanges = ref<ChangedOrder[]>([])
+const orderChangeLines = computed(() => orderChanges.value.flatMap((o) =>
+  o.removed.map((r) => fmt(t.orderChangedItem, { no: o.order_no, name: r.name, n: r.quantity }))))
+let changeCheck = 0
+
+async function checkOrderChanges(): Promise<void> {
+  const seq = ++changeCheck
+  orderChanges.value = []
+  const changed = await register.checkLinkedOrders()
+  if (seq !== changeCheck || !checkoutOpen.value || register.submitting) return
+  orderChanges.value = changed
+}
+
+function removeChanged(): void {
+  register.applyOrderChanges(orderChanges.value)
+  orderChanges.value = []
+  if (!register.canCheckout) checkoutOpen.value = false
 }
 
 async function confirm(extra: ConfirmExtra, print: boolean): Promise<void> {
@@ -416,7 +437,10 @@ async function undo(): Promise<void> {
       :submitting="register.submitting"
       :error="checkoutError"
       :printable="printer !== null"
+      :order-changes="orderChangeLines"
       @confirm="confirm"
+      @remove-changed="removeChanged"
+      @keep-changed="orderChanges = []"
       @back="checkoutOpen = false"
       @pay="register.setPaymentMethod($event)"
     />

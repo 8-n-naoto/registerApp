@@ -75,7 +75,7 @@ export const AUDIT_ACTIONS = [
   'sale_cancelled', 'sale_offline_synced', 'sale_offline_reviewed', 'closing_saved', 'staff_created', 'staff_updated', 'staff_password_reset',
   'store_suspended', 'store_resumed', 'backup_downloaded',
   // 12 §5.19（注文）
-  'order_created', 'order_accepted', 'order_cancelled',
+  'order_created', 'order_accepted', 'order_cancelled', 'order_item_cancelled', // 17 §4.3
   'order_table_created', 'order_table_updated', 'order_table_deleted', 'order_table_token_regenerated',
   'order_table_opened', 'order_table_closed', 'order_settings_updated',
   // 15 §4（レシートプリンター）

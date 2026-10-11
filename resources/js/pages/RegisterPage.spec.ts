@@ -596,4 +596,55 @@ describe('S02 注文から会計（12 §8.6）', () => {
     expect(document.querySelector('[data-linked-orders]')?.textContent).toContain('#3（T2）')
     expect(document.querySelector('[data-linked-orders]')?.textContent).not.toContain('#1')
   })
+
+  it('AC-S02-19：カートに入れた後に品目が取り消されたら、確定のダイアログに知らせ、［カートから外す］で数量を減らす', async () => {
+    ordersApi.fetchOrders.mockResolvedValue([O1, O2])
+    await mountPage()
+    await click(checkbox('[data-from-orders]'))
+    await click(checkbox('[data-order="101"]'))
+    await click(checkbox('[data-order="102"]'))
+    await click(checkbox('[data-pick-submit]'))
+    expect(lines()).toEqual([['コーヒー', '2'], ['ケーキ', '1']])
+
+    const at = '2026-09-29T12:30:00+09:00'
+    const item = O1.items[0] ?? makeOrderItem()
+    ordersApi.fetchOrders.mockResolvedValue([
+      { ...O1, subtotal: 400, items: [{ ...item, quantity: 1, line_total: 400 }, { ...item, id: 1009, quantity: 1, line_total: 400, cancelled_at: at }] },
+      O2,
+    ])
+    await click(button('お会計へ'))
+    const dialog = document.querySelector<HTMLElement>('.checkout')
+    if (!dialog) throw new Error('checkout not found')
+    await click(button('カード', dialog))
+    const band = dialog.querySelector<HTMLElement>('.checkout__changed')
+    expect(band?.textContent).toContain('カートに入れた後に、注文の内容が変わりました')
+    expect(band?.textContent).toContain('#1 コーヒー ×1 取消')
+    expect(button('確定', dialog).disabled).toBe(true)
+
+    await click(button('カートから外す', dialog))
+    expect(dialog.querySelector('.checkout__changed')).toBeNull()
+    expect(lines()).toEqual([['コーヒー', '1'], ['ケーキ', '1']])
+    expect(button('確定', dialog).disabled).toBe(false)
+  })
+
+  it('［このまま会計する］は知らせを閉じてカートを変えない', async () => {
+    ordersApi.fetchOrders.mockResolvedValue([O1])
+    await mountPage()
+    await click(checkbox('[data-from-orders]'))
+    await click(checkbox('[data-order="101"]'))
+    await click(checkbox('[data-pick-submit]'))
+    const item = O1.items[0] ?? makeOrderItem()
+    ordersApi.fetchOrders.mockResolvedValue([{ ...O1, subtotal: 400, items: [{ ...item, quantity: 1, line_total: 400 }] }])
+    await click(button('お会計へ'))
+    const dialog = document.querySelector<HTMLElement>('.checkout')
+    if (!dialog) throw new Error('checkout not found')
+    await click(button('カード', dialog))
+    expect(dialog.querySelector('.checkout__changed')?.textContent).toContain('#1 コーヒー ×1 取消')
+    expect(button('確定', dialog).disabled).toBe(true)
+
+    await click(button('このまま会計する', dialog))
+    expect(dialog.querySelector('.checkout__changed')).toBeNull()
+    expect(lines()).toEqual([['コーヒー', '2']])
+    expect(button('確定', dialog).disabled).toBe(false)
+  })
 })

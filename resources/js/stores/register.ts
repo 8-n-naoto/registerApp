@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
+import { fetchOrders } from '@/api/orders'
 import { cancelSale, createSale, type OfflineSaleInput, type RegisterBootstrap, type SaleInput, type StockShortage } from '@/api/register'
 import { fmt, ja } from '@/i18n/ja'
 import { errorBody, errorStatus, isNetworkError } from '@/lib/apiError'
@@ -52,6 +53,17 @@ export interface ConfirmExtra {
   memo: string | null
 }
 
+/**
+ * カートに入れた後に品目が取り消された注文（17 §6.3）。lines は今の注文の内容（入れたときに足した行に限る）、
+ * removed はカートに入れた後に減った品目
+ */
+export interface ChangedOrder {
+  id: number
+  order_no: number
+  lines: CartLine[]
+  removed: { name: string; quantity: number }[]
+}
+
 /** 会計の確定の失敗のうち、カートに入れた注文が会計できなくなっていたもの（12 §8.6） */
 export interface StaleOrders { ids: number[]; message: string }
 
@@ -82,9 +94,11 @@ function isHeldOrder(v: unknown): v is HeldOrder {
 }
 
 /** 注文の品目をカートの行にする（同じ商品・オプションは 1 行。品目のメモは会計に持ち込まない） */
+/** 注文の品目をカートの行にまとめる。取り消した品目は入れない（17 §6.3） */
 function orderLines(order: Order): CartLine[] {
   const result: CartLine[] = []
   for (const item of order.items) {
+    if (item.cancelled_at !== null) continue
     const optionIds = item.options.map((o) => o.product_option_id).sort((a, b) => a - b)
     const key = lineKey(item.product_id, optionIds)
     const existing = result.find((l) => l.key === key)
@@ -366,6 +380,60 @@ export const useRegisterStore = defineStore('register', () => {
     }
     lines.value = next
     linkedOrders.value = linkedOrders.value.filter((o) => !ids.includes(o.id))
+    orderChanged()
+  }
+
+  /**
+   * 17 §6.3 確定のダイアログを開いたとき：カートに入れた注文を取り直し、入れた後に品目が減った注文を返す。
+   * 取り直せない（オフライン・通信エラー）ときは空を返し、確認せずに進める（オフライン会計を止めない）。
+   * 一覧に無い注文（注文ごと取消・会計済み）は、確定のときの 409 に任せる（12 L04）
+   */
+  async function checkLinkedOrders(): Promise<ChangedOrder[]> {
+    if (linkedOrders.value.length === 0) return []
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return []
+    let orders: Order[]
+    try {
+      orders = await fetchOrders('unpaid')
+    } catch {
+      return []
+    }
+    const changed: ChangedOrder[] = []
+    for (const link of linkedOrders.value) {
+      const order = orders.find((o) => o.id === link.id)
+      if (!order) continue
+      const fresh = orderLines(order)
+      const kept: CartLine[] = []
+      const removed: ChangedOrder['removed'] = []
+      for (const line of link.lines) {
+        const quantity = Math.min(fresh.find((l) => l.key === line.key)?.quantity ?? 0, line.quantity)
+        if (quantity > 0) kept.push({ ...line, quantity })
+        if (quantity < line.quantity) {
+          const name = order.items.find((i) => i.product_id === line.product_id)?.product_name ?? products.value.get(line.product_id)?.name ?? ''
+          removed.push({ name, quantity: line.quantity - quantity })
+        }
+      }
+      if (removed.length > 0) changed.push({ id: link.id, order_no: link.order_no, lines: kept, removed })
+    }
+    return changed
+  }
+
+  /** 17 §6.3［カートから外す］：減った数量だけカートの行を減らし、注文の内容を新しくする */
+  function applyOrderChanges(changed: readonly ChangedOrder[]): void {
+    let next = [...lines.value]
+    for (const change of changed) {
+      const link = linkedOrders.value.find((o) => o.id === change.id)
+      if (!link) continue
+      for (const line of link.lines) {
+        const diff = line.quantity - (change.lines.find((l) => l.key === line.key)?.quantity ?? 0)
+        if (diff <= 0) continue
+        next = next.map((l) => (l.key === line.key ? { ...l, quantity: l.quantity - diff } : l)).filter((l) => l.quantity > 0)
+      }
+    }
+    lines.value = next
+    linkedOrders.value = linkedOrders.value.map((o) => {
+      const change = changed.find((c) => c.id === o.id)
+      return change ? { ...o, lines: change.lines } : o
+    })
     orderChanged()
   }
 
@@ -699,7 +767,7 @@ export const useRegisterStore = defineStore('register', () => {
   return {
     bootstrap, loading, loadError, taxTypeId, lines, discount, paymentMethodId, pendingUuid, held, linkedOrders, lastSale, submitting,
     notice, storageOk, products, taxType, paymentMethod, itemCount, orderIds, amounts, pricingError, canCheckout,
-    load, add, increment, decrement, removeLine, clearOrder, addOrders, removeOrders, setDiscount, setTaxType, setPaymentMethod,
+    load, add, increment, decrement, removeLine, clearOrder, addOrders, removeOrders, checkLinkedOrders, applyOrderChanges, setDiscount, setTaxType, setPaymentMethod,
     hold, recall, deleteHeld, startCheckout, confirm, undoLastSale, forgetLastSale,
   }
 })

@@ -48,6 +48,7 @@ class OrderResource extends JsonResource
                 'line_total' => $item->line_total,
                 'memo' => $item->memo,
                 'served_at' => $item->served_at?->toIso8601String(),
+                'cancelled_at' => $item->cancelled_at?->toIso8601String(), // 17 §3.2
                 'options' => $item->options->map(fn (OrderItemOption $option): array => [
                     'product_option_id' => $option->product_option_id,
                     'option_name' => $option->option_name,

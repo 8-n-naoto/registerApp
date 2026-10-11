@@ -6,11 +6,11 @@ import { ja } from '@/i18n/ja'
 import OrdersPage from '@/pages/OrdersPage.vue'
 import { useAuthStore } from '@/stores/auth'
 import { apiError, makeMe } from '@/test/helpers'
-import { makeOrder, makeTable } from '@/test/orders'
+import { makeOrder, makeOrderItem, makeTable } from '@/test/orders'
 
 const tablesApi = vi.hoisted(() => ({ fetchOrderTables: vi.fn(), openOrderTable: vi.fn(), closeOrderTable: vi.fn() }))
 vi.mock('@/api/orderTables', () => tablesApi)
-const ordersApi = vi.hoisted(() => ({ fetchOrders: vi.fn(), acceptOrder: vi.fn(), cancelOrder: vi.fn() }))
+const ordersApi = vi.hoisted(() => ({ fetchOrders: vi.fn(), acceptOrder: vi.fn(), cancelOrder: vi.fn(), cancelOrderItem: vi.fn() }))
 vi.mock('@/api/orders', () => ordersApi)
 
 async function mountPage(path = '/orders') {
@@ -241,5 +241,97 @@ describe('OrdersPage（S15）', () => {
     expect(document.querySelector('.adm-error')?.textContent).toContain('この注文は会計済みです')
     expect(ordersApi.fetchOrders.mock.calls.length).toBeGreaterThan(calls)
     expect(document.querySelector('[role="dialog"], [role="alertdialog"]')).toBeNull()
+  })
+
+  // ── 17 §8.2 品目の取消
+  const CURRY = makeOrderItem({ id: 501, product_name: 'カレー', unit_price: 800, quantity: 3, line_total: 2400 })
+  const SALAD = makeOrderItem({ id: 502, product_name: 'サラダ', unit_price: 500, quantity: 1, line_total: 500 })
+  const TWO = makeOrder({ id: 204, order_no: 5, subtotal: 2900, items: [CURRY, SALAD] })
+
+  async function openItemCancel(order = TWO, itemId = 501): Promise<void> {
+    ordersApi.fetchOrders.mockImplementation((view: string) => Promise.resolve(view === 'pending' ? [] : [order]))
+    await mountPage()
+    await click(card('[data-tab="unpaid"]'))
+    await click(card(`button[data-item="${itemId}"]`))
+  }
+
+  it('AC-S15-4：品目の行を押すと取り消す数を選べ、［取り消す］で送ってカードを差し替える', async () => {
+    const after = makeOrder({
+      ...TWO,
+      subtotal: 1300,
+      items: [{ ...CURRY, quantity: 1, line_total: 800 }, { ...CURRY, id: 503, quantity: 2, line_total: 1600, cancelled_at: '2026-09-29T12:30:00+09:00' }, SALAD],
+    })
+    ordersApi.cancelOrderItem.mockResolvedValue(after)
+    await openItemCancel()
+    expect(ordersApi.cancelOrderItem).not.toHaveBeenCalled()
+    const d = dialog()
+    expect(d.textContent).toContain('品目の取消')
+    expect(d.textContent).toContain('#5（T1）カレー ×3')
+    expect(card('[data-cancel-count]').textContent).toBe('1')
+    expect(d.textContent).toContain('残り 2 個になります')
+    expect(d.querySelector('[data-whole-order]')).toBeNull()
+    expect(card('[data-cancel-decrease]').hasAttribute('disabled')).toBe(true)
+
+    await click(card('[data-cancel-increase]'))
+    await click(card('[data-cancel-increase]'))
+    expect(card('[data-cancel-count]').textContent).toBe('3')
+    expect(card('[data-cancel-increase]').hasAttribute('disabled')).toBe(true)
+    expect(d.textContent).not.toContain('残り')
+    await click(card('[data-cancel-decrease]'))
+
+    await click(button('取り消す', dialog()))
+    expect(ordersApi.cancelOrderItem).toHaveBeenCalledWith(501, { quantity: 2, expected_quantity: 3 })
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull()
+    expect(document.querySelector('.adm-ok')?.textContent).toContain('#5 の カレー を 2 個取り消しました')
+    const c = card('[data-order="204"]')
+    expect(c.textContent).toContain('1,300')
+    const cancelled = card('[data-item="503"]')
+    expect(cancelled.tagName).toBe('DIV')
+    expect(cancelled.textContent).toContain(ja.orders.itemCancelled)
+    expect(cancelled.classList.contains('item--cancelled')).toBe(true)
+  })
+
+  it('AC-S15-5：最後の品目を全数取り消すときは「注文ごと取消になります」を出す。数量 1 なら数の入力は出さない', async () => {
+    await openItemCancel(makeOrder({ id: 205, order_no: 6, items: [SALAD], subtotal: 500 }), 502)
+    expect(document.querySelector('[data-cancel-count]')).toBeNull()
+    expect(card('[data-whole-order]').textContent).toContain('注文ごと取消になります')
+
+    // 注文ごと取消になったら一覧を取り直し、未会計から外す
+    const cancelled = makeOrder({ id: 205, order_no: 6, status: 'cancelled', items: [{ ...SALAD, cancelled_at: '2026-09-29T12:30:00+09:00' }], subtotal: 500 })
+    ordersApi.cancelOrderItem.mockResolvedValue(cancelled)
+    ordersApi.fetchOrders.mockResolvedValue([])
+    await click(button('取り消す', dialog()))
+    expect(ordersApi.cancelOrderItem).toHaveBeenCalledWith(502, { quantity: 1, expected_quantity: 1 })
+    expect(document.querySelector('[data-order="205"]')).toBeNull()
+  })
+
+  it('提供済みの品目は「提供済みの品目です」を添える', async () => {
+    await openItemCancel(makeOrder({ ...TWO, items: [CURRY, { ...SALAD, served_at: '2026-09-29T12:10:00+09:00' }] }), 502)
+    expect(dialog().textContent).toContain('提供済みの品目です')
+    expect(document.querySelector('[data-whole-order]')).toBeNull()
+  })
+
+  it('AC-S15-6：409（ほかの端末で変わった）なら閉じて「ほかの端末で注文が変わりました」を出し、一覧を取り直す', async () => {
+    ordersApi.cancelOrderItem.mockRejectedValue(apiError(409, { message: 'x', code: 'ORDER_STATE_CONFLICT', details: { quantity: 2 } }))
+    await openItemCancel()
+    const calls = ordersApi.fetchOrders.mock.calls.length
+    await click(button('取り消す', dialog()))
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull()
+    expect(document.querySelector('.adm-error')?.textContent).toContain(ja.orders.itemCancel.conflict)
+    expect(ordersApi.fetchOrders.mock.calls.length).toBeGreaterThan(calls)
+  })
+
+  it('AC-S15-7：会計済みの注文・取消済みの品目は行を押せない', async () => {
+    const paid = makeOrder({ id: 206, order_no: 7, sale_id: 901, items: [makeOrderItem({ id: 601 })] })
+    const withCancelled = makeOrder({ id: 207, order_no: 8, items: [makeOrderItem({ id: 701 }), makeOrderItem({ id: 702, cancelled_at: '2026-09-29T12:30:00+09:00' })] })
+    ordersApi.fetchOrders.mockImplementation((view: string) => Promise.resolve(view === 'pending' ? [] : [paid, withCancelled]))
+    await mountPage()
+    await click(card('[data-tab="today"]'))
+    expect(card('[data-item="601"]').tagName).toBe('DIV')
+    expect(card('[data-item="702"]').tagName).toBe('DIV')
+    expect(card('[data-item="702"]').textContent).toContain('取消')
+    expect(card('[data-item="701"]').tagName).toBe('BUTTON')
+    await click(card('[data-item="601"]'))
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull()
   })
 })

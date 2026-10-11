@@ -155,6 +155,8 @@ class SchemaTest extends TestCase
                 ['unit_price', false, null], ['options_price', false, '0'], ['quantity', false, null],
                 ['line_total', false, null], ['memo', true, null], ['served_at', true, null], ['served_by', true, null],
                 ['sort_order', false, '0'], ['created_at', true, null], ['updated_at', true, null],
+                // 17 §3.1
+                ['cancelled_at', true, null], ['cancelled_by', true, null],
             ]],
             'order_item_options' => ['order_item_options', [
                 ['id', false, null], ['order_item_id', false, null], ['product_option_id', false, null],

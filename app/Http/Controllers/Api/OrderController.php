@@ -89,6 +89,28 @@ class OrderController extends Controller
         return OrderResource::make($this->orders->setServed($item, $request->boolean('served'), $this->user($request)));
     }
 
+    /** #106 POST /order-items/{id}/cancel（17 §4.1）。他店舗の品目は入力の検証より先に 404（#54 と同じ順）。注文全体を返す */
+    public function cancelItem(Request $request, int $orderItem): OrderResource
+    {
+        $store = RegisterController::store($request);
+        $item = OrderItem::query()
+            ->whereKey($orderItem)
+            ->whereHas('order', fn ($q) => $q->where('store_id', $store->id))
+            ->firstOrFail();
+
+        $request->validate([
+            'expected_quantity' => ['required', 'integer', 'min:1', 'max:99'],
+            'quantity' => ['required', 'integer', 'min:1', 'lte:expected_quantity'],
+        ]);
+
+        return OrderResource::make($this->orders->cancelItem(
+            $item,
+            $request->integer('quantity'),
+            $request->integer('expected_quantity'),
+            $this->user($request),
+        ));
+    }
+
     private function user(Request $request): User
     {
         $user = $request->user();

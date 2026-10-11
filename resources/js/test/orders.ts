@@ -30,6 +30,7 @@ export function makeOrderItem(extra: Partial<OrderItem> = {}): OrderItem {
     line_total: 400,
     memo: null,
     served_at: null,
+    cancelled_at: null,
     options: [],
     ...extra,
   }

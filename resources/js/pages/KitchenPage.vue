@@ -13,7 +13,7 @@ import { fmt, ja } from '@/i18n/ja'
 import { errorBody, isNetworkError } from '@/lib/apiError'
 import { formatTokyoClock } from '@/lib/date'
 import { enableSound, loadSoundEnabled, playBeep, saveSoundEnabled } from '@/lib/kitchenSound'
-import { orderPlace } from '@/lib/orders'
+import { liveItems, orderPlace } from '@/lib/orders'
 import { useWakeLock } from '@/lib/wakeLock'
 import { useKitchenStore } from '@/stores/kitchen'
 import type { Order, OrderItem } from '@/types/api'
@@ -80,13 +80,13 @@ async function refresh(): Promise<void> {
   now.value = kitchen.serverNow()
 }
 
-/** 提供済みにした（戻した）あとの注文を、サーバーの応答を待たずに作る（items の served_at と、全品済みなら注文の served_at） */
+/** 提供済みにした（戻した）あとの注文を、サーバーの応答を待たずに作る（items の served_at と、全品済みなら注文の served_at）。取消済みの品目は変えず、完了の判定にも数えない（17 §6.1） */
 function withServed(order: Order, itemIds: number[] | 'all', served: boolean): Order {
   const at = new Date(kitchen.serverNow()).toISOString()
   const items = order.items.map((i) =>
-    itemIds === 'all' || itemIds.includes(i.id) ? { ...i, served_at: served ? (i.served_at ?? at) : null } : i,
+    i.cancelled_at === null && (itemIds === 'all' || itemIds.includes(i.id)) ? { ...i, served_at: served ? (i.served_at ?? at) : null } : i,
   )
-  const allServed = items.every((i) => i.served_at !== null)
+  const allServed = liveItems(items).every((i) => i.served_at !== null)
   return { ...order, items, served_at: allServed ? (order.served_at ?? at) : null }
 }
 
@@ -120,7 +120,7 @@ function onToggle(order: Order, item: OrderItem): void {
     run(order, withServed(order, [item.id], false), () => setItemServed(item.id, false)) // 戻すときは確認しない
     return
   }
-  const rest = order.items.filter((i) => i.served_at === null)
+  const rest = liveItems(order.items).filter((i) => i.served_at === null)
   if (rest.length === 1 && rest[0]?.id === item.id) {
     confirming.value = { kind: 'complete', order, item }
     return
@@ -129,7 +129,7 @@ function onToggle(order: Order, item: OrderItem): void {
 }
 
 function onServeAll(order: Order): void {
-  const count = order.items.filter((i) => i.served_at === null).length
+  const count = liveItems(order.items).filter((i) => i.served_at === null).length
   if (count === 0) return
   confirming.value = { kind: 'all', order, count }
 }

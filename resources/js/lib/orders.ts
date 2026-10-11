@@ -1,6 +1,6 @@
 // 注文の表示用の判定（12 §2.2）。S14 厨房・S15 注文確認・S02 の注文の選択で使う
 import { fmt, ja } from '@/i18n/ja'
-import type { Order } from '@/types/api'
+import type { Order, OrderItem } from '@/types/api'
 
 export type OrderDisplayStatus = 'pending' | 'active' | 'served' | 'paid' | 'cancelled'
 
@@ -15,6 +15,16 @@ export function orderDisplayStatus(order: Pick<Order, 'status' | 'sale_id' | 'se
 /** 取り消せるか（会計済み・取消済みは不可。12 §5.7） */
 export function canCancelOrder(order: Pick<Order, 'status' | 'sale_id'>): boolean {
   return order.status !== 'cancelled' && order.sale_id === null
+}
+
+/** 取り消されていない品目（17 §2.2。小計・提供の完了・会計への取り込みはこれだけで数える） */
+export function liveItems<T extends Pick<OrderItem, 'cancelled_at'>>(items: T[]): T[] {
+  return items.filter((item) => item.cancelled_at === null)
+}
+
+/** 品目を取り消せるか（17 §8.2。注文が取り消せて、品目が取消済みでない） */
+export function canCancelItem(order: Pick<Order, 'status' | 'sale_id'>, item: Pick<OrderItem, 'cancelled_at'>): boolean {
+  return canCancelOrder(order) && item.cancelled_at === null
 }
 
 /** 注文の置き場所の表示：テーブル名 →「テーブル未設定#連番」（呼び名があれば括弧で添える）→ 呼び名 →「テーブルなし」 */

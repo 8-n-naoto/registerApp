@@ -7,6 +7,7 @@ use App\Http\Middleware\ResolveTableToken;
 use App\Models\AuditLog;
 use App\Models\Category;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\OrderTable;
 use App\Models\Product;
 use App\Models\ProductOption;
@@ -135,7 +136,7 @@ class PublicOrderApiTest extends TestCase
             ->assertJsonPath('subtotal', 800);
         $this->assertSame(['order_no', 'status', 'created_at', 'subtotal', 'items'], array_keys((array) $res->json()));
         $this->assertSame(
-            [['product_name' => 'X', 'product_memo' => null, 'quantity' => 2, 'line_total' => 800, 'memo' => null, 'served' => false, 'options' => []]],
+            [['product_name' => 'X', 'product_memo' => null, 'quantity' => 2, 'line_total' => 800, 'memo' => null, 'served' => false, 'cancelled' => false, 'options' => []]],
             $res->json('items'),
         );
         $res->assertHeader('Referrer-Policy', 'no-referrer');
@@ -395,6 +396,23 @@ class PublicOrderApiTest extends TestCase
         $this->travel(1)->minutes();
         $this->t1->forceFill(['opened_at' => Carbon::now()])->save();
         $this->getJson($this->url('/orders'))->assertOk()->assertExactJson(['orders' => []]);
+    }
+
+    public function test_取り消された品目は_cancelled_で返し小計から除く_ac_c01_6(): void
+    {
+        $this->place($this->payload([[$this->x, 2], [$this->b, 1]], 1000))->assertCreated();
+        $x = OrderItem::query()->where('product_id', $this->x->id)->sole();
+
+        $this->actingAs(User::factory()->staff($this->store)->create());
+        $this->postJson("/api/order-items/{$x->id}/cancel", ['quantity' => 1, 'expected_quantity' => 2])->assertOk();
+
+        $res = $this->getJson($this->url('/orders'))->assertOk()->assertJsonCount(1, 'orders')
+            ->assertJsonPath('orders.0.status', 'active')
+            ->assertJsonPath('orders.0.subtotal', 600);
+        $this->assertSame(
+            [['X', 1, false], ['X', 1, true], ['B', 1, false]],
+            array_map(fn (array $i): array => [$i['product_name'], $i['quantity'], $i['cancelled']], (array) $res->json('orders.0.items')),
+        );
     }
 
     // ---- トークン（12 §3.9・§9 #6、H20〜H22） ----

@@ -150,6 +150,8 @@ class RoleMatrixTest extends TestCase
         104 => ['POST', '/sales/{id}/offline-review', ['owner'], null, 'sale'],
         // 15 §6 レシートプリンター
         105 => ['PUT', '/settings/printer', ['owner'], null, null],
+        // 17 §4 注文の品目の取消
+        106 => ['POST', '/order-items/{id}/cancel', ['owner', 'staff'], null, 'orderItem'],
     ];
 
     /** 本文以外で必要な検索条件（期間の集計は from / to が先に検証されるため、store_id の検証を確かめられるよう正しい期間を付ける） */

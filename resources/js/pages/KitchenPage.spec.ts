@@ -252,4 +252,31 @@ describe('KitchenPage（S14）', () => {
     expect(sound.playBeep).toHaveBeenCalledTimes(1)
     expect(el('[data-order="103"]').classList.contains('kcard--new')).toBe(true)
   })
+
+  it('17 §6.1・§8.1：取消済みの品目は「取消」と出して［提供済］を出さず、未提供の数・最後の品目の確認に数えない', async () => {
+    const withCancelled: Order = {
+      ...TWO_ITEMS,
+      items: [...TWO_ITEMS.items, makeOrderItem({ id: 3, product_name: 'サラダ', cancelled_at: '2026-09-29T12:15:00+09:00' })],
+    }
+    ordersApi.fetchKitchenOrders.mockResolvedValue({ changed: true, etag: null, data: data({ in_progress: [withCancelled] }) })
+    ordersApi.setItemServed.mockResolvedValueOnce(served(withCancelled, [1])).mockResolvedValueOnce(served(withCancelled, [1, 2], true))
+    await mountPage()
+
+    const row = el('[data-item="3"]')
+    expect(row.querySelector('button')).toBeNull()
+    expect(row.querySelector('[data-cancelled]')?.textContent).toBe('取消')
+    expect(row.classList.contains('kitem--cancelled')).toBe(true)
+
+    await click(button('まとめて提供済みにする'))
+    expect(dialog()?.textContent).toContain('未提供 2 品')
+    await click(button('やめる'))
+
+    await click(itemButton(1))
+    expect(dialog()).toBeNull()
+    await click(itemButton(2))
+    expect(dialog()?.textContent).toContain('すべての品目が提供済みになります')
+    await click(button('完了にする'))
+    expect(document.querySelector('[data-order="101"]')).toBeNull()
+    expect(el('[data-tab="done"]').textContent?.trim()).toBe('完了 1')
+  })
 })

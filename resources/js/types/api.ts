@@ -207,6 +207,8 @@ export interface OrderItem {
   line_total: number
   memo: string | null
   served_at: string | null
+  /** 17 §3.2。入っている品目は小計・提供の完了・会計への取り込みから除く（取り消した分を残すための行） */
+  cancelled_at: string | null
   options: OrderItemOption[]
 }
 export interface Order {
@@ -268,6 +270,7 @@ export interface PublicOrderItem {
   line_total: number
   memo: string | null
   served: boolean
+  cancelled: boolean  // 17 §3.2（日時・店員は出さない）
   options: string[]
 }
 export interface PublicOrder {

@@ -45,6 +45,7 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
         Route::post('/orders/{order}/cancel', [Api\OrderController::class, 'cancel'])->whereNumber('order');       // #52
         Route::post('/orders/{order}/serve-all', [Api\OrderController::class, 'serveAll'])->whereNumber('order');  // #53
         Route::patch('/order-items/{orderItem}/served', [Api\OrderController::class, 'served'])->whereNumber('orderItem'); // #54
+        Route::post('/order-items/{orderItem}/cancel', [Api\OrderController::class, 'cancelItem'])->whereNumber('orderItem'); // #106（17 §4.1）
         Route::get('/kitchen/orders', [Api\KitchenController::class, 'index']);                     // #55
 
         // テーブルの一覧・利用開始・終了（12 §5.11）

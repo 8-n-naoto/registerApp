@@ -16,6 +16,8 @@ const api = vi.hoisted(() => ({
   cancelSale: vi.fn(),
 }))
 vi.mock('@/api/register', () => api)
+const ordersApi = vi.hoisted(() => ({ fetchOrders: vi.fn() }))
+vi.mock('@/api/orders', () => ordersApi)
 
 const KEY = 'regi:1:register'
 const EXTRA = { received: 1000, customer_count: null, memo: null }
@@ -44,7 +46,7 @@ function sentInput(call = 0): SaleInput {
 describe('registerStore（08 §7.2）', () => {
   beforeEach(() => {
     localStorage.clear()
-    for (const fn of Object.values(api)) fn.mockReset()
+    for (const fn of [...Object.values(api), ...Object.values(ordersApi)]) fn.mockReset()
     api.fetchBootstrap.mockImplementation(() => Promise.resolve(makeBootstrap()))
   })
 
@@ -369,6 +371,55 @@ describe('registerStore（08 §7.2）', () => {
       api.createSale.mockRejectedValue(apiError(422, { message: '見つからない注文があります。画面を更新してください', code: 'ITEM_UNAVAILABLE', details: { order_ids: [101] } }))
       const outcome = await register.confirm(EXTRA)
       expect(outcome.ok ? null : outcome.staleOrders).toEqual({ ids: [101], message: '見つからない注文があります。画面を更新してください' })
+    })
+
+    // 17 §6.3 カートに入れた後に品目が取り消された
+    it('取消済みの品目はカートに入れない', async () => {
+      const register = await loaded()
+      const withCancelled = makeOrder({ id: 103, items: [
+        makeOrderItem({ product_id: 1, quantity: 1 }),
+        makeOrderItem({ id: 1003, product_id: 1, quantity: 2, cancelled_at: '2026-09-29T12:30:00+09:00' }),
+      ] })
+      register.addOrders([withCancelled])
+      expect(register.lines).toEqual([{ key: '1:', product_id: 1, option_ids: [], quantity: 1 }])
+    })
+
+    it('確定の前に取り直し、減った品目を返す。［カートから外す］でカートの数量を減らす', async () => {
+      const register = await loaded()
+      register.add(product(1)) // 手で足したコーヒー ×1 は残す
+      register.addOrders([T1, T2])
+      ordersApi.fetchOrders.mockResolvedValue([
+        { ...T1, items: [
+          { ...T1.items[0]!, quantity: 1, line_total: 400 },
+          { ...T1.items[0]!, id: 1009, quantity: 1, line_total: 400, cancelled_at: '2026-09-29T12:30:00+09:00' },
+          { ...T1.items[1]!, cancelled_at: '2026-09-29T12:30:00+09:00' },
+        ] },
+        T2,
+      ])
+      const changed = await register.checkLinkedOrders()
+      expect(ordersApi.fetchOrders).toHaveBeenCalledWith('unpaid')
+      expect(changed).toEqual([{
+        id: 101,
+        order_no: 1,
+        lines: [{ key: '1:', product_id: 1, option_ids: [], quantity: 1 }],
+        removed: [{ name: 'コーヒー', quantity: 1 }, { name: 'ラテ', quantity: 1 }],
+      }])
+
+      register.applyOrderChanges(changed)
+      expect(register.lines).toEqual([{ key: '1:', product_id: 1, option_ids: [], quantity: 3 }])
+      expect(register.orderIds).toEqual([101, 102])
+      expect(await register.checkLinkedOrders()).toEqual([]) // 直した後は変わっていない
+    })
+
+    it('変わっていない・注文が無い・取得に失敗したときは何も返さない', async () => {
+      const register = await loaded()
+      expect(await register.checkLinkedOrders()).toEqual([])
+      expect(ordersApi.fetchOrders).not.toHaveBeenCalled()
+      register.addOrders([T1])
+      ordersApi.fetchOrders.mockResolvedValue([T1])
+      expect(await register.checkLinkedOrders()).toEqual([])
+      ordersApi.fetchOrders.mockRejectedValue(networkError())
+      expect(await register.checkLinkedOrders()).toEqual([])
     })
   })
 })

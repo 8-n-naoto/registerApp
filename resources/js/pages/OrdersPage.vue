@@ -2,9 +2,9 @@
 // S15 注文確認（12 §8.5）：タブ［テーブル・持ち帰り］［確認待ち n］［未会計］［本日の注文］。
 // ［テーブル・持ち帰り］はテーブルのカードの後に、テーブルなしの未会計の注文を 1 件ずつ「テーブル未設定#n」のカードで並べる。
 // 画面を開いたとき・タブを切り替えたとき・［更新］で取得する（自動更新はしない）。確認待ちの件数は毎回取り直す
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { acceptOrder, cancelOrder, fetchOrders, type OrderView } from '@/api/orders'
+import { acceptOrder, cancelOrder, cancelOrderItem, fetchOrders, type OrderView } from '@/api/orders'
 import { closeOrderTable, fetchOrderTables, openOrderTable } from '@/api/orderTables'
 import AppHeader from '@/components/AppHeader.vue'
 import AppIcon from '@/components/AppIcon.vue'
@@ -15,8 +15,8 @@ import { fmt, ja } from '@/i18n/ja'
 import { errorBody, errorStatus, isNetworkError } from '@/lib/apiError'
 import { formatTime } from '@/lib/date'
 import { formatYen } from '@/lib/money'
-import { canCancelOrder, orderDisplayStatus, orderPlace } from '@/lib/orders'
-import type { Order, OrderTable } from '@/types/api'
+import { canCancelOrder, liveItems, orderDisplayStatus, orderPlace } from '@/lib/orders'
+import type { Order, OrderItem, OrderTable } from '@/types/api'
 import '@/styles/admin.css'
 
 type Tab = 'tables' | OrderView
@@ -213,6 +213,71 @@ async function runConfirm(): Promise<void> {
     confirmBusy.value = false
   }
 }
+
+// ── 品目の取消（17 §8.2）：品目の行をタップ → 取り消す数を選んで［取り消す］
+const cancelling = ref<{ order: Order; item: OrderItem } | null>(null)
+const cancelCount = ref(1)
+const cancelBusy = ref(false)
+const cancelError = ref<string | null>(null)
+let noticeTimer: ReturnType<typeof setTimeout> | undefined
+
+onBeforeUnmount(() => clearTimeout(noticeTimer))
+
+function askCancelItem(order: Order, item: OrderItem): void {
+  cancelling.value = { order, item }
+  cancelCount.value = 1
+  cancelError.value = null
+  notice.value = null
+  actionError.value = null
+}
+
+/** 最後の品目を全数取り消すと注文ごと取消になる（17 §2.4） */
+const cancelsWholeOrder = computed(() => {
+  const c = cancelling.value
+  if (!c) return false
+  const rest = liveItems(c.order.items).filter((x) => x.id !== c.item.id)
+  return rest.length === 0 && cancelCount.value === c.item.quantity
+})
+
+function replaceOrder(order: Order): void {
+  const swap = (list: Order[]): Order[] => list.map((o) => (o.id === order.id ? order : o))
+  if (tab.value !== 'tables') showOrders(tab.value, swap(orders.value))
+  for (const [view, list] of tabCache) {
+    if (view !== tab.value) tabCache.set(view, swap(list))
+  }
+}
+
+async function runCancelItem(): Promise<void> {
+  const c = cancelling.value
+  if (!c || cancelBusy.value) return
+  const n = cancelCount.value
+  cancelBusy.value = true
+  cancelError.value = null
+  try {
+    const updated = await cancelOrderItem(c.item.id, { quantity: n, expected_quantity: c.item.quantity })
+    replaceOrder(updated)
+    cancelling.value = null
+    notice.value = fmt(t.itemCancel.done, { no: c.order.order_no, name: c.item.product_name, n })
+    clearTimeout(noticeTimer)
+    noticeTimer = setTimeout(() => {
+      notice.value = null
+    }, 3000)
+    // 注文ごと取消になったら未会計の一覧・テーブルの件数から外れるため、#52 の取消と同じく取り直す
+    if (updated.status === 'cancelled') await load()
+  } catch (err) {
+    // 数量が変わっていた・取消済み・会計済み（409）・消えた（404）：閉じて一覧を取り直す。通信断は開いたまま押し直してもらう
+    const status = errorStatus(err)
+    if (status === 409 || status === 404) {
+      cancelling.value = null
+      actionError.value = t.itemCancel.conflict
+      await load()
+    } else {
+      cancelError.value = messageOf(err)
+    }
+  } finally {
+    cancelBusy.value = false
+  }
+}
 </script>
 
 <template>
@@ -404,6 +469,8 @@ async function runConfirm(): Promise<void> {
             v-for="order in orders"
             :key="order.id"
             :order="order"
+            cancellable
+            @cancel-item="askCancelItem(order, $event)"
           >
             <button
               v-if="order.status === 'pending'"
@@ -438,6 +505,90 @@ async function runConfirm(): Promise<void> {
       @confirm="runConfirm"
       @cancel="confirming = null"
     />
+
+    <ConfirmDialog
+      :open="cancelling !== null"
+      :title="t.itemCancel.title"
+      :confirm-label="t.itemCancel.submit"
+      danger
+      :loading="cancelBusy"
+      :error="cancelError"
+      @confirm="runCancelItem"
+      @cancel="cancelling = null"
+    >
+      <div
+        v-if="cancelling"
+        class="item-cancel"
+        data-item-cancel
+      >
+        <p class="item-cancel__head">
+          {{ fmt(t.itemCancel.heading, { no: cancelling.order.order_no, place: orderPlace(cancelling.order), name: cancelling.item.product_name, n: cancelling.item.quantity }) }}
+        </p>
+        <p
+          v-if="cancelling.item.options.length > 0"
+          class="item-cancel__sub sub"
+        >
+          {{ cancelling.item.options.map((o) => o.option_name).join('・') }}
+        </p>
+        <p
+          v-if="cancelling.item.memo"
+          class="item-cancel__sub sub"
+        >
+          {{ fmt(t.memo, { memo: cancelling.item.memo }) }}
+        </p>
+        <div
+          v-if="cancelling.item.quantity > 1"
+          class="item-cancel__count"
+        >
+          <span class="item-cancel__label">{{ t.itemCancel.count }}</span>
+          <div class="r-qty r-qty--lg">
+            <button
+              type="button"
+              class="r-qty__b"
+              :aria-label="t.itemCancel.decrease"
+              :disabled="cancelBusy || cancelCount <= 1"
+              data-cancel-decrease
+              @click="cancelCount -= 1"
+            >
+              <AppIcon name="minus" />
+            </button>
+            <span
+              class="r-qty__v tabular"
+              data-cancel-count
+            >{{ cancelCount }}</span>
+            <button
+              type="button"
+              class="r-qty__b"
+              :aria-label="t.itemCancel.increase"
+              :disabled="cancelBusy || cancelCount >= cancelling.item.quantity"
+              data-cancel-increase
+              @click="cancelCount += 1"
+            >
+              <AppIcon name="plus" />
+            </button>
+          </div>
+        </div>
+        <p
+          v-if="cancelCount < cancelling.item.quantity"
+          class="item-cancel__note"
+        >
+          {{ fmt(t.itemCancel.remaining, { n: cancelling.item.quantity - cancelCount }) }}
+        </p>
+        <p
+          v-if="cancelling.item.served_at !== null"
+          class="item-cancel__note"
+        >
+          {{ t.itemCancel.served }}
+        </p>
+        <p
+          v-if="cancelsWholeOrder"
+          class="item-cancel__whole r-banner r-banner--danger"
+          data-whole-order
+        >
+          {{ t.itemCancel.wholeOrder }}
+        </p>
+      </div>
+    </ConfirmDialog>
   </div>
 </template>
 
@@ -478,4 +629,12 @@ async function runConfirm(): Promise<void> {
   gap: 12px;
   align-items: start;
 }
+
+.item-cancel { display: flex; flex-direction: column; gap: 8px; }
+.item-cancel__head { margin: 0; font-size: 20px; font-weight: 800; overflow-wrap: anywhere; }
+.item-cancel__sub { margin: 0; font-size: 16px; overflow-wrap: anywhere; }
+.item-cancel__count { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.item-cancel__label { font-size: 18px; font-weight: 700; }
+.item-cancel__note { margin: 0; font-size: 17px; }
+.item-cancel__whole { margin: 0; font-weight: 700; }
 </style>

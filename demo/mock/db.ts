@@ -48,7 +48,7 @@ export interface Db {
   shift_patterns: ShiftPattern[]
 }
 
-export const DB_VERSION = 9
+export const DB_VERSION = 10
 const STORAGE_KEY = 'regi-demo:db'
 export const STORE_ID = 1
 
@@ -492,7 +492,7 @@ export function addOrder(db: Db, store: StoreSettings, a: {
     return {
       id: nextId(db, 'order_item'), product_id: l.product.id, product_code: l.product.code, product_name: l.product.name, product_memo: l.product.memo,
       unit_price: l.product.price, options_price: optionsPrice, quantity: l.quantity, line_total: (l.product.price + optionsPrice) * l.quantity,
-      memo: l.memo, served_at: a.served === 'all' || (a.served === 'part' && i === 0) ? servedAt : null,
+      memo: l.memo, served_at: a.served === 'all' || (a.served === 'part' && i === 0) ? servedAt : null, cancelled_at: null,
       options: orderOptionSnapshot(l.product, opts.map((o) => o.id)),
     }
   })

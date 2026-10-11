@@ -9,7 +9,7 @@ import BottomSheet from '@/components/BottomSheet.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { formatYen } from '@/lib/money'
-import { orderPlace } from '@/lib/orders'
+import { liveItems, orderPlace } from '@/lib/orders'
 import { useRegisterStore } from '@/stores/register'
 import type { Order } from '@/types/api'
 
@@ -77,7 +77,7 @@ function toggleOrder(order: Order): void {
 }
 
 function summary(order: Order): string {
-  return order.items.map((i) => `${i.product_name} ×${i.quantity}`).join('、')
+  return liveItems(order.items).map((i) => `${i.product_name} ×${i.quantity}`).join('、')
 }
 
 function timeOf(iso: string): string {

@@ -178,6 +178,7 @@ final class OrderService
             ->where('orders.store_id', $store->id)
             ->whereIn('orders.status', [OrderStatus::Pending->value, OrderStatus::Active->value])
             ->whereNull('orders.sale_id')
+            ->whereNull('order_items.cancelled_at') // 取り消した品目は引当に数えない（17 §2.2）
             ->whereIn('order_items.product_id', $productIds)
             ->groupBy('order_items.product_id')
             ->toBase()
@@ -301,6 +302,90 @@ final class OrderService
         return $order->load(Order::WITH_ALL);
     }
 
+    /**
+     * 17 §5.1：品目を $quantity 個取り消す。全数なら行に印を付け、一部なら行を分けて取り消した分を取消済みの行として残す。
+     * 取消済みでない品目が無くなれば注文ごと取消にする。$expectedQuantity が今の数量と違えば 409（二重送信・同時操作）
+     */
+    public function cancelItem(OrderItem $item, int $quantity, int $expectedQuantity, User $user): Order
+    {
+        /** @var Order $order */
+        $order = $item->order;
+
+        DB::transaction(function () use ($order, $item, $quantity, $expectedQuantity, $user): void {
+            $order->refresh();
+            $item->refresh();
+            if ($order->status === OrderStatus::Cancelled) {
+                throw $this->stateConflict($order);
+            }
+            if ($order->sale_id !== null) {
+                throw new BusinessException(ErrorCode::OrderAlreadyPaid, '会計済みの注文は取り消せません', 409);
+            }
+            if ($item->cancelled_at !== null) {
+                throw $this->itemCancelledConflict($order);
+            }
+            if ($item->quantity !== $expectedQuantity) {
+                throw new BusinessException(
+                    ErrorCode::OrderStateConflict,
+                    'ほかの端末で注文が変わりました。画面を更新してください',
+                    409,
+                    details: ['status' => $order->status->value, 'quantity' => $item->quantity],
+                );
+            }
+
+            $now = Carbon::now();
+            $before = ['quantity' => $item->quantity, 'subtotal' => $order->subtotal];
+            $unit = $item->unit_price + $item->options_price;
+
+            if ($quantity === $item->quantity) {
+                $item->cancelled_at = $now;
+                $item->cancelled_by = $user->id;
+                $item->save();
+            } else {
+                $item->quantity -= $quantity;
+                $item->line_total = $unit * $item->quantity;
+                $item->save();
+
+                // 取り消した分を、元の行の直後（同じ sort_order・大きい id）に取消済みの行として残す
+                $cancelled = $item->replicate(['created_at', 'updated_at']);
+                $cancelled->quantity = $quantity;
+                $cancelled->line_total = $unit * $quantity;
+                $cancelled->cancelled_at = $now;
+                $cancelled->cancelled_by = $user->id;
+                $cancelled->save();
+                foreach ($item->options as $option) {
+                    $cancelled->options()->create($option->only(['product_option_id', 'option_name', 'price', 'is_default', 'is_choice']));
+                }
+            }
+
+            $live = OrderItem::query()->where('order_id', $order->id)->whereNull('cancelled_at')->get(['line_total', 'served_at']);
+            $orderCancelled = $live->isEmpty();
+            if ($orderCancelled) {
+                $order->status = OrderStatus::Cancelled;
+                $order->cancelled_at = $now;
+                $order->cancelled_by = $user->id;
+            } else {
+                $order->subtotal = (int) $live->sum('line_total');
+                if ($order->served_at === null && $live->every(fn (OrderItem $i): bool => $i->served_at !== null)) {
+                    $order->served_at = $now; // 残りがすべて提供済み → 完了（17 X08）
+                }
+            }
+            $order->save();
+
+            $this->audit->log(AuditAction::OrderItemCancelled, $order, $before, [
+                'order_no' => $order->order_no,
+                'table_name' => $order->table_name,
+                'product_name' => $item->product_name,
+                'cancelled_quantity' => $quantity,
+                'remaining_quantity' => $quantity === $before['quantity'] ? 0 : $item->quantity,
+                'subtotal' => $order->subtotal,
+                'order_cancelled' => $orderCancelled,
+            ]);
+            Store::bumpOrderRev($order->store_id);
+        });
+
+        return $order->load(Order::WITH_ALL);
+    }
+
     /** 12 §5.8：未提供の品目をすべて提供済みにする。既に提供済みの品目の時刻は変えない。完了済みなら何もしない */
     public function serveAll(Order $order, User $user): Order
     {
@@ -314,7 +399,7 @@ final class OrderService
             }
 
             $now = Carbon::now();
-            OrderItem::query()->where('order_id', $order->id)->whereNull('served_at')->update(['served_at' => $now, 'served_by' => $user->id]);
+            OrderItem::query()->where('order_id', $order->id)->whereNull('cancelled_at')->whereNull('served_at')->update(['served_at' => $now, 'served_by' => $user->id]);
             $order->served_at = $now;
             $order->save();
             Store::bumpOrderRev($order->store_id);
@@ -335,6 +420,9 @@ final class OrderService
             if ($order->status !== OrderStatus::Active) {
                 throw $this->stateConflict($order);
             }
+            if ($item->cancelled_at !== null) {
+                throw $this->itemCancelledConflict($order); // 17 X14
+            }
 
             $now = Carbon::now();
             if ($served) {
@@ -343,7 +431,7 @@ final class OrderService
                     $item->served_by = $user->id;
                     $item->save();
                 }
-                if ($order->served_at === null && ! OrderItem::query()->where('order_id', $order->id)->whereNull('served_at')->exists()) {
+                if ($order->served_at === null && ! OrderItem::query()->where('order_id', $order->id)->whereNull('cancelled_at')->whereNull('served_at')->exists()) {
                     $order->served_at = $now;
                     $order->save();
                 }
@@ -593,6 +681,17 @@ final class OrderService
             'この注文は操作できない状態です。画面を更新してください',
             409,
             details: ['status' => $order->status->value],
+        );
+    }
+
+    /** 17 §4.1 手順 4・§4.2 #54：取消済みの品目への操作 */
+    private function itemCancelledConflict(Order $order): BusinessException
+    {
+        return new BusinessException(
+            ErrorCode::OrderStateConflict,
+            'この品目は取り消されています。画面を更新してください',
+            409,
+            details: ['status' => $order->status->value, 'item' => 'cancelled'],
         );
     }
 }

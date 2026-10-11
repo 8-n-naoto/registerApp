@@ -1,14 +1,16 @@
 <script setup lang="ts">
 // 注文 1 件の表示（12 §8.5）：番号・置き場所・時刻・状態・小計の目安、品目（数量・オプション・メモ）、注文メモ。
-// 操作のボタンは呼び出し側がスロットで置く
+// 操作のボタンは呼び出し側がスロットで置く。
+// 17 §8：取消済みの品目は取り消し線と「取消」の札。cancellable のときは取り消せる品目の行をボタンにし、押すと cancelItem を出す
 import { computed } from 'vue'
 import MoneyText from '@/components/MoneyText.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { formatTime } from '@/lib/date'
-import { orderDisplayStatus, orderPlace } from '@/lib/orders'
-import type { Order } from '@/types/api'
+import { canCancelItem, orderDisplayStatus, orderPlace } from '@/lib/orders'
+import type { Order, OrderItem } from '@/types/api'
 
-const props = defineProps<{ order: Order }>()
+const props = defineProps<{ order: Order; cancellable?: boolean }>()
+const emit = defineEmits<{ cancelItem: [item: OrderItem] }>()
 
 const t = ja.orders
 const STATUS_CHIP: Record<string, string> = {
@@ -19,6 +21,12 @@ const STATUS_CHIP: Record<string, string> = {
   cancelled: 'r-chip--danger',
 }
 const status = computed(() => orderDisplayStatus(props.order))
+function tappable(item: OrderItem): boolean {
+  return props.cancellable === true && canCancelItem(props.order, item)
+}
+function onItem(item: OrderItem): void {
+  if (tappable(item)) emit('cancelItem', item)
+}
 const who = computed(() => (props.order.source === 'customer' ? t.fromCustomer : (props.order.user_name ?? '')))
 </script>
 
@@ -45,21 +53,37 @@ const who = computed(() => (props.order.source === 'customer' ? t.fromCustomer :
       <li
         v-for="item in order.items"
         :key="item.id"
-        class="item"
-        :class="{ 'item--served': item.served_at !== null }"
       >
-        <span class="item__qty tabular">{{ item.quantity }}</span>
-        <span class="item__body">
-          <span class="item__name clamp2">{{ item.product_name }}</span>
+        <component
+          :is="tappable(item) ? 'button' : 'div'"
+          :type="tappable(item) ? 'button' : undefined"
+          class="item"
+          :class="{
+            'item--served': item.served_at !== null,
+            'item--cancelled': item.cancelled_at !== null,
+            'item--button': tappable(item),
+          }"
+          :aria-label="tappable(item) ? fmt(t.itemCancel.open, { name: item.product_name }) : undefined"
+          :data-item="item.id"
+          @click="onItem(item)"
+        >
+          <span class="item__qty tabular">{{ item.quantity }}</span>
+          <span class="item__body">
+            <span class="item__name clamp2">{{ item.product_name }}</span>
+            <span
+              v-if="item.options.length > 0"
+              class="item__sub sub"
+            >{{ item.options.map((o) => o.option_name).join('・') }}</span>
+            <span
+              v-if="item.memo"
+              class="item__memo"
+            >{{ fmt(t.memo, { memo: item.memo }) }}</span>
+          </span>
           <span
-            v-if="item.options.length > 0"
-            class="item__sub sub"
-          >{{ item.options.map((o) => o.option_name).join('・') }}</span>
-          <span
-            v-if="item.memo"
-            class="item__memo"
-          >{{ fmt(t.memo, { memo: item.memo }) }}</span>
-        </span>
+            v-if="item.cancelled_at !== null"
+            class="item__chip r-chip r-chip--danger"
+          >{{ t.itemCancelled }}</span>
+        </component>
       </li>
     </ul>
     <p
@@ -92,7 +116,12 @@ const who = computed(() => (props.order.source === 'customer' ? t.fromCustomer :
 
 .card__items { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
 .item { display: flex; gap: 12px; font-size: 18px; }
-.item--served { color: var(--c-text-sub); }
+.item--button { width: 100%; min-height: 56px; align-items: center; padding: 4px 8px; border: 1px solid var(--c-border); border-radius: var(--radius); background: var(--c-surface); color: var(--c-text); font-family: inherit; line-height: inherit; text-align: left; cursor: pointer; }
+.item--served,
+.item--cancelled { color: var(--c-text-sub); }
+.item--cancelled .item__qty,
+.item--cancelled .item__name { text-decoration: line-through; }
+.item__chip { flex: none; margin-left: auto; align-self: center; }
 .item__qty { min-width: 2em; font-weight: 800; text-align: right; }
 .item__body { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
 .item__name { font-weight: 700; }

@@ -31,6 +31,7 @@ class PublicOrderResource extends JsonResource
                 'line_total' => $item->line_total,
                 'memo' => $item->memo,
                 'served' => $item->served_at !== null,
+                'cancelled' => $item->cancelled_at !== null, // 17 §3.2（日時・店員は出さない）
                 'options' => $item->options->map(fn (OrderItemOption $option): string => $option->option_name)->all(),
             ])->all(),
         ];

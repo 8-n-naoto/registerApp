@@ -227,8 +227,8 @@ describe('TableOrderPage（C01）', () => {
   it('注文履歴：番号・状態・品目ごとの準備中／お届け済みを出し、［更新］で取り直す', async () => {
     api.fetchCustomerOrders.mockResolvedValue([
       { ...ORDER, items: [
-        { product_name: 'コーヒー', product_memo: null, quantity: 2, line_total: 1000, memo: null, served: true, options: ['大盛り'] },
-        { product_name: '水', product_memo: null, quantity: 1, line_total: 0, memo: null, served: false, options: [] },
+        { product_name: 'コーヒー', product_memo: null, quantity: 2, line_total: 1000, memo: null, served: true, cancelled: false, options: ['大盛り'] },
+        { product_name: '水', product_memo: null, quantity: 1, line_total: 0, memo: null, served: false, cancelled: false, options: [] },
       ] },
       { ...ORDER, order_no: 8, status: 'pending' },
     ])
@@ -242,5 +242,22 @@ describe('TableOrderPage（C01）', () => {
     expect(el('[data-history="8"]').textContent).toContain('確認中')
     await click(button('更新'))
     expect(api.fetchCustomerOrders).toHaveBeenCalledTimes(2)
+  })
+
+  it('AC-C01-6：取り消された品目は「取消」と取り消し線で出し、お届け済み／準備中は出さない', async () => {
+    api.fetchCustomerOrders.mockResolvedValue([
+      { ...ORDER, subtotal: 500, items: [
+        { product_name: 'コーヒー', product_memo: null, quantity: 1, line_total: 500, memo: null, served: false, cancelled: false, options: [] },
+        { product_name: 'ケーキ', product_memo: null, quantity: 2, line_total: 1000, memo: null, served: true, cancelled: true, options: [] },
+      ] },
+    ])
+    await mountPage()
+    await click(button('注文履歴'))
+    const rows = [...el('[data-history="7"]').querySelectorAll<HTMLElement>('.history__item')]
+    expect(rows[0]?.textContent).toContain('準備中')
+    expect(rows[0]?.classList.contains('history__item--cancelled')).toBe(false)
+    expect(rows[1]?.querySelector('[data-item-cancelled]')?.textContent).toBe('取消')
+    expect(rows[1]?.textContent).not.toContain('お届け済み')
+    expect(rows[1]?.classList.contains('history__item--cancelled')).toBe(true)
   })
 })

@@ -265,14 +265,14 @@ function assertOrderable(lines: { product: Product; quantity: number }[], custom
 function publicOrder(o: DbOrder): PublicOrder {
   return {
     order_no: o.order_no, status: o.status, created_at: o.created_at, subtotal: o.subtotal,
-    items: o.items.map((i) => ({ product_name: i.product_name, product_memo: i.product_memo, quantity: i.quantity, line_total: i.line_total, memo: i.memo, served: i.served_at !== null, options: i.options.map((x) => x.option_name) })),
+    items: o.items.map((i) => ({ product_name: i.product_name, product_memo: i.product_memo, quantity: i.quantity, line_total: i.line_total, memo: i.memo, served: i.served_at !== null, cancelled: i.cancelled_at !== null, options: i.options.map((x) => x.option_name) })),
   }
 }
 const tableByToken = (token: string): DbTable => db.tables.find((t) => t.token === token && t.is_active) ?? notFound()
 
-/** 注文の品目がすべて提供済みになったら注文も提供済みにする */
+/** 注文の品目（取消済みを除く）がすべて提供済みになったら注文も提供済みにする */
 function syncServed(o: DbOrder): void {
-  const all = o.items.every((i) => i.served_at !== null)
+  const all = o.items.filter((i) => i.cancelled_at === null).every((i) => i.served_at !== null)
   if (all && o.served_at === null) o.served_at = nowIso()
   if (!all) o.served_at = null
 }
@@ -901,7 +901,7 @@ on('POST', '/orders/{id}/serve-all', (ctx, [id]) => {
   const o = findOrder(Number(id))
   if (o.status !== 'active') stateConflict()
   const t = nowIso()
-  for (const i of o.items) i.served_at ??= t
+  for (const i of o.items) if (i.cancelled_at === null) i.served_at ??= t
   o.served_at ??= t
   db.order_rev++
   return orderView(o)
@@ -911,9 +911,50 @@ on('PATCH', '/order-items/{id}/served', (ctx, [id]) => {
   const o = db.orders.find((x) => x.items.some((i) => i.id === Number(id))) ?? notFound()
   if (o.status !== 'active') stateConflict()
   const item = o.items.find((i) => i.id === Number(id)) ?? notFound()
+  if (item.cancelled_at !== null) fail(409, 'この品目は取り消されています。画面を更新してください', { code: 'ORDER_STATE_CONFLICT', details: { status: o.status, item: 'cancelled' } })
   item.served_at = ctx.body.served === true ? item.served_at ?? nowIso() : null
   syncServed(o)
   db.order_rev++
+  return orderView(o)
+})
+// 17 §4.1・§5.1 品目を n 個取り消す（一部なら行を分ける。残りが無くなれば注文ごと取消）
+on('POST', '/order-items/{id}/cancel', (ctx, [id]) => {
+  const u = requireUser(ctx, ['owner', 'staff'])
+  const o = db.orders.find((x) => x.items.some((i) => i.id === Number(id))) ?? notFound()
+  const index = o.items.findIndex((i) => i.id === Number(id))
+  const item = o.items[index] ?? notFound()
+  const quantity = int(ctx.body.quantity)
+  const expected = int(ctx.body.expected_quantity)
+  if (!(expected >= 1 && expected <= 99)) invalid('expected_quantity', '数量が正しくありません')
+  if (!(quantity >= 1 && quantity <= expected)) invalid('quantity', '取り消す数が正しくありません')
+  if (o.status === 'cancelled') stateConflict()
+  if (o.sale_id !== null) fail(409, '会計済みの注文は取り消せません', { code: 'ORDER_ALREADY_PAID' })
+  if (item.cancelled_at !== null) fail(409, 'この品目は取り消されています。画面を更新してください', { code: 'ORDER_STATE_CONFLICT', details: { status: o.status, item: 'cancelled' } })
+  if (item.quantity !== expected) fail(409, 'ほかの端末で注文が変わりました。画面を更新してください', { code: 'ORDER_STATE_CONFLICT', details: { status: o.status, quantity: item.quantity } })
+  const t = nowIso()
+  const before = { quantity: item.quantity, subtotal: o.subtotal }
+  const unit = item.unit_price + item.options_price
+  if (quantity === item.quantity) {
+    item.cancelled_at = t
+  } else {
+    item.quantity -= quantity
+    item.line_total = unit * item.quantity
+    const copy = { ...item, id: nextId(db, 'order_item'), quantity, line_total: unit * quantity, cancelled_at: t, options: item.options.map((x) => ({ ...x })) }
+    o.items.splice(index + 1, 0, copy)
+  }
+  const live = o.items.filter((i) => i.cancelled_at === null)
+  const orderCancelled = live.length === 0
+  if (orderCancelled) {
+    o.status = 'cancelled'
+  } else {
+    o.subtotal = live.reduce((n, i) => n + i.line_total, 0)
+    syncServed(o)
+  }
+  db.order_rev++
+  audit(u, 'order_item_cancelled', ['order', o.id], before, {
+    order_no: o.order_no, table_name: o.table_name, product_name: item.product_name, cancelled_quantity: quantity,
+    remaining_quantity: quantity === before.quantity ? 0 : item.quantity, subtotal: o.subtotal, order_cancelled: orderCancelled,
+  })
   return orderView(o)
 })
 on('GET', '/kitchen/orders', (ctx) => {

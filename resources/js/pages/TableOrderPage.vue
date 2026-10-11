@@ -607,12 +607,18 @@ function openHistory(): void {
               v-for="(item, i) in o.items"
               :key="i"
               class="history__item"
+              :class="{ 'history__item--cancelled': item.cancelled }"
             >
               <span class="history__name">
                 {{ item.product_name }}<template v-if="item.options.length > 0">（{{ item.options.join('・') }}）</template> ×{{ item.quantity }}
               </span>
               <span
-                v-if="o.status === 'active'"
+                v-if="item.cancelled"
+                class="history__served r-chip r-chip--danger"
+                data-item-cancelled
+              >{{ t.itemCancelled }}</span>
+              <span
+                v-else-if="o.status === 'active'"
                 class="history__served r-chip"
                 :class="item.served ? 'history__served--on r-chip--ok' : 'r-chip--info'"
               >{{ item.served ? t.served : t.preparing }}</span>
@@ -727,4 +733,6 @@ function openHistory(): void {
 .history__item { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .history__name { min-width: 0; overflow-wrap: anywhere; }
 .history__served { flex-shrink: 0; }
+.history__item--cancelled { color: var(--c-text-sub); }
+.history__item--cancelled .history__name { text-decoration: line-through; }
 </style>

@@ -29,9 +29,17 @@ const props = defineProps<{
   error: string | null
   /** 店舗にプリンターがあるときだけ true（切替を出す） */
   printable?: boolean
+  /** 17 §6.3 カートに入れた後に取り消された品目（「#12 カレー ×1 取消」）。選ぶまで確定させない */
+  orderChanges?: string[]
 }>()
 
-const emit = defineEmits<{ confirm: [extra: ConfirmExtra, print: boolean]; back: []; pay: [id: number] }>()
+const emit = defineEmits<{
+  confirm: [extra: ConfirmExtra, print: boolean]
+  back: []
+  pay: [id: number]
+  removeChanged: []
+  keepChanged: []
+}>()
 
 const t = ja.register
 const received = ref<number | null>(null)
@@ -69,7 +77,8 @@ const cash = computed<{ change: number | null; shortage: number | null }>(() => 
   }
 })
 
-const canConfirm = computed(() => !props.submitting && cash.value.shortage === null)
+const hasChanges = computed(() => (props.orderChanges?.length ?? 0) > 0)
+const canConfirm = computed(() => !props.submitting && !hasChanges.value && cash.value.shortage === null)
 
 const QUICK = [1000, 5000, 10000] as const
 
@@ -108,6 +117,38 @@ function back(): void {
         aria-labelledby="checkout-title"
         tabindex="-1"
       >
+        <div
+          v-if="hasChanges"
+          class="checkout__changed r-banner r-banner--warn"
+          role="alert"
+        >
+          <div class="checkout__changed-text">
+            <p class="checkout__changed-title">
+              {{ t.orderChanged }}
+            </p>
+            <p
+              v-for="(line, i) in orderChanges"
+              :key="i"
+            >
+              {{ line }}
+            </p>
+          </div>
+          <div class="checkout__changed-actions">
+            <BigButton
+              :disabled="submitting"
+              @click="emit('removeChanged')"
+            >
+              {{ t.orderChangedRemove }}
+            </BigButton>
+            <BigButton
+              variant="secondary"
+              :disabled="submitting"
+              @click="emit('keepChanged')"
+            >
+              {{ t.orderChangedKeep }}
+            </BigButton>
+          </div>
+        </div>
         <div class="checkout__cols">
           <div class="checkout__main">
             <CheckoutDetail />
@@ -351,6 +392,12 @@ function back(): void {
 .checkout__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 
 .checkout__error { margin: 0; white-space: pre-line; }
+
+.checkout__changed { flex-direction: column; align-items: stretch; }
+.checkout__changed-text p { margin: 0; }
+.checkout__changed-title { font-weight: 800; }
+.checkout__changed-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.checkout__changed-actions > * { flex: 1 1 160px; }
 
 .checkout__actions { display: flex; gap: 12px; margin-top: auto; }
 .checkout__back { flex: 0 0 auto; min-width: 96px; }

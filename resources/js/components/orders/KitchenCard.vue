@@ -1,10 +1,10 @@
 <script setup lang="ts">
 // S14 厨房の注文カード（12 §8.3）。見出し（番号・置き場所・客 / 店・経過分）、品目ごとの［提供済］、［まとめて提供済みにする］。
-// 確認ダイアログと API は親が持つ
+// 確認ダイアログと API は親が持つ。取消済みの品目は取り消し線と「取消」の札で出し、［提供済］は出さない（17 §8.1）
 import { computed } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
 import { fmt, ja } from '@/i18n/ja'
-import { orderPlace } from '@/lib/orders'
+import { liveItems, orderPlace } from '@/lib/orders'
 import type { Order, OrderItem } from '@/types/api'
 
 const LATE_MINUTES = 10 // 12 §8.3 これを超えたら遅延の色
@@ -23,7 +23,7 @@ const t = ja.kitchen
 
 const minutes = computed(() => Math.max(0, Math.floor((props.now - Date.parse(props.order.created_at)) / 60000)))
 const late = computed(() => props.order.served_at === null && minutes.value > LATE_MINUTES)
-const unserved = computed(() => props.order.items.filter((i) => i.served_at === null).length)
+const unserved = computed(() => liveItems(props.order.items).filter((i) => i.served_at === null).length)
 
 /** 「最初に選ぶ」のままのオプションは出さない（docs/10「オプションのグループ」）。「1つ選ぶ」の選択は目立たせる */
 function kitchenOptions(item: OrderItem): OrderItem['options'] {
@@ -57,7 +57,11 @@ function kitchenOptions(item: OrderItem): OrderItem['options'] {
         v-for="item in order.items"
         :key="item.id"
         class="kitem k-line"
-        :class="{ 'kitem--served': item.served_at !== null, 'k-line--done': item.served_at !== null }"
+        :class="{
+          'kitem--served': item.served_at !== null,
+          'kitem--cancelled': item.cancelled_at !== null,
+          'k-line--done': item.served_at !== null || item.cancelled_at !== null,
+        }"
         :data-item="item.id"
       >
         <div class="kitem__body grow col gap1">
@@ -88,7 +92,13 @@ function kitchenOptions(item: OrderItem): OrderItem['options'] {
           >{{ fmt(ja.orders.memo, { memo: item.memo }) }}</span>
         </div>
         <span class="kitem__qty k-line__qty tabular">×{{ item.quantity }}</span>
+        <span
+          v-if="item.cancelled_at !== null"
+          class="kitem__cancelled r-chip r-chip--danger"
+          data-cancelled
+        >{{ ja.orders.itemCancelled }}</span>
         <button
+          v-else
           type="button"
           class="kitem__btn r-btn r-btn--lg k-serve"
           :class="item.served_at !== null ? 'r-btn--secondary kitem__btn--on' : 'r-btn--primary'"
@@ -142,5 +152,6 @@ function kitchenOptions(item: OrderItem): OrderItem['options'] {
 .kitem__choice { font-style: normal; }
 .kitem--served .kitem__choice { color: inherit; }
 .kcard__note { margin: 12px 14px; border-radius: var(--radius); font-size: 18px; white-space: pre-line; overflow-wrap: anywhere; }
-.kitem__btn { flex: none; }
+.kitem__btn,
+.kitem__cancelled { flex: none; }
 </style>

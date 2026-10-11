@@ -46,6 +46,11 @@ export async function setItemServed(itemId: number, served: boolean): Promise<Or
   return (await http.patch<Order>(`/order-items/${itemId}/served`, { served })).data
 }
 
+/** #106（17 §4.1）品目を quantity 個取り消す。expected_quantity は画面に出していた数量（違えば 409）。注文全体を返す */
+export async function cancelOrderItem(itemId: number, input: { quantity: number; expected_quantity: number }): Promise<Order> {
+  return (await http.post<Order>(`/order-items/${itemId}/cancel`, input)).data
+}
+
 export type KitchenFetch = { changed: false; etag: string | null } | { changed: true; etag: string | null; data: KitchenOrders }
 
 /** #55 前回の ETag を If-None-Match に付ける。変化が無ければ 304（本文なし） */
