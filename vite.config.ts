@@ -3,6 +3,7 @@ import laravel from 'laravel-vite-plugin'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
+import { isCacheableNavigation } from './resources/js/lib/swNavigation'
 
 export default defineConfig(({ mode }) => {
   // process.env（コマンドで渡した値）が .env より優先される
@@ -44,10 +45,8 @@ export default defineConfig(({ mode }) => {
             {
               // 画面の HTML（Blade 1 枚）は通信優先。通信できないときだけキャッシュを返す。
               // SPA の HTML は Laravel が動的に返すため事前キャッシュできず、08 §9 の navigateFallback の代わりにこれを使う（§13 指摘 17）
-              urlPattern: ({ request, url }) =>
-                request.mode === 'navigate' &&
-                !url.pathname.startsWith(`${basePath}/api/`) &&
-                !url.pathname.startsWith(`${basePath}/sanctum/`),
+              // 関数は sw.js へ文字列で埋め込まれるため、外側の変数（basePath など）を参照しない（QA-001）
+              urlPattern: isCacheableNavigation,
               handler: 'NetworkFirst',
               options: { cacheName: 'regi-pages', networkTimeoutSeconds: 3 },
             },

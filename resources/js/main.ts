@@ -6,6 +6,7 @@ import { ensureCsrfCookie, setAuthHandlers } from '@/api/client'
 import { prefetchMenu } from '@/api/publicTable'
 import { basePath } from '@/lib/basePath'
 import { setupPwa } from '@/lib/pwa'
+import { serverSaysGuest } from '@/lib/serverHints'
 import { useAuthStore } from '@/stores/auth'
 import { useCatalogStore } from '@/stores/catalog'
 import { useOutboxStore } from '@/stores/outbox'
@@ -48,9 +49,13 @@ if (tablePath?.[1]) prefetchMenu(tablePath[1])
 // 即時性の要る画面（レジ・注文の入力・注文確認・厨房）を先に用意する：ログイン後、商品マスタと画面の JS を裏で読んでおく
 const catalog = useCatalogStore()
 // レジ・注文の入力を直接開いた（再読み込み・ホーム画面のアイコン）ときは、GET /me と並べて商品マスタを取りに行く
-// （未ログインなら 401 で終わるだけ。起動時の 401 はガードが扱い、ここでは何もしない）
+// （HTML の時点で未ログインなら呼ばない。QA-004）
 const startPath = location.pathname.slice(basePath.length)
-if (startPath === '/register' || startPath === '/orders/new') catalog.prefetch()
+if ((startPath === '/register' || startPath === '/orders/new') && !serverSaysGuest()) catalog.prefetch()
+// S00・S02 は別チャンク（PERF-002）。ログイン済みで直接開いたときは、GET /me と並べて画面の JS を読み始める
+if ((startPath === '/' || startPath === '/register') && !serverSaysGuest()) {
+  for (const load of [() => import('@/pages/HomePage.vue'), () => import('@/pages/RegisterPage.vue')]) load().catch(() => undefined)
+}
 let pagesWarmed = false
 router.afterEach(() => {
   if (!auth.me || auth.isAdmin || auth.needsClockIn) return
@@ -59,6 +64,8 @@ router.afterEach(() => {
     if (pagesWarmed) return
     pagesWarmed = true
     for (const load of [
+      () => import('@/pages/HomePage.vue'),
+      () => import('@/pages/RegisterPage.vue'),
       () => import('@/pages/OrderNewPage.vue'),
       () => import('@/pages/OrdersPage.vue'),
       () => import('@/pages/KitchenPage.vue'),

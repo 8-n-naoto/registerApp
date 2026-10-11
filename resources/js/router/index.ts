@@ -1,7 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { basePath } from '@/lib/basePath'
-import HomePage from '@/pages/HomePage.vue'
-import RegisterPage from '@/pages/RegisterPage.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { Role } from '@/types/api'
 
@@ -18,10 +16,10 @@ declare module 'vue-router' {
 // パスと名前は 08 §4。各画面は WP ごとに追加する
 const routes: RouteRecordRaw[] = [
   { path: '/login', name: 'login', component: () => import('@/pages/LoginPage.vue'), meta: { guest: true } },
-  // S00 は初回のバンドルに含める（08 §4）
-  { path: '/', name: 'home', component: HomePage, meta: { roles: ['owner', 'staff'] } },
-  // S02 も初回のバンドルに含める（08 §4。会計を最初に開いたときに待たせない）
-  { path: '/register', name: 'register', component: RegisterPage, meta: { roles: ['owner', 'staff'] } },
+  // S00・S02 も別チャンク（PERF-002。08 §4 を 2026-10-11 に変更）。ログイン画面で読み込まないため。
+  // 待たせないよう、ログイン後と、ログイン済みで直接開いたときに main.ts が先読みする
+  { path: '/', name: 'home', component: () => import('@/pages/HomePage.vue'), meta: { roles: ['owner', 'staff'] } },
+  { path: '/register', name: 'register', component: () => import('@/pages/RegisterPage.vue'), meta: { roles: ['owner', 'staff'] } },
   { path: '/sales/:id(\\d+)/receipt', name: 'receipt', component: () => import('@/pages/ReceiptPage.vue'), meta: { roles: ['owner', 'staff', 'admin'] } },
   { path: '/sales/daily', name: 'sales-daily', component: () => import('@/pages/DailySalesPage.vue'), meta: { roles: ['owner', 'staff', 'admin'] } },
   { path: '/sales/summary', name: 'sales-summary', component: () => import('@/pages/SalesSummaryPage.vue'), meta: { roles: ['owner', 'admin'] } },

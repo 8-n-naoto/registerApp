@@ -1,0 +1,26 @@
+/* printer-check.html の見た目（CSP のため外部ファイル。SEC-007） */
+:root { --bg: #f7f6f2; --fg: #1d1b16; --muted: #5d5a52; --card: #fff; --line: #d9d5ca; --pri: #1f5f4a; --pri-fg: #fff; --ok: #1d6b3a; --ng: #a32020; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #1b1a17; --fg: #f1efe8; --muted: #b5b1a6; --card: #262521; --line: #3d3b35; --pri: #5fb292; --pri-fg: #10241c; --ok: #7fd39c; --ng: #ff8f8f; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 16px/1.6 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; }
+main { max-width: 640px; margin: 0 auto; }
+h1 { font-size: 22px; margin: 0 0 8px; }
+p { margin: 0 0 12px; color: var(--muted); }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 0 0 16px; }
+label { display: block; font-weight: 600; margin: 0 0 6px; }
+input, select { width: 100%; min-height: 48px; font-size: 16px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); }
+.row { margin: 0 0 12px; }
+.buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+button, a.button { min-height: 48px; padding: 0 20px; font-size: 16px; font-weight: 600; border-radius: 8px; border: 1px solid var(--pri); background: var(--pri); color: var(--pri-fg); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+button.secondary, a.button { background: transparent; color: var(--pri); }
+button:disabled { opacity: .5; cursor: default; }
+.note { margin-top: 12px; }
+.result { font-weight: 700; font-size: 18px; margin: 0 0 8px; }
+.ok { color: var(--ok); }
+.ng { color: var(--ng); }
+pre { white-space: pre-wrap; word-break: break-all; font-size: 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin: 0; max-height: 320px; overflow: auto; }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; font-size: 14px; }
+dt { color: var(--muted); }
+dd { margin: 0; word-break: break-all; }

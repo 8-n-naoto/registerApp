@@ -23,7 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
-        health: '/up',
+        // 標準の /up（タイトル「Laravel」の HTML）は使わない。死活監視は APP_HEALTH_PATH（routes/web.php。SEC-006）
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // SPA（同一オリジン）からの /api 要求をセッション + CSRF で認証する

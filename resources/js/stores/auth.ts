@@ -4,6 +4,7 @@ import type { RouteLocationRaw } from 'vue-router'
 import * as attendanceApi from '@/api/attendance'
 import * as authApi from '@/api/auth'
 import { errorStatus, isNetworkError } from '@/lib/apiError'
+import { serverSaysGuest } from '@/lib/serverHints'
 import { useCatalogStore } from '@/stores/catalog'
 import type { Me } from '@/types/api'
 
@@ -44,6 +45,7 @@ export const useAuthStore = defineStore('auth', () => {
   /** 14 §7.3 通信できずに端末に残した利用者で動いている（サーバーでログインが続いているかは未確認） */
   const offlineSession = ref(false)
   let loading: Promise<void> | null = null
+  let guestHintUsed = false
 
   const role = computed(() => me.value?.user.role ?? null)
   const isAdmin = computed(() => role.value === 'admin')
@@ -77,6 +79,15 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function fetchMe(): Promise<void> {
     try {
+      // 起動時に 1 回だけ：HTML の時点で未ログインなら GET /me（401）を呼ばない（QA-004）。
+      // 端末に残した利用者があるときは、キャッシュの古い HTML の可能性があるため従来どおり確かめる
+      if (!guestHintUsed) {
+        guestHintUsed = true
+        if (serverSaysGuest() && loadCachedMe() === null) {
+          me.value = null
+          return
+        }
+      }
       if (offlineNow() && useCached()) return
       me.value = await authApi.fetchMe()
       offlineSession.value = false

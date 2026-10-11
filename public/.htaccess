@@ -51,10 +51,12 @@
     Header always set X-Frame-Options "SAMEORIGIN"
     # 使わない機能を止める。画面の消灯防止（レジ・厨房の Screen Wake Lock）だけ自サイトに許す
     Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), screen-wake-lock=(self)"
-    # CSP（SEC-004）。まず Report-Only で入れ、本番の開発者ツールで違反が出ないことを確かめてから
-    # Content-Security-Policy に切り替える（docs/11 §1.4）。img-src の data: はテーブルの QR（SVG の data: URI）用。
-    # 外部のフォント・CDN を使い始めるときはここに追加すること
-    Header always set Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
+    # CSP（SEC-004・SEC-007）。2026-10-11 に Report-Only から強制に切り替えた（全画面で違反なしを確認。docs/10）。
+    # img-src の data: はテーブルの QR（SVG の data: URI）用。外部のフォント・CDN を使い始めるときはここに追加すること。
+    # connect-src にはレシートプリンター（WebPRNT。端末から https://{店舗設定のプリンターのアドレス}/StarWebPRNT/SendMessage
+    # へ送る）を店舗ごとに書き並べる。店舗設定（S10 プリンター）でアドレスを登録・変更したら、ここにも
+    # 「 https://<アドレス>」を空白区切りで足して配置し直すこと（足さないと印刷が「届かない」で失敗する。docs/11 §1.5）
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://192.168.1.20; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
 </IfModule>
 
 # Service Worker は常に最新を取りに行かせる

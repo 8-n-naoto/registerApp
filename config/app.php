@@ -101,6 +101,13 @@ return [
     */
     'base_path' => rtrim((string) env('APP_PATH_PREFIX', ''), '/'),
 
+    /*
+    | 死活監視のパス（SEC-006）。推測されにくい英数字の文字列を設定したときだけ GET /{値} が 200 の "OK" を返す
+    | （データベースにも接続して確かめる。フレームワーク名は出さない）。空なら監視用のパスは無い。
+    | Laravel 標準の /up は使わない（404）
+    */
+    'health_path' => trim((string) env('APP_HEALTH_PATH', ''), '/'),
+
     'cipher' => 'AES-256-CBC',
 
     'key' => env('APP_KEY'),

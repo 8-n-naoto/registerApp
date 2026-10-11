@@ -3,7 +3,7 @@ import { defineConfigWithVueTs, vueTsConfigs } from '@vue/eslint-config-typescri
 
 export default defineConfigWithVueTs(
   {
-    ignores: ['public/**', 'vendor/**', 'node_modules/**', 'storage/**', 'bootstrap/cache/**', '_archive/**'],
+    ignores: ['public/**', 'vendor/**', 'node_modules/**', 'storage/**', 'bootstrap/cache/**', '_archive/**', 'demo/**'],
   },
   pluginVue.configs['flat/recommended'],
   vueTsConfigs.recommended,

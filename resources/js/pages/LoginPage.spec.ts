@@ -46,6 +46,13 @@ describe('S01 ログイン（08 §5.1）', () => {
     document.body.innerHTML = ''
   })
 
+  it('QA-005：ログイン ID とパスワードは必須（required）。表示は独自のメッセージのまま（novalidate）', async () => {
+    const w = await mountAt('/login')
+    expect(w.find('#login-id').attributes('required')).toBeDefined()
+    expect(w.find('#password').attributes('required')).toBeDefined()
+    expect(w.find('form').attributes('novalidate')).toBeDefined()
+  })
+
   it('AC-S01-1：owner は S00、admin は A01 へ', async () => {
     login.mockResolvedValue(makeMe('owner'))
     let w = await mountAt('/login')

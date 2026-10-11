@@ -74,3 +74,52 @@ describe('auth：端末に残す利用者（14 §7.3）', () => {
     expect(localStorage.getItem(ME_CACHE_KEY)).toBeNull()
   })
 })
+
+describe('auth：HTML の未ログインの印（QA-004）', () => {
+  let meta: HTMLMetaElement
+
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+    authApi.fetchMe.mockReset()
+    meta = document.createElement('meta')
+    meta.name = 'app-auth'
+    document.head.appendChild(meta)
+  })
+
+  afterEach(() => {
+    meta.remove()
+  })
+
+  it('未ログインの HTML で端末に残した利用者が無ければ GET /me を呼ばない（2 回目以降は呼ぶ）', async () => {
+    meta.content = '0'
+    const auth = useAuthStore()
+    await auth.fetchMe()
+    expect(authApi.fetchMe).not.toHaveBeenCalled()
+    expect(auth.me).toBeNull()
+    expect(auth.loaded).toBe(true)
+
+    authApi.fetchMe.mockResolvedValueOnce(makeMe('staff'))
+    await auth.fetchMe()
+    expect(authApi.fetchMe).toHaveBeenCalledTimes(1)
+  })
+
+  it('端末に残した利用者があれば、未ログインの HTML でも GET /me で確かめる', async () => {
+    meta.content = '0'
+    localStorage.setItem(ME_CACHE_KEY, JSON.stringify(makeMe('staff')))
+    authApi.fetchMe.mockRejectedValueOnce(apiError(401, {}))
+    const auth = useAuthStore()
+    await auth.fetchMe()
+    expect(authApi.fetchMe).toHaveBeenCalledTimes(1)
+    expect(auth.me).toBeNull()
+  })
+
+  it('ログイン中の HTML なら GET /me を呼ぶ', async () => {
+    meta.content = '1'
+    authApi.fetchMe.mockResolvedValueOnce(makeMe('owner'))
+    const auth = useAuthStore()
+    await auth.fetchMe()
+    expect(authApi.fetchMe).toHaveBeenCalledTimes(1)
+    expect(auth.isOwner).toBe(true)
+  })
+})

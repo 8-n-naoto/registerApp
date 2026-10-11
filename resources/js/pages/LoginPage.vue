@@ -114,6 +114,7 @@ async function submit(): Promise<void> {
               autocorrect="off"
               spellcheck="false"
               maxlength="50"
+              required
               :aria-invalid="errors.login_id ? 'true' : undefined"
               :aria-describedby="errors.login_id ? 'login-error' : undefined"
             >
@@ -134,6 +135,7 @@ async function submit(): Promise<void> {
                 name="password"
                 autocomplete="current-password"
                 maxlength="255"
+                required
                 :aria-invalid="errors.login_id || errors.password ? 'true' : undefined"
                 :aria-describedby="errors.login_id || errors.password ? 'login-error' : undefined"
               >

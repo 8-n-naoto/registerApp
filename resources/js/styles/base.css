@@ -60,3 +60,11 @@ button {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* JS を読み込むまでの表示（app.blade.php の #app の中身。PERF-002）。Vue の起動で置き換わる */
+.boot {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  color: var(--c-text-sub);
+}

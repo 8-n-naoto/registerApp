@@ -36,15 +36,67 @@ class HtaccessSecurityHeadersTest extends TestCase
         $this->assertMatchesRegularExpression('/^\s*Header always set Strict-Transport-Security "max-age=\d+"$/m', self::htaccess());
     }
 
-    public function test_フレーム埋め込みの禁止とpermissions_policyとcspのreport_only(): void
+    public function test_フレーム埋め込みの禁止とpermissions_policy(): void
     {
         $h = self::htaccess();
 
         $this->assertStringContainsString('Header always set X-Frame-Options "SAMEORIGIN"', $h);
         $this->assertMatchesRegularExpression('/Header always set Permissions-Policy "[^"]*camera=\(\)[^"]*screen-wake-lock=\(self\)/', $h);
-        $this->assertMatchesRegularExpression('/Header always set Content-Security-Policy-Report-Only "[^"]*frame-ancestors \'self\'/', $h);
+    }
+
+    /** SEC-007：CSP は Report-Only ではなく強制。インラインのスクリプト・スタイルを許さない */
+    public function test_cspは強制でインラインを許さない(): void
+    {
+        $h = self::htaccess();
+        $csp = self::csp($h);
+
+        $this->assertStringNotContainsString('Content-Security-Policy-Report-Only', $h);
+        $this->assertStringContainsString("script-src 'self';", $csp);
+        $this->assertStringContainsString("style-src 'self';", $csp);
+        $this->assertStringNotContainsString("'unsafe-inline'", $csp);
+        $this->assertStringNotContainsString("'unsafe-eval'", $csp);
+        $this->assertStringContainsString("object-src 'none'", $csp);
+        $this->assertStringContainsString("frame-ancestors 'self'", $csp);
         // QR は data: URI の画像で出す（TablesPage.vue）
-        $this->assertMatchesRegularExpression('/Content-Security-Policy-Report-Only "[^"]*img-src \'self\' data:;/', $h);
+        $this->assertStringContainsString("img-src 'self' data:;", $csp);
+    }
+
+    public function test_cspのconnect_srcは自サイトとhttpsのプリンターだけ(): void
+    {
+        // レシートプリンター（WebPRNT）へは端末から https://{店舗のアドレス}/StarWebPRNT/SendMessage に送る（sendToPrinter.ts）。
+        // 店舗のアドレスを書き並べる（2026-10-11 利用者の判断）。ワイルドカード・http・他のサイトは許さない
+        $connect = preg_match('/connect-src ([^;]*);/', self::csp(self::htaccess()), $m) === 1 ? $m[1] : '';
+        $sources = explode(' ', $connect);
+
+        $this->assertSame("'self'", $sources[0]);
+        $this->assertContains('https://192.168.1.20', $sources);
+        foreach (array_slice($sources, 1) as $source) {
+            $this->assertMatchesRegularExpression('#\Ahttps://[a-z0-9.-]+\z#', $source);
+        }
+    }
+
+    public function test_プリンターの確認ページはインラインのスクリプトとスタイルを使わない(): void
+    {
+        // 強制の CSP（script-src・style-src 'self'）で動くよう、CSS・JS は同じフォルダの別ファイルにする
+        $html = file_get_contents(dirname(__DIR__, 2).'/public/printer-check.html');
+        self::assertIsString($html);
+
+        $this->assertDoesNotMatchRegularExpression('/<style[\s>]/i', $html);
+        $this->assertDoesNotMatchRegularExpression('/\sstyle\s*=/i', $html);
+        $this->assertDoesNotMatchRegularExpression('/\son[a-z]+\s*=/i', $html);
+        $this->assertSame(1, preg_match_all('/<script\b[^>]*>/i', $html, $scripts));
+        $this->assertSame('<script src="printer-check.js">', $scripts[0][0]);
+        $this->assertStringContainsString('<link rel="stylesheet" href="printer-check.css">', $html);
+        $this->assertFileExists(dirname(__DIR__, 2).'/public/printer-check.js');
+        $this->assertFileExists(dirname(__DIR__, 2).'/public/printer-check.css');
+    }
+
+    private static function csp(string $htaccess): string
+    {
+        $csp = preg_match('/^\s*Header always set Content-Security-Policy "([^"]*)"$/m', $htaccess, $m) === 1 ? $m[1] : '';
+        self::assertNotSame('', $csp, 'Content-Security-Policy の行がない');
+
+        return $csp;
     }
 
     /**
