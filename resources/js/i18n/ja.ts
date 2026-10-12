@@ -456,6 +456,12 @@ export const ja = {
       customer_session_minutes: '注文できる時間(分)',
       polling_mode: '厨房の自動更新',
       polling_windows: '自動更新の時間帯',
+      invoice_number: '登録番号',
+      product_name: '商品名',
+      quantity: '数量',
+      cancelled_quantity: '取消数',
+      remaining_quantity: '残りの数',
+      order_cancelled: '注文ごと取消',
     },
     values: {
       tax_included: '税込',

@@ -33,6 +33,14 @@ describe('auditLog', () => {
     expect(describeChanges({ before: { status: 'pending' }, after: { status: 'active' } })).toBe('状態 確認待ち → 受付済み')
   })
 
+  it('注文の品目の取消・登録番号の項目も日本語にする（17 §4.3）', () => {
+    expect(describeChanges({
+      before: { quantity: 1 },
+      after: { product_name: 'クリームソーダ', cancelled_quantity: 1, remaining_quantity: 0, order_cancelled: false },
+    })).toBe('商品名 — → クリームソーダ、取消数 — → 1、残りの数 — → 0、注文ごと取消 — → いいえ、数量 1 → —')
+    expect(describeChanges({ before: { invoice_number: null }, after: { invoice_number: 'T1234567890123' } })).toBe('登録番号 — → T1234567890123')
+  })
+
   it('勤怠の操作も絞り込みに出す', () => {
     expect(isAuditAction('attendance_clocked_out')).toBe(true)
   })
