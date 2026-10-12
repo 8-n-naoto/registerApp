@@ -35,3 +35,4 @@ _archive/
 /Dockerfile
 /docker/
 /.dockerignore
+demo
