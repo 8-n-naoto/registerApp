@@ -235,6 +235,7 @@ export const useRegisterStore = defineStore('register', () => {
       lines.value = result.lines
       pendingUuid.value = null
     }
+    releaseOrdersIfEmpty() // 端末に保存した注文がカートだけ空のときも外す
     return result.removed
   }
 
@@ -292,6 +293,14 @@ export const useRegisterStore = defineStore('register', () => {
     pendingUuid.value = null
   }
 
+  /**
+   * カートが空になったら、入れていた注文も会計の対象から外す。
+   * 残すと注文が「カートに入っています」のままになり、［注文から会計］で入れ直せなくなる
+   */
+  function releaseOrdersIfEmpty(): void {
+    if (lines.value.length === 0 && linkedOrders.value.length > 0) linkedOrders.value = []
+  }
+
   function add(product: Product, optionIds: readonly number[] = []): void {
     const key = lineKey(product.id, optionIds)
     if (!lines.value.some((l) => l.key === key) && lines.value.length >= MAX_LINES) {
@@ -311,11 +320,13 @@ export const useRegisterStore = defineStore('register', () => {
 
   function decrement(key: string): void {
     lines.value = removeOne(lines.value, key)
+    releaseOrdersIfEmpty()
     orderChanged()
   }
 
   function removeLine(key: string): void {
     lines.value = lines.value.filter((l) => l.key !== key)
+    releaseOrdersIfEmpty()
     orderChanged()
   }
 
@@ -381,6 +392,7 @@ export const useRegisterStore = defineStore('register', () => {
     }
     lines.value = next
     linkedOrders.value = linkedOrders.value.filter((o) => !ids.includes(o.id))
+    releaseOrdersIfEmpty()
     orderChanged()
   }
 
@@ -435,6 +447,7 @@ export const useRegisterStore = defineStore('register', () => {
       const change = changed.find((c) => c.id === o.id)
       return change ? { ...o, lines: change.lines } : o
     })
+    releaseOrdersIfEmpty()
     orderChanged()
   }
 
@@ -483,6 +496,7 @@ export const useRegisterStore = defineStore('register', () => {
     lines.value = result.lines
     discount.value = order.discount
     linkedOrders.value = order.orders ?? []
+    releaseOrdersIfEmpty()
     if (bootstrap.value?.tax_types.some((t) => t.id === order.tax_type_id)) taxTypeId.value = order.tax_type_id
     orderChanged()
     notice.value = result.removed.length > 0

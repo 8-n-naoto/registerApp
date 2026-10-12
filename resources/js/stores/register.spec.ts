@@ -337,6 +337,39 @@ describe('registerStore（08 §7.2）', () => {
       expect(register.orderIds).toEqual([])
     })
 
+    it('カートの品目をすべて減らすと注文も外れ、もう一度入れられる', async () => {
+      const register = await loaded()
+      register.addOrders([T2])
+      register.decrement('1:')
+      expect(register.lines).toEqual([])
+      expect(register.orderIds).toEqual([])
+      expect(register.addOrders([T2])).toBe(true)
+      expect(register.orderIds).toEqual([102])
+
+      register.removeLine('1:')
+      expect(register.orderIds).toEqual([])
+    })
+
+    it('［カートから外す］でカートが空になったら注文も外す', async () => {
+      const register = await loaded()
+      register.addOrders([T2])
+      register.applyOrderChanges([{ id: 102, order_no: 2, lines: [], removed: [{ name: 'コーヒー', quantity: 1 }] }])
+      expect(register.lines).toEqual([])
+      expect(register.orderIds).toEqual([])
+    })
+
+    it('端末に保存した注文がカートだけ空なら、開き直したときに注文を外す', async () => {
+      localStorage.setItem(KEY, JSON.stringify({
+        tax_type_id: null,
+        lines: [],
+        discount: null,
+        held: [],
+        orders: [{ id: 102, order_no: 2, place: 'T2', lines: [{ key: '1:', product_id: 1, option_ids: [], quantity: 1 }] }],
+      }))
+      const register = await loaded()
+      expect(register.orderIds).toEqual([])
+    })
+
     it('保留・呼び出し・開き直しで注文を持ち越す', async () => {
       const register = await loaded()
       register.addOrders([T1])
