@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canCancelItem, canCancelOrder, liveItems, orderDisplayStatus, orderPlace } from '@/lib/orders'
+import { canCancelItem, canCancelOrder, isItemCancelled, liveItems, orderDisplayStatus, orderPlace } from '@/lib/orders'
 
 describe('lib/orders', () => {
   it('表示の状態は取消 → 会計済み → 確認待ち → 提供済み → 提供中の順に決まる', () => {
@@ -33,5 +33,13 @@ describe('lib/orders', () => {
     expect(canCancelItem({ status: 'active', sale_id: null }, gone)).toBe(false)
     expect(canCancelItem({ status: 'active', sale_id: 9 }, live)).toBe(false)
     expect(canCancelItem({ status: 'cancelled', sale_id: null }, live)).toBe(false)
+  })
+
+  it('17：取消の前のサーバー（cancelled_at を返さない）の品目は取消済みと見なさない', () => {
+    const old = JSON.parse('{"id":3}') as { id: number; cancelled_at: string | null }
+    expect(isItemCancelled(old)).toBe(false)
+    expect(liveItems([old])).toEqual([old])
+    expect(canCancelItem({ status: 'active', sale_id: null }, old)).toBe(true)
+    expect(isItemCancelled({ cancelled_at: '2026-09-29T12:30:00+09:00' })).toBe(true)
   })
 })

@@ -17,14 +17,22 @@ export function canCancelOrder(order: Pick<Order, 'status' | 'sale_id'>): boolea
   return order.status !== 'cancelled' && order.sale_id === null
 }
 
+/**
+ * 品目が取消済みか（17 §3.2）。日時が入っているときだけ取消済みとする。
+ * 取消の前のサーバー（`cancelled_at` を返さない）につながっても、全部の品目を取消済みと見なさないため
+ */
+export function isItemCancelled(item: Pick<OrderItem, 'cancelled_at'>): boolean {
+  return typeof item.cancelled_at === 'string'
+}
+
 /** 取り消されていない品目（17 §2.2。小計・提供の完了・会計への取り込みはこれだけで数える） */
 export function liveItems<T extends Pick<OrderItem, 'cancelled_at'>>(items: T[]): T[] {
-  return items.filter((item) => item.cancelled_at === null)
+  return items.filter((item) => !isItemCancelled(item))
 }
 
 /** 品目を取り消せるか（17 §8.2。注文が取り消せて、品目が取消済みでない） */
 export function canCancelItem(order: Pick<Order, 'status' | 'sale_id'>, item: Pick<OrderItem, 'cancelled_at'>): boolean {
-  return canCancelOrder(order) && item.cancelled_at === null
+  return canCancelOrder(order) && !isItemCancelled(item)
 }
 
 /** 注文の置き場所の表示：テーブル名 →「テーブル未設定#連番」（呼び名があれば括弧で添える）→ 呼び名 →「テーブルなし」 */

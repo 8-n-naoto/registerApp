@@ -13,7 +13,7 @@ import { fmt, ja } from '@/i18n/ja'
 import { errorBody, isNetworkError } from '@/lib/apiError'
 import { formatTokyoClock } from '@/lib/date'
 import { enableSound, loadSoundEnabled, playBeep, saveSoundEnabled } from '@/lib/kitchenSound'
-import { liveItems, orderPlace } from '@/lib/orders'
+import { isItemCancelled, liveItems, orderPlace } from '@/lib/orders'
 import { useWakeLock } from '@/lib/wakeLock'
 import { useKitchenStore } from '@/stores/kitchen'
 import type { Order, OrderItem } from '@/types/api'
@@ -84,7 +84,7 @@ async function refresh(): Promise<void> {
 function withServed(order: Order, itemIds: number[] | 'all', served: boolean): Order {
   const at = new Date(kitchen.serverNow()).toISOString()
   const items = order.items.map((i) =>
-    i.cancelled_at === null && (itemIds === 'all' || itemIds.includes(i.id)) ? { ...i, served_at: served ? (i.served_at ?? at) : null } : i,
+    !isItemCancelled(i) && (itemIds === 'all' || itemIds.includes(i.id)) ? { ...i, served_at: served ? (i.served_at ?? at) : null } : i,
   )
   const allServed = liveItems(items).every((i) => i.served_at !== null)
   return { ...order, items, served_at: allServed ? (order.served_at ?? at) : null }

@@ -4,7 +4,7 @@
 import { computed } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
 import { fmt, ja } from '@/i18n/ja'
-import { liveItems, orderPlace } from '@/lib/orders'
+import { isItemCancelled, liveItems, orderPlace } from '@/lib/orders'
 import type { Order, OrderItem } from '@/types/api'
 
 const LATE_MINUTES = 10 // 12 §8.3 これを超えたら遅延の色
@@ -59,8 +59,8 @@ function kitchenOptions(item: OrderItem): OrderItem['options'] {
         class="kitem k-line"
         :class="{
           'kitem--served': item.served_at !== null,
-          'kitem--cancelled': item.cancelled_at !== null,
-          'k-line--done': item.served_at !== null || item.cancelled_at !== null,
+          'kitem--cancelled': isItemCancelled(item),
+          'k-line--done': item.served_at !== null || isItemCancelled(item),
         }"
         :data-item="item.id"
       >
@@ -93,7 +93,7 @@ function kitchenOptions(item: OrderItem): OrderItem['options'] {
         </div>
         <span class="kitem__qty k-line__qty tabular">×{{ item.quantity }}</span>
         <span
-          v-if="item.cancelled_at !== null"
+          v-if="isItemCancelled(item)"
           class="kitem__cancelled r-chip r-chip--danger"
           data-cancelled
         >{{ ja.orders.itemCancelled }}</span>

@@ -6,7 +6,7 @@ import { computed } from 'vue'
 import MoneyText from '@/components/MoneyText.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { formatTime } from '@/lib/date'
-import { canCancelItem, orderDisplayStatus, orderPlace } from '@/lib/orders'
+import { canCancelItem, isItemCancelled, orderDisplayStatus, orderPlace } from '@/lib/orders'
 import type { Order, OrderItem } from '@/types/api'
 
 const props = defineProps<{ order: Order; cancellable?: boolean }>()
@@ -60,7 +60,7 @@ const who = computed(() => (props.order.source === 'customer' ? t.fromCustomer :
           class="item"
           :class="{
             'item--served': item.served_at !== null,
-            'item--cancelled': item.cancelled_at !== null,
+            'item--cancelled': isItemCancelled(item),
             'item--button': tappable(item),
           }"
           :aria-label="tappable(item) ? fmt(t.itemCancel.open, { name: item.product_name }) : undefined"
@@ -80,7 +80,7 @@ const who = computed(() => (props.order.source === 'customer' ? t.fromCustomer :
             >{{ fmt(t.memo, { memo: item.memo }) }}</span>
           </span>
           <span
-            v-if="item.cancelled_at !== null"
+            v-if="isItemCancelled(item)"
             class="item__chip r-chip r-chip--danger"
           >{{ t.itemCancelled }}</span>
         </component>

@@ -6,6 +6,7 @@ import { fmt, ja } from '@/i18n/ja'
 import { errorBody, errorStatus, isNetworkError } from '@/lib/apiError'
 import { addOne, canAddOne, isCartLines, lineKey, MAX_LINES, MAX_QUANTITY, reconcile, removeOne, toPricingItems, type CartLine } from '@/lib/cart'
 import { loadDeviceName } from '@/lib/deviceName'
+import { isItemCancelled } from '@/lib/orders'
 import { nameWithMemo } from '@/lib/productLabel'
 import { calculateAmounts, PricingError, settle, type PricingAmounts } from '@/lib/pricing'
 import { uuidV4 } from '@/lib/uuid'
@@ -98,7 +99,7 @@ function isHeldOrder(v: unknown): v is HeldOrder {
 function orderLines(order: Order): CartLine[] {
   const result: CartLine[] = []
   for (const item of order.items) {
-    if (item.cancelled_at !== null) continue
+    if (isItemCancelled(item)) continue
     const optionIds = item.options.map((o) => o.product_option_id).sort((a, b) => a - b)
     const key = lineKey(item.product_id, optionIds)
     const existing = result.find((l) => l.key === key)
