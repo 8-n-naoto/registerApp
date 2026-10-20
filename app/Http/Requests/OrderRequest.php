@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidatesDistinctOptionIds;
 use App\Rules\NoControlCharacters;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 /**
  * 12 §5.2・§5.5 注文の入力の共通部分。検査するのは形式（型・範囲・件数・UUID 形式・重複・制御文字）だけ。
@@ -15,6 +17,8 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 abstract class OrderRequest extends FormRequest
 {
+    use ValidatesDistinctOptionIds;
+
     protected const MAX_ITEMS = 30;
 
     protected const MAX_QUANTITY = 20;
@@ -29,11 +33,17 @@ abstract class OrderRequest extends FormRequest
             'items.*.product_id' => ['required', 'integer'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:'.static::MAX_QUANTITY],
             'items.*.option_ids' => ['nullable', 'array', 'max:10'],
-            'items.*.option_ids.*' => ['integer', 'distinct'],
+            'items.*.option_ids.*' => ['integer'],
             'items.*.memo' => ['nullable', 'string', 'max:50', new NoControlCharacters],
             'note' => ['nullable', 'string', 'max:200', new NoControlCharacters(allowNewline: true)],
             'expected_subtotal' => ['required', 'integer'],
         ];
+    }
+
+    /** @return list<callable(Validator): void> */
+    public function after(): array
+    {
+        return [$this->distinctOptionIdsPerItem()];
     }
 
     /** @return array<string, string> */

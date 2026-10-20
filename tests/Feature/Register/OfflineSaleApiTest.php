@@ -220,6 +220,22 @@ class OfflineSaleApiTest extends TestCase
         $this->assertSame(0, Sale::query()->count());
     }
 
+    public function test_負の価格のオプションと別の行の同じオプションを受け付ける(): void
+    {
+        $less = ProductOption::factory()->for($this->b)->create(['name' => 'ご飯少なめ', 'price' => -50]);
+
+        $this->send($this->payload([
+            [$this->b, 1, 500, [[$less->id, -50]]],
+            [$this->a, 1, 400, [[$this->large->id, 50]]],
+            [$this->a, 1, 400, [[$this->large->id, 50]]],
+        ], 1350))->assertCreated()
+            ->assertJsonPath('total', 1350)
+            ->assertJsonPath('items.0.options_price', -50);
+
+        $this->assertSame(1, Sale::query()->count());
+        $this->assertSame(3, $this->stock());
+    }
+
     public function test_オプションの価格の数が合わなければ422(): void
     {
         $payload = $this->payload([[$this->a, 1, 400, [[$this->large->id, 50]]]], 450);

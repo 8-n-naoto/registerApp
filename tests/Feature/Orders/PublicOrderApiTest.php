@@ -167,6 +167,18 @@ class PublicOrderApiTest extends TestCase
         $this->assertSame("アレルギーあり\n卵", Order::query()->sole()->note);
     }
 
+    public function test_オプションの重複は行の中だけを見る(): void
+    {
+        $this->place($this->payload([[$this->x, 1, [$this->large->id]], [$this->x, 1, [$this->large->id], '辛め']], 900))
+            ->assertCreated()
+            ->assertJsonPath('subtotal', 900);
+
+        $this->place($this->payload([[$this->x, 1, [$this->large->id, $this->large->id]]], 500))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['items.0.option_ids.1']);
+        $this->assertSame(1, Order::query()->count());
+    }
+
     public function test_o02_同じ_uuid_の再送は200で件数が増えない(): void
     {
         $payload = $this->payload([[$this->x, 2]], 800);

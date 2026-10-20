@@ -440,6 +440,20 @@ class SaleStoreApiTest extends TestCase
             ->assertUnprocessable()->assertJsonPath('code', 'ITEM_UNAVAILABLE');
     }
 
+    public function test_オプションの重複は行の中だけを見て別の行の同じオプションは選べる(): void
+    {
+        $this->sell($this->payload([[$this->a, 1, [$this->large->id]], [$this->a, 1, [$this->large->id]]], 900))
+            ->assertCreated()
+            ->assertJsonPath('items.0.options_price', 50)
+            ->assertJsonPath('items.1.options_price', 50);
+
+        $this->sell($this->payload([[$this->a, 1, [$this->large->id]], [$this->a, 1, [$this->large->id, $this->large->id]]], 950))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['items.1.option_ids.1'])
+            ->assertJsonMissingValidationErrors(['items.0.option_ids.0', 'items.1.option_ids.0']);
+        $this->assertSame(1, Sale::query()->withoutGlobalScopes()->count());
+    }
+
     public function test_1つ選ぶグループから2つ選んだ明細は422でグループなしと異なるグループは選べる(): void
     {
         $size = ProductOptionGroup::factory()->for($this->b)->create(['name' => 'サイズ']);

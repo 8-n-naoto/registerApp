@@ -3,8 +3,10 @@
 namespace App\Http\Requests;
 
 use App\Enums\DiscountType;
+use App\Http\Requests\Concerns\ValidatesDistinctOptionIds;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 /**
  * 06 §4.2 POST /sales。検査するのは形式（型・範囲・件数・UUID 形式・重複）だけ。
@@ -13,6 +15,8 @@ use Illuminate\Validation\Rule;
  */
 class SaleRequest extends FormRequest
 {
+    use ValidatesDistinctOptionIds;
+
     public const UUID_V4 = '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i';
 
     public const MAX_RECEIVED = 99_999_999;
@@ -31,7 +35,7 @@ class SaleRequest extends FormRequest
             'items.*.product_id' => ['required', 'integer'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:999'],
             'items.*.option_ids' => ['nullable', 'array', 'max:10'],
-            'items.*.option_ids.*' => ['integer', 'distinct'],
+            'items.*.option_ids.*' => ['integer'],
             'discount' => ['nullable', 'array'],
             'discount.type' => ['required_with:discount', Rule::enum(DiscountType::class)],
             'discount.value' => ['required_with:discount', 'integer', 'min:1', 'max:'.$discountMax],
@@ -44,6 +48,12 @@ class SaleRequest extends FormRequest
             'order_ids' => ['nullable', 'array', 'max:20'],
             'order_ids.*' => ['integer', 'distinct'],
         ];
+    }
+
+    /** @return list<callable(Validator): void> */
+    public function after(): array
+    {
+        return [$this->distinctOptionIdsPerItem()];
     }
 
     /** @return array<string, string> */

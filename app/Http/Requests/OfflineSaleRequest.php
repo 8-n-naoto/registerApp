@@ -28,7 +28,8 @@ class OfflineSaleRequest extends SaleRequest
             'rounding' => ['required', Rule::enum(Rounding::class)],
             'items.*.unit_price' => ['required', 'integer', 'min:'.-self::MAX_PRICE, 'max:'.self::MAX_PRICE],
             'items.*.option_prices' => ['present', 'array', 'max:10'],
-            'items.*.option_prices.*' => ['integer', 'min:0', 'max:'.self::MAX_PRICE],
+            // オプションの価格は負の値も登録できる（ProductOptionRequest）ため、単価と同じ範囲にする（F-007）
+            'items.*.option_prices.*' => ['integer', 'min:'.-self::MAX_PRICE, 'max:'.self::MAX_PRICE],
         ];
     }
 

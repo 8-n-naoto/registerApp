@@ -307,6 +307,13 @@ class OrderApiTest extends TestCase
         $this->assertSame(5, $this->a->fresh()?->stock_qty);
     }
 
+    public function test_別の行の同じオプションは重複にならない(): void
+    {
+        $this->place($this->payload([[$this->a, 1, [$this->large->id]], [$this->a, 1, [$this->large->id], '辛め']], 900))
+            ->assertCreated()
+            ->assertJsonPath('subtotal', 900);
+    }
+
     public function test_v01_v06_入力の検証(): void
     {
         $base = $this->payload([[$this->b, 1]], 500);
