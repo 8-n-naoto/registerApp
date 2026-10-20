@@ -3,8 +3,15 @@ import { computed, ref, watch } from 'vue'
 import { createCustomerOrder, fetchCustomerOrders, fetchMenu } from '@/api/publicTable'
 import { fmt, ja } from '@/i18n/ja'
 import { errorBody, errorStatus, isNetworkError, retryAfterSeconds } from '@/lib/apiError'
+import { lineTotal } from '@/lib/pricing'
 import { uuidV4 } from '@/lib/uuid'
 import type { PublicMenu, PublicMenuProduct, PublicOrder } from '@/types/api'
+
+/** メニューの商品・選んだオプション・数量から行の金額を出す（lib/pricing の lineTotal。C01 のカートと追加ダイアログで共通） */
+export function menuLineTotal(product: PublicMenuProduct, optionIds: readonly number[], quantity: number): number {
+  const optionPrices = optionIds.map((id) => product.options.find((o) => o.id === id)?.price ?? 0)
+  return lineTotal({ unit_price: product.price, option_prices: optionPrices, quantity })
+}
 
 /** C01 のカートの 1 行（同じ商品・オプション・メモなら 1 行にまとめる） */
 export interface CustomerLine {
@@ -70,14 +77,14 @@ export const useTableOrderStore = defineStore('tableOrder', () => {
   const products = computed(() => new Map((menu.value?.products ?? []).map((p) => [p.id, p])))
   const itemCount = computed(() => lines.value.reduce((sum, l) => sum + l.quantity, 0))
   /** 目安の小計（サーバーの expected_subtotal と同じ式：(価格 + オプション) × 数量 の合計） */
-  const subtotal = computed(() => lines.value.reduce((sum, l) => sum + linePrice(l) * l.quantity, 0))
+  const subtotal = computed(() => lines.value.reduce((sum, l) => sum + lineAmount(l), 0))
   const maxLines = computed(() => menu.value?.limits.max_items ?? 30)
   const maxQuantity = computed(() => menu.value?.limits.max_quantity ?? 20)
 
-  function linePrice(line: Pick<CustomerLine, 'product_id' | 'option_ids'>): number {
+  /** 行の金額（lib/pricing の lineTotal）。メニューから消えた商品は 0 */
+  function lineAmount(line: Pick<CustomerLine, 'product_id' | 'option_ids' | 'quantity'>): number {
     const p = products.value.get(line.product_id)
-    if (!p) return 0
-    return p.price + line.option_ids.reduce((sum, id) => sum + (p.options.find((o) => o.id === id)?.price ?? 0), 0)
+    return p ? menuLineTotal(p, line.option_ids, line.quantity) : 0
   }
 
   // ─── 端末への保存（sessionStorage） ───
@@ -283,6 +290,6 @@ export const useTableOrderStore = defineStore('tableOrder', () => {
   return {
     token, menu, loadState, loadError, lines, note, pendingUuid, submitting, lastOrder, orders, ordersLoading, ordersError,
     products, itemCount, subtotal, maxQuantity,
-    linePrice, open, loadMenu, loadOrders, add, setQuantity, remove, setNote, send,
+    lineAmount, open, loadMenu, loadOrders, add, setQuantity, remove, setNote, send,
   }
 })

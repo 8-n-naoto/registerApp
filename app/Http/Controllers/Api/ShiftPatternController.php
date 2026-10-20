@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ShiftPattern;
+use App\Rules\NoControlCharacters;
 use App\Services\ShiftService;
 use App\Support\CurrentStore;
 use App\Support\ShiftSegments;
@@ -61,7 +62,7 @@ class ShiftPatternController extends Controller
     private function input(Request $request, ?ShiftPattern $current): array
     {
         $validator = validator($request->all(), [
-            'name' => ['required', 'string', 'max:20', Rule::unique('shift_patterns', 'name')
+            'name' => ['required', 'string', 'max:20', new NoControlCharacters, Rule::unique('shift_patterns', 'name')
                 ->where('store_id', $this->currentStore->requireId())
                 ->ignore($current?->id)],
             'segments' => ['required', 'array'],

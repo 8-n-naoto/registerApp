@@ -11,6 +11,9 @@ import { errorBody, errorStatus, fieldErrors, isNetworkError } from '@/lib/apiEr
 import { formatDay, toLocalInput } from '@/lib/labor'
 import type { Attendance, LaborMember } from '@/types/api'
 
+/** サーバーの breaks の max:10（13 §5 AttendanceRequest）に合わせる（F-010） */
+const MAX_BREAKS = 10
+
 const props = defineProps<{ month: string }>()
 const emit = defineEmits<{ changed: [] }>()
 
@@ -83,6 +86,7 @@ function close(): void {
 }
 
 function addBreak(): void {
+  if (form.value.breaks.length >= MAX_BREAKS) return
   form.value.breaks.push({ started_at: '', ended_at: '' })
 }
 
@@ -366,6 +370,7 @@ async function remove(): Promise<void> {
           <button
             type="button"
             class="adm-btn"
+            :disabled="form.breaks.length >= MAX_BREAKS"
             @click="addBreak"
           >
             {{ t.addBreak }}

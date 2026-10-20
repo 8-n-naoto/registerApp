@@ -6,6 +6,7 @@ use App\Console\Commands\Concerns\AsksValidatedInput;
 use App\Enums\Role;
 use App\Models\Store;
 use App\Models\User;
+use App\Rules\NoControlCharacters;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -23,11 +24,11 @@ class StoreCreate extends Command
 
     public function handle(): int
     {
-        $storeName = $this->askValid('店舗名', '店舗名', ['required', 'string', 'max:100']);
+        $storeName = $this->askValid('店舗名', '店舗名', ['required', 'string', 'max:100', new NoControlCharacters]);
         $loginId = $this->askValid('オーナーのログイン ID（3〜50 文字の半角英数字と _ . -）', 'ログイン ID', [
             'required', 'string', 'min:3', 'max:50', 'regex:/^[A-Za-z0-9_.-]+$/', 'unique:users,login_id',
         ]);
-        $name = $this->askValid('オーナーの表示名', '表示名', ['required', 'string', 'max:50']);
+        $name = $this->askValid('オーナーの表示名', '表示名', ['required', 'string', 'max:50', new NoControlCharacters]);
         $password = $this->askNewPassword();
 
         [$store, $owner] = DB::transaction(function () use ($storeName, $loginId, $name, $password): array {

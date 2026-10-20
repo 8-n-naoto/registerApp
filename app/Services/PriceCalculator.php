@@ -59,10 +59,16 @@ final class PriceCalculator
             if ($isDiscount ? $item['option_prices'] !== [] : $perUnit < 0) {
                 throw PricingException::negativeLinePrice($i);
             }
-            $lineTotals[] = $perUnit * $item['quantity'];
+            $lineTotals[] = self::lineTotal($item['unit_price'], array_sum($item['option_prices']), $item['quantity']);
         }
 
         return $lineTotals;
+    }
+
+    /** 07 §1.3 の 1 行の金額。保存済みの明細（オプションの合計を持つ）の数量を変えるときもこれを使う（F-015） */
+    public static function lineTotal(int $unitPrice, int $optionsPrice, int $quantity): int
+    {
+        return ($unitPrice + $optionsPrice) * $quantity;
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\TaxType;
+use App\Rules\NoControlCharacters;
 use App\Support\CurrentStore;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -21,7 +22,7 @@ class TaxTypeRequest extends FormRequest
         $isUpdate = $this->isMethod('PUT');
 
         return [
-            'name' => ['required', 'string', 'min:1', 'max:20', $unique],
+            'name' => ['required', 'string', 'min:1', 'max:20', new NoControlCharacters, $unique],
             'rate_permille' => ['required', 'integer', 'min:0', 'max:1000'],
             'is_default' => [$isUpdate ? 'required' : 'sometimes', 'boolean'],
             ...($isUpdate ? ['is_active' => ['required', 'boolean']] : []),

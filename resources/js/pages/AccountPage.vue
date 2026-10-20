@@ -7,6 +7,7 @@ import BigButton from '@/components/BigButton.vue'
 import { ja } from '@/i18n/ja'
 import { errorBody, errorStatus, fieldErrors, isNetworkError } from '@/lib/apiError'
 import { DEVICE_NAME_MAX, loadDeviceName, saveDeviceName } from '@/lib/deviceName'
+import { PASSWORD_MAX_BYTES } from '@/lib/password'
 import { isIos, isStandalone } from '@/lib/platform'
 
 const currentPassword = ref('')
@@ -110,7 +111,7 @@ const showInstall = isIos() && !isStandalone()
               class="field__input r-input"
               type="password"
               autocomplete="new-password"
-              maxlength="72"
+              :maxlength="PASSWORD_MAX_BYTES"
               :aria-invalid="errors.password ? 'true' : undefined"
               :aria-describedby="errors.password ? 'new-password-error' : undefined"
             >
@@ -133,7 +134,7 @@ const showInstall = isIos() && !isStandalone()
               class="field__input r-input"
               type="password"
               autocomplete="new-password"
-              maxlength="72"
+              :maxlength="PASSWORD_MAX_BYTES"
             >
           </div>
           <p

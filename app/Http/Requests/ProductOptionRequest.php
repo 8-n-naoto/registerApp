@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\NoControlCharacters;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -12,11 +13,11 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class ProductOptionRequest extends FormRequest
 {
-    /** @return array<string, list<string>> */
+    /** @return array<string, list<mixed>> */
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'min:1', 'max:30'],
+            'name' => ['required', 'string', 'min:1', 'max:30', new NoControlCharacters],
             'price' => ['required', 'integer', 'min:-999999', 'max:999999'],
             'is_active' => [$this->isMethod('POST') ? 'sometimes' : 'required', 'boolean'],
             'group_id' => ['sometimes', 'nullable', 'integer'],

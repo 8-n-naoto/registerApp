@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\PaymentMethod;
+use App\Rules\NoControlCharacters;
 use App\Support\CurrentStore;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -20,7 +21,7 @@ class PaymentMethodRequest extends FormRequest
         }
 
         return [
-            'name' => ['required', 'string', 'min:1', 'max:20', $unique],
+            'name' => ['required', 'string', 'min:1', 'max:20', new NoControlCharacters, $unique],
             'is_cash' => ['required', 'boolean'],
             ...($this->isMethod('PUT') ? ['is_active' => ['required', 'boolean']] : []),
         ];

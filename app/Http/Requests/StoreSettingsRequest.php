@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\PriceMode;
 use App\Enums\Rounding;
+use App\Rules\NoControlCharacters;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -27,7 +28,7 @@ class StoreSettingsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'min:1', 'max:100'],
+            'name' => ['required', 'string', 'min:1', 'max:100', new NoControlCharacters],
             'price_mode' => ['required', 'string', Rule::enum(PriceMode::class)],
             'rounding' => ['required', 'string', Rule::enum(Rounding::class)],
             // 00:00〜11:59（05 §3.1）

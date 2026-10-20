@@ -334,7 +334,6 @@ final class OrderService
 
             $now = Carbon::now();
             $before = ['quantity' => $item->quantity, 'subtotal' => $order->subtotal];
-            $unit = $item->unit_price + $item->options_price;
 
             if ($quantity === $item->quantity) {
                 $item->cancelled_at = $now;
@@ -342,13 +341,13 @@ final class OrderService
                 $item->save();
             } else {
                 $item->quantity -= $quantity;
-                $item->line_total = $unit * $item->quantity;
+                $item->line_total = PriceCalculator::lineTotal($item->unit_price, $item->options_price, $item->quantity);
                 $item->save();
 
                 // 取り消した分を、元の行の直後（同じ sort_order・大きい id）に取消済みの行として残す
                 $cancelled = $item->replicate(['created_at', 'updated_at']);
                 $cancelled->quantity = $quantity;
-                $cancelled->line_total = $unit * $quantity;
+                $cancelled->line_total = PriceCalculator::lineTotal($item->unit_price, $item->options_price, $quantity);
                 $cancelled->cancelled_at = $now;
                 $cancelled->cancelled_by = $user->id;
                 $cancelled->save();

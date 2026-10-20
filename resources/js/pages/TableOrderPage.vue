@@ -12,7 +12,7 @@ import { fmt, ja } from '@/i18n/ja'
 import { formatTime } from '@/lib/date'
 import { formatYen } from '@/lib/money'
 import { buildSections, initialSelection, missingGroups, orderedSelection } from '@/lib/optionGroups'
-import { LINE_MEMO_MAX, NOTE_MAX, TOTAL_QUANTITY_MAX, useTableOrderStore } from '@/stores/tableOrder'
+import { LINE_MEMO_MAX, menuLineTotal, NOTE_MAX, TOTAL_QUANTITY_MAX, useTableOrderStore } from '@/stores/tableOrder'
 import type { PublicMenuProduct } from '@/types/api'
 
 const OTHER = -1 // 分類なしの商品のタブ
@@ -71,7 +71,7 @@ const notAcceptingMessage = computed(() => {
 const pickPrice = computed(() => {
   const p = picking.value
   if (!p) return 0
-  return (p.price + pickOptions.value.reduce((sum, id) => sum + (p.options.find((o) => o.id === id)?.price ?? 0), 0)) * pickQuantity.value
+  return menuLineTotal(p, pickOptions.value, pickQuantity.value)
 })
 
 const cartLines = computed(() => store.lines.map((l) => {
@@ -80,7 +80,7 @@ const cartLines = computed(() => store.lines.map((l) => {
     line: l,
     name: p?.name ?? '',
     options: l.option_ids.map((id) => p?.options.find((o) => o.id === id)?.name ?? '').filter((n) => n !== ''),
-    amount: store.linePrice(l) * l.quantity,
+    amount: store.lineAmount(l),
   }
 }))
 

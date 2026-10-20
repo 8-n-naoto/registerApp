@@ -8,6 +8,7 @@ use App\Enums\ProductColor;
 use App\Exceptions\BusinessException;
 use App\Models\Category;
 use App\Models\Product;
+use App\Rules\NoControlCharacters;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -189,12 +190,16 @@ final class ProductImporter
 
         if (mb_strlen($category) > 30) {
             $messages[] = 'カテゴリ：30 文字以内で入力してください';
+        } elseif (NoControlCharacters::contains($category)) {
+            $messages[] = 'カテゴリ：使えない文字が含まれています';
         }
 
         if ($name === '') {
             $messages[] = '商品名：入力してください';
         } elseif (mb_strlen($name) > 50) {
             $messages[] = '商品名：50 文字以内で入力してください';
+        } elseif (NoControlCharacters::contains($name)) {
+            $messages[] = '商品名：使えない文字が含まれています';
         }
 
         $priceValue = null;
@@ -239,6 +244,8 @@ final class ProductImporter
 
         if (mb_strlen($memo) > 200) {
             $messages[] = 'メモ：200 文字以内で入力してください';
+        } elseif (NoControlCharacters::contains($memo, allowNewline: true)) {
+            $messages[] = 'メモ：使えない文字が含まれています';
         }
 
         if ($messages !== [] || $priceValue === null || $colorValue === null || $trackValue === null

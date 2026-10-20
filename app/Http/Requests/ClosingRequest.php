@@ -2,13 +2,14 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\NoControlCharacters;
 use App\Services\ClosingService;
 use Illuminate\Foundation\Http\FormRequest;
 
 /** 06 §6.2 PUT /closings/{date} */
 class ClosingRequest extends FormRequest
 {
-    /** @return array<string, list<string>> */
+    /** @return array<string, list<mixed>> */
     public function rules(): array
     {
         $max = ClosingService::MAX_AMOUNT;
@@ -16,7 +17,7 @@ class ClosingRequest extends FormRequest
         return [
             'float_amount' => ['required', 'integer', 'min:0', "max:{$max}"],
             'counted_cash' => ['required', 'integer', 'min:0', "max:{$max}"],
-            'memo' => ['nullable', 'string', 'max:200'],
+            'memo' => ['nullable', 'string', 'max:200', new NoControlCharacters(allowNewline: true)],
         ];
     }
 

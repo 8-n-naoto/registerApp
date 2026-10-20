@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Console\Commands\Concerns\AsksValidatedInput;
 use App\Enums\Role;
 use App\Models\User;
+use App\Rules\NoControlCharacters;
 use Illuminate\Console\Command;
 
 /**
@@ -29,7 +30,7 @@ class AdminCreate extends Command
         $loginId = $this->askValid('ログイン ID（3〜50 文字の半角英数字と _ . -）', 'ログイン ID', [
             'required', 'string', 'min:3', 'max:50', 'regex:/^[A-Za-z0-9_.-]+$/', 'unique:users,login_id',
         ]);
-        $name = $this->askValid('表示名', '表示名', ['required', 'string', 'max:50']);
+        $name = $this->askValid('表示名', '表示名', ['required', 'string', 'max:50', new NoControlCharacters]);
         $password = $this->askNewPassword();
 
         $admin = new User(['login_id' => $loginId, 'name' => $name, 'password' => $password, 'is_active' => true]);

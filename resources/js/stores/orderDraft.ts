@@ -7,6 +7,7 @@ import { fmt, ja } from '@/i18n/ja'
 import { errorBody, errorStatus, fieldErrors, isNetworkError } from '@/lib/apiError'
 import { isCartLines, lineKey, orderedQty, reconcile, toPricingItems, type CartLine } from '@/lib/cart'
 import { loadDeviceName } from '@/lib/deviceName'
+import { lineTotal } from '@/lib/pricing'
 import { nameWithMemo } from '@/lib/productLabel'
 import { uuidV4 } from '@/lib/uuid'
 import { useCatalogStore } from '@/stores/catalog'
@@ -60,8 +61,7 @@ export const useOrderDraftStore = defineStore('orderDraft', () => {
   const itemCount = computed(() => lines.value.reduce((sum, l) => sum + l.quantity, 0))
   /** 小計の目安（税区分・値引きは無い。サーバーの expected_subtotal の照合と同じ式） */
   const subtotal = computed(() =>
-    toPricingItems(lines.value, products.value)
-      .reduce((sum, i) => sum + (i.unit_price + i.option_prices.reduce((a, b) => a + b, 0)) * i.quantity, 0),
+    toPricingItems(lines.value, products.value).reduce((sum, i) => sum + lineTotal(i), 0),
   )
   const canSend = computed(() => lines.value.length > 0 && subtotal.value >= 0 && !submitting.value)
 

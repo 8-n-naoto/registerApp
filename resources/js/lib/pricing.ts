@@ -81,10 +81,11 @@ export function calculateAmounts(input: PricingAmountsInput): PricingAmounts {
 
   const lineTotals = input.items.map((item, i) => {
     assertInt(item.unit_price, item.quantity, ...item.option_prices)
-    const perUnit = item.option_prices.reduce((sum, p) => sum + p, item.unit_price)
     const isDiscount = item.unit_price < 0
-    if (isDiscount ? item.option_prices.length > 0 : perUnit < 0) throw new PricingError('NEGATIVE_LINE_PRICE', i)
-    return perUnit * item.quantity
+    if (isDiscount ? item.option_prices.length > 0 : unitWithOptions(item.unit_price, item.option_prices) < 0) {
+      throw new PricingError('NEGATIVE_LINE_PRICE', i)
+    }
+    return lineTotal(item)
   })
   const subtotal = lineTotals.reduce((sum, v) => sum + v, 0)
   assertInt(subtotal)
@@ -110,6 +111,16 @@ export function calculateAmounts(input: PricingAmountsInput): PricingAmounts {
   }
 
   return { line_totals: lineTotals, subtotal, discount_amount: discountAmount, total, tax_amount: tax }
+}
+
+/** 07 §1.1 1 つあたりの金額（単価 + オプションの価格）。画面の表示・目安の小計もここを通す（F-015） */
+export function unitWithOptions(unitPrice: number, optionPrices: readonly number[]): number {
+  return optionPrices.reduce((sum, p) => sum + p, unitPrice)
+}
+
+/** 07 §1.1 行の金額 = (単価 + オプション) × 数量。PHP の PriceCalculator::lineTotal と同じ式。単価の検証は calculateAmounts が行う */
+export function lineTotal(item: PricingItem): number {
+  return unitWithOptions(item.unit_price, item.option_prices) * item.quantity
 }
 
 /** 07 §1.1 預かり・お釣り。現金以外は預かり = 合計、お釣り 0 */

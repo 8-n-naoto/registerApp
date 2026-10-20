@@ -76,8 +76,11 @@ class LoginTest extends TestCase
         [$first, $second] = [$logs->firstOrFail(), $logs->skip(1)->firstOrFail()];
         $this->assertSame(['login_id' => 'owner1'], $first->after);
         $this->assertSame($store->id, $first->store_id);
+        // 存在しない ID は記録しない（ID 欄にパスワードを打ち間違えた場合に残さない。F-014）
+        $this->assertSame(['login_id' => null], $second->after);
         $this->assertNull($second->store_id);
         $this->assertStringNotContainsString('wrong-password', (string) json_encode($logs->toArray()));
+        $this->assertStringNotContainsString('nobody', (string) json_encode($logs->toArray()));
     }
 
     public function test_5回失敗すると6回目は正しいパスワードでも429(): void
@@ -133,6 +136,37 @@ class LoginTest extends TestCase
         // 1 分たてば再びログインできる
         $this->travel(61)->seconds();
         $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1'])->login('owner1')->assertOk();
+    }
+
+    public function test_多数のipから1つのアカウントへの失敗が1時間に50回を超えると51回目は429で照合も記録もしない(): void
+    {
+        User::factory()->owner()->create(['login_id' => 'owner1']);
+        User::factory()->owner()->create(['login_id' => 'other']);
+
+        // login_id + IP（5 回）・IP（30 回）の上限に掛からないよう、5 回ごとに IP を変える
+        for ($i = 0; $i < 50; $i++) {
+            $this->withServerVariables(['REMOTE_ADDR' => '10.0.1.'.intdiv($i, 5)])
+                ->login('owner1', 'wrong')->assertStatus(422);
+        }
+        $logCount = AuditLog::query()->count();
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.2.1'])->login('owner1')
+            ->assertStatus(429)
+            ->assertJsonPath('code', 'TOO_MANY_ATTEMPTS')
+            ->assertHeader('Retry-After');
+        $this->assertGuest('web');
+        $this->assertSame($logCount, AuditLog::query()->count());
+
+        // 別のアカウントには影響しない。大文字小文字だけが違う ID も別のアカウントとして数える
+        $this->login('other')->assertOk();
+        $this->fromSpa()->postJson('/api/logout')->assertNoContent();
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.3.1'])->login('Owner1', 'wrong')->assertStatus(422);
+        $this->fromSpa()->postJson('/api/logout')->assertNoContent();
+
+        // 1 分では解けず、1 時間たてば再びログインできる
+        $this->travel(61)->seconds();
+        $this->login('owner1')->assertStatus(429);
+        $this->travel(3600)->seconds();
+        $this->login('owner1')->assertOk();
     }
 
     public function test_ipの上限は成功を数えず同じ店の端末が続けてログインしても掛からない(): void

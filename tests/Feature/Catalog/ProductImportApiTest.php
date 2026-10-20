@@ -182,6 +182,30 @@ class ProductImportApiTest extends TestCase
             ->assertJsonPath('errors.0.messages.0', 'カテゴリ：30 文字以内で入力してください');
     }
 
+    public function test_カテゴリと商品名の制御文字は行エラーでメモは改行だけ許す(): void
+    {
+        $res = $this->import(implode('
+', [
+            self::HEADER_WITH_CODE,
+            'カ	テ,A,100,,,,,,',
+            ',B,100,,,,,,',
+            ',C,100,,,,,,"1行目
+2行目"',
+            ',D,100,,,,,,メモ',
+        ]).'
+')->assertOk();
+
+        $res->assertJsonPath('valid_count', 1)
+            ->assertJsonPath('rows.0.memo', '1行目
+2行目')
+            ->assertJsonPath('errors.0.line', 2)
+            ->assertJsonPath('errors.0.messages', ['カテゴリ：使えない文字が含まれています'])
+            ->assertJsonPath('errors.1.line', 3)
+            ->assertJsonPath('errors.1.messages', ['商品名：使えない文字が含まれています'])
+            ->assertJsonPath('errors.2.line', 5)
+            ->assertJsonPath('errors.2.messages', ['メモ：使えない文字が含まれています']);
+    }
+
     public function test_f10_エラーがあれば422で1件も登録しない(): void
     {
         $this->seedVectorPremise();
@@ -340,7 +364,7 @@ class ProductImportApiTest extends TestCase
         $this->import(self::HEADER."\n,A,1,,,,\n,B,2,,,,")->assertOk()->assertJsonPath('valid_count', 2);
         $this->import(self::HEADER."\r,A,1,,,,\r,B,2,,,,\r")->assertOk()->assertJsonPath('valid_count', 2);
 
-        $this->import(self::HEADER."\n,\"改\n行\",1,,,,\n,,-1,,,,\n")->assertOk()
+        $this->import(self::HEADER_WITH_CODE."\n,A,1,,,,,,\"改\n行\"\n,,-1,,,,,,\n")->assertOk()
             ->assertJsonPath('rows.0.line', 2)
             ->assertJsonPath('errors.0.line', 3);
     }

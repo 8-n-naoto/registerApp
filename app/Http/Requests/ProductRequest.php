@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\ProductColor;
 use App\Models\Product;
+use App\Rules\NoControlCharacters;
 use App\Services\StockService;
 use App\Support\CurrentStore;
 use Illuminate\Foundation\Http\FormRequest;
@@ -38,8 +39,8 @@ class ProductRequest extends FormRequest
                     ->where('store_id', $storeId)
                     ->whereNull('deleted_at')
                     ->ignore($product instanceof Product ? $product->id : null)],
-            'name' => ['required', 'string', 'min:1', 'max:50'],
-            'memo' => [$isCreate ? 'nullable' : 'present', 'nullable', 'string', 'max:200'],
+            'name' => ['required', 'string', 'min:1', 'max:50', new NoControlCharacters],
+            'memo' => [$isCreate ? 'nullable' : 'present', 'nullable', 'string', 'max:200', new NoControlCharacters(allowNewline: true)],
             // 割引の商品は 1 円以上（0 円の割引は意味が無い）。価格は正の数で受け取り、計算で −価格 にする
             'price' => ['required', 'integer', 'min:'.($this->isDiscount() ? 1 : 0), 'max:9999999'],
             'category_id' => [$isCreate ? 'nullable' : 'present', 'nullable', 'integer', Rule::exists('categories', 'id')

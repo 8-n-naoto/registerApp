@@ -105,7 +105,7 @@ describe('StaffPage（S10）', () => {
     await w.find('.staff-password').trigger('submit')
     await flushPromises()
     expect(api.resetStaffPassword).not.toHaveBeenCalled()
-    expect(w.text()).toContain('パスワードは 8〜72 文字で入力してください')
+    expect(w.text()).toContain('パスワードは 8 文字以上・半角 72 文字まで（全角の文字は 1 文字で半角 3 文字分）で入力してください')
 
     await w.find('#staff-password-7').setValue('new-password-1')
     await w.find('.staff-password').trigger('submit')

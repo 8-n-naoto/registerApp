@@ -107,6 +107,26 @@ class OperatorApiTest extends TestCase
         $this->assertStringNotContainsString('wrong', (string) json_encode(AuditLog::query()->withoutGlobalScopes()->get()->toArray()));
     }
 
+    public function test_ownerへの切替はログインと合わせてアカウントごとの上限を数える(): void
+    {
+        $this->working($this->owner);
+        $this->working($this->staff);
+
+        // ログインの失敗 49 回（5 回ごとに IP を変える）＋切替の失敗 1 回で上限の 50 回
+        for ($i = 0; $i < 49; $i++) {
+            $this->withServerVariables(['REMOTE_ADDR' => '10.0.1.'.intdiv($i, 5)])->fromSpa()
+                ->postJson('/api/login', ['login_id' => 'owner1', 'password' => 'wrong'])->assertUnprocessable();
+        }
+        $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1']);
+        $this->actingAs($this->staff);
+        $this->fromSpa()->postJson('/api/operators/switch', ['user_id' => $this->owner->id, 'password' => 'wrong'])
+            ->assertUnprocessable();
+
+        $this->fromSpa()->postJson('/api/operators/switch', ['user_id' => $this->owner->id, 'password' => 'password'])
+            ->assertStatus(429)->assertJsonPath('code', 'TOO_MANY_ATTEMPTS');
+        $this->assertAuthenticatedAs($this->staff, 'web');
+    }
+
     public function test_勤務中でない人_他店舗の人_停止中の人へは404(): void
     {
         $this->working($this->staff);

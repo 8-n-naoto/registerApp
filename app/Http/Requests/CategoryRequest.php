@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Category;
+use App\Rules\NoControlCharacters;
 use App\Support\CurrentStore;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -22,7 +23,7 @@ class CategoryRequest extends FormRequest
         }
 
         return [
-            'name' => ['required', 'string', 'min:1', 'max:30', $unique],
+            'name' => ['required', 'string', 'min:1', 'max:30', new NoControlCharacters, $unique],
         ];
     }
 

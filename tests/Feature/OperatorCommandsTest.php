@@ -24,7 +24,7 @@ class OperatorCommandsTest extends TestCase
 
     private const ADMIN_ID_Q = 'ログイン ID（3〜50 文字の半角英数字と _ . -）';
 
-    private const PASSWORD_Q = 'パスワード（8〜72 文字。画面に表示されません）';
+    private const PASSWORD_Q = 'パスワード（8 文字以上・半角 72 文字まで。画面に表示されません）';
 
     private const CONFIRM_Q = '確認のためもう一度';
 
@@ -56,15 +56,21 @@ class OperatorCommandsTest extends TestCase
         $this->command('store:create')
             ->expectsQuestion(self::STORE_Q, '')
             ->expectsOutput('店舗名を入力してください')
+            ->expectsQuestion(self::STORE_Q, '2	号店')
+            ->expectsOutput('店舗名に使えない文字が含まれています')
             ->expectsQuestion(self::STORE_Q, '2 号店')
             ->expectsQuestion(self::OWNER_ID_Q, 'taken')
             ->expectsOutput('そのログイン IDは既に使われています')
             ->expectsQuestion(self::OWNER_ID_Q, 'bad id!')
             ->expectsOutput('ログイン IDの形式が正しくありません')
             ->expectsQuestion(self::OWNER_ID_Q, 'owner2')
+            ->expectsQuestion(self::OWNER_NAME_Q, '佐藤')
+            ->expectsOutput('表示名に使えない文字が含まれています')
             ->expectsQuestion(self::OWNER_NAME_Q, '佐藤')
             ->expectsQuestion(self::PASSWORD_Q, 'short')
             ->expectsOutput('パスワードは8文字以上にしてください')
+            ->expectsQuestion(self::PASSWORD_Q, str_repeat('あ', 25))
+            ->expectsOutput('パスワードは半角 72 文字までにしてください（全角の文字は 1 文字で半角 3 文字分です）')
             ->expectsQuestion(self::PASSWORD_Q, 'long-enough-1')
             ->expectsQuestion(self::CONFIRM_Q, 'mismatch')
             ->expectsOutput('パスワードが一致しません')

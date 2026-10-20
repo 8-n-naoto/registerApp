@@ -2,17 +2,18 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\PasswordRules;
 use Illuminate\Foundation\Http\FormRequest;
 
 /** 06 §3.4 */
 class UpdatePasswordRequest extends FormRequest
 {
-    /** @return array<string, list<string>> */
+    /** @return array<string, list<mixed>> */
     public function rules(): array
     {
         return [
             'current_password' => ['required', 'string', 'current_password:web'],
-            'password' => ['required', 'string', 'min:8', 'max:72', 'confirmed', 'different:current_password'],
+            'password' => ['required', ...PasswordRules::rules(), 'confirmed', 'different:current_password'],
         ];
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Concerns;
 
+use App\Rules\PasswordRules;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Validator;
 
@@ -28,8 +29,8 @@ trait AsksValidatedInput
     protected function askNewPassword(): string
     {
         while (true) {
-            $password = (string) $this->secret('パスワード（8〜72 文字。画面に表示されません）');
-            $error = $this->firstError($password, 'パスワード', ['required', 'string', 'min:8', 'max:72']);
+            $password = (string) $this->secret('パスワード（8 文字以上・半角 72 文字まで。画面に表示されません）');
+            $error = $this->firstError($password, 'パスワード', ['required', ...PasswordRules::rules()]);
             if ($error !== null) {
                 $this->error($error);
 

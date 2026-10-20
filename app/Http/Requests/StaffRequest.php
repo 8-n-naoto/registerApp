@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\NoControlCharacters;
+use App\Rules\PasswordRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -13,15 +15,15 @@ class StaffRequest extends FormRequest
     {
         if ($this->isMethod('PUT')) {
             return [
-                'name' => ['required', 'string', 'min:1', 'max:50'],
+                'name' => ['required', 'string', 'min:1', 'max:50', new NoControlCharacters],
                 'is_active' => ['required', 'boolean'],
             ];
         }
 
         return [
             'login_id' => ['required', 'string', 'min:3', 'max:50', 'regex:/^[A-Za-z0-9_.-]+$/', Rule::unique('users', 'login_id')],
-            'name' => ['required', 'string', 'min:1', 'max:50'],
-            'password' => ['required', 'string', 'min:8', 'max:72'],
+            'name' => ['required', 'string', 'min:1', 'max:50', new NoControlCharacters],
+            'password' => ['required', ...PasswordRules::rules()],
         ];
     }
 

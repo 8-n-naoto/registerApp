@@ -5,6 +5,7 @@ import { computed } from 'vue'
 import { ja } from '@/i18n/ja'
 import { formatYen } from '@/lib/money'
 import { buildSections, isSingle, toggleOption } from '@/lib/optionGroups'
+import { unitWithOptions } from '@/lib/pricing'
 import type { OptionSelection } from '@/types/api'
 
 interface ChoiceOption { id: number; name: string; price: number; group_id: number | null; is_default: boolean }
@@ -23,8 +24,8 @@ const t = ja.optionChoices
 
 const sections = computed(() => buildSections(props.options, props.groups))
 
-const unitPrice = computed(() => props.basePrice
-  + props.options.filter((o) => selected.value.includes(o.id)).reduce((sum, o) => sum + o.price, 0))
+const unitPrice = computed(() => unitWithOptions(props.basePrice,
+  props.options.filter((o) => selected.value.includes(o.id)).map((o) => o.price)))
 
 function key(group: ChoiceGroup | null): string {
   return group === null ? 'loose' : String(group.id)

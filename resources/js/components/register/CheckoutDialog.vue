@@ -13,6 +13,7 @@ import SegmentedControl from '@/components/SegmentedControl.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { formatYen } from '@/lib/money'
 import { PricingError, settle } from '@/lib/pricing'
+import { stripControlCharacters } from '@/lib/text'
 import type { ConfirmExtra } from '@/stores/register'
 import type { PaymentMethod } from '@/types/api'
 
@@ -89,7 +90,7 @@ function stepCustomers(delta: 1 | -1): void {
 
 function confirm(): void {
   if (!canConfirm.value) return
-  const text = memo.value.trim()
+  const text = stripControlCharacters(memo.value, true).trim()
   emit('confirm', {
     received: props.paymentMethod.is_cash ? received.value : null,
     customer_count: customerCount.value,

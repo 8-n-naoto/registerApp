@@ -77,6 +77,9 @@ class StaffApiTest extends TestCase
             ->assertJsonValidationErrors(['name', 'password']);
         $this->postJson('/api/staff', ['login_id' => 'abc', 'name' => 'x', 'password' => str_repeat('a', 73)])->assertUnprocessable()
             ->assertJsonValidationErrors('password');
+        // 72 バイトを超える全角のパスワードは拒否する（F-008）
+        $this->postJson('/api/staff', ['login_id' => 'abc', 'name' => 'x', 'password' => str_repeat('あ', 25)])->assertUnprocessable()
+            ->assertJsonValidationErrors('password');
         $this->postJson('/api/staff', ['login_id' => 'abc', 'name' => 'x', 'password' => str_repeat('a', 72)])->assertCreated();
         $this->assertSame(1, AuditLog::query()->withoutGlobalScopes()->where('action', 'staff_created')->count());
     }
@@ -137,6 +140,7 @@ class StaffApiTest extends TestCase
         $staff = User::factory()->staff($this->store)->create(['remember_token' => 'old-token']);
 
         $this->putJson("/api/staff/{$staff->id}/password", ['password' => 'short'])->assertUnprocessable()->assertJsonValidationErrors('password');
+        $this->putJson("/api/staff/{$staff->id}/password", ['password' => str_repeat('あ', 25)])->assertUnprocessable()->assertJsonValidationErrors('password');
         $this->putJson("/api/staff/{$staff->id}/password", ['password' => 'new-password'])->assertNoContent();
 
         $staff->refresh();
@@ -148,6 +152,16 @@ class StaffApiTest extends TestCase
         $this->assertNull($log->before);
         $this->assertNull($log->after);
         $this->assertStringNotContainsString('new-password', (string) json_encode($log->toArray()));
+    }
+
+    public function test_パスワードの上限は72バイトで全角は24文字まで(): void
+    {
+        $staff = User::factory()->staff($this->store)->create();
+
+        $this->putJson("/api/staff/{$staff->id}/password", ['password' => str_repeat('あ', 25)])->assertUnprocessable()
+            ->assertJsonPath('errors.password.0', '新しいパスワードは半角 72 文字までにしてください（全角の文字は 1 文字で半角 3 文字分です）');
+        $this->putJson("/api/staff/{$staff->id}/password", ['password' => str_repeat('あ', 24)])->assertNoContent();
+        $this->assertTrue(Hash::check(str_repeat('あ', 24), $staff->refresh()->password));
     }
 
     public function test_他店舗のstaff・ownerは404(): void

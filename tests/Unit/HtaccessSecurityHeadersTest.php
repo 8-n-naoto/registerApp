@@ -40,7 +40,7 @@ class HtaccessSecurityHeadersTest extends TestCase
     {
         $h = self::htaccess();
 
-        $this->assertStringContainsString('Header always set X-Frame-Options "SAMEORIGIN"', $h);
+        $this->assertStringContainsString('Header always set X-Frame-Options "DENY"', $h);
         $this->assertMatchesRegularExpression('/Header always set Permissions-Policy "[^"]*camera=\(\)[^"]*screen-wake-lock=\(self\)/', $h);
     }
 
@@ -56,7 +56,7 @@ class HtaccessSecurityHeadersTest extends TestCase
         $this->assertStringNotContainsString("'unsafe-inline'", $csp);
         $this->assertStringNotContainsString("'unsafe-eval'", $csp);
         $this->assertStringContainsString("object-src 'none'", $csp);
-        $this->assertStringContainsString("frame-ancestors 'self'", $csp);
+        $this->assertStringContainsString("frame-ancestors 'none'", $csp);
         // QR は data: URI の画像で出す（TablesPage.vue）
         $this->assertStringContainsString("img-src 'self' data:;", $csp);
     }

@@ -21,6 +21,9 @@ use Illuminate\Support\Facades\DB;
  */
 final class ShiftService
 {
+    /** 1 店舗の区分の上限（使わない区分を含む。区分は消せないため、作りすぎで一覧が重くならないようにする。F-011） */
+    public const MAX_PATTERNS = 50;
+
     public function __construct(private readonly AuditLogger $audit) {}
 
     /** 月の行。無ければ作る（予定を入れたときにも作る。13 §6.5-1） */
@@ -137,6 +140,10 @@ final class ShiftService
     public function createPattern(array $data): ShiftPattern
     {
         return DB::transaction(function () use ($data): ShiftPattern {
+            if (ShiftPattern::query()->count() >= self::MAX_PATTERNS) {
+                $message = '区分は '.self::MAX_PATTERNS.' 件までです';
+                throw new BusinessException(ErrorCode::Validation, $message, 422, errors: ['name' => [$message]]);
+            }
             $pattern = ShiftPattern::query()->create($data);
             $this->audit->log(AuditAction::ShiftPatternCreated, $pattern, after: self::patternSnapshot($pattern));
 

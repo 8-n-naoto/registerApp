@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\OptionSelection;
+use App\Rules\NoControlCharacters;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -13,7 +14,7 @@ class ProductOptionGroupRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'min:1', 'max:30'],
+            'name' => ['required', 'string', 'min:1', 'max:30', new NoControlCharacters],
             'selection' => ['required', Rule::enum(OptionSelection::class)],
         ];
     }

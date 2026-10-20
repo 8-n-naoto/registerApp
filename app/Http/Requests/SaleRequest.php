@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\DiscountType;
 use App\Http\Requests\Concerns\ValidatesDistinctOptionIds;
+use App\Rules\NoControlCharacters;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -41,8 +42,8 @@ class SaleRequest extends FormRequest
             'discount.value' => ['required_with:discount', 'integer', 'min:1', 'max:'.$discountMax],
             'received' => ['nullable', 'integer', 'min:0', 'max:'.self::MAX_RECEIVED],
             'customer_count' => ['nullable', 'integer', 'min:1', 'max:999'],
-            'memo' => ['nullable', 'string', 'max:200'],
-            'device_name' => ['nullable', 'string', 'max:30'],
+            'memo' => ['nullable', 'string', 'max:200', new NoControlCharacters(allowNewline: true)],
+            'device_name' => ['nullable', 'string', 'max:30', new NoControlCharacters],
             'expected_total' => ['required', 'integer'],
             // 12 §5.15：会計する注文。存在・状態は SaleService の手順 2b で見る
             'order_ids' => ['nullable', 'array', 'max:20'],

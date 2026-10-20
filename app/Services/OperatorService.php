@@ -95,13 +95,20 @@ final class OperatorService
             if (RateLimiter::tooManyAttempts($key, AuthService::MAX_ATTEMPTS)) {
                 throw new TooManyRequestsHttpException(RateLimiter::availableIn($key));
             }
+            // ログインと同じアカウントごとの上限（F-013）
+            $accountKey = AuthService::accountKey($target->login_id);
+            if (RateLimiter::tooManyAttempts($accountKey, AuthService::MAX_ATTEMPTS_PER_ACCOUNT)) {
+                throw new TooManyRequestsHttpException(RateLimiter::availableIn($accountKey));
+            }
             if ($password === null || $password === '' || ! Hash::check($password, $target->password)) {
                 RateLimiter::hit($key, AuthService::DECAY_SECONDS);
+                RateLimiter::hit($accountKey, AuthService::ACCOUNT_DECAY_SECONDS);
                 $this->audit->log(AuditAction::LoginFailed, after: ['login_id' => $target->login_id], storeId: $target->store_id);
 
                 throw ValidationException::withMessages(['password' => ['パスワードが違います']]);
             }
             RateLimiter::clear($key);
+            RateLimiter::clear($accountKey);
         }
 
         $current = $request->user();

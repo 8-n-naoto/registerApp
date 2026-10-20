@@ -7,6 +7,7 @@ import BigButton from '@/components/BigButton.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import MoneyText from '@/components/MoneyText.vue'
 import { fmt, ja } from '@/i18n/ja'
+import { lineTotal } from '@/lib/pricing'
 import { charCount, LINE_MEMO_MAX, useOrderDraftStore } from '@/stores/orderDraft'
 
 // inSheet：スマホのシートに置くとき。品目を内側でスクロールさせず、シート全体でスクロールする
@@ -25,7 +26,7 @@ const rows = computed(() =>
       name: product?.name ?? '',
       productMemo: product?.memo ?? null,
       options: line.option_ids.map((id) => product?.options.find((o) => o.id === id)?.name ?? '').filter((n) => n !== ''),
-      amount: product ? (product.price + optionPrices.reduce((a, b) => a + b, 0)) * line.quantity : null,
+      amount: product ? lineTotal({ unit_price: product.price, option_prices: optionPrices, quantity: line.quantity }) : null,
       canIncrease: product !== undefined && draft.canAddOne(product, line.key),
     }
   }),

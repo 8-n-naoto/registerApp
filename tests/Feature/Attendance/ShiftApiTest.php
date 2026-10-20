@@ -9,6 +9,7 @@ use App\Models\ShiftPattern;
 use App\Models\ShiftRequest;
 use App\Models\Store;
 use App\Models\User;
+use App\Services\ShiftService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -53,6 +54,39 @@ class ShiftApiTest extends TestCase
         $p->forceFill(['store_id' => ($store ?? $this->store)->id])->save();
 
         return $p;
+    }
+
+    public function test_区分は1店舗50件まで使わない区分も数える(): void
+    {
+        $this->actingAs($this->owner);
+        for ($i = 1; $i <= ShiftService::MAX_PATTERNS; $i++) {
+            $this->pattern('区分'.$i, [['start' => '09:00', 'end' => '12:00']], active: $i % 2 === 0);
+        }
+        $this->pattern('他店', [['start' => '09:00', 'end' => '12:00']], store: Store::factory()->create());
+
+        $this->postJson('/api/shift-patterns', ['name' => '51', 'segments' => [['start' => '09:00', 'end' => '12:00']], 'is_active' => true])
+            ->assertUnprocessable()->assertJsonValidationErrors(['name' => '区分は 50 件までです']);
+        $this->assertSame(ShiftService::MAX_PATTERNS, ShiftPattern::query()->where('store_id', $this->store->id)->count());
+
+        $first = ShiftPattern::query()->where('name', '区分1')->sole();
+        $this->putJson('/api/shift-patterns/'.$first->id, ['name' => '区分1', 'segments' => [['start' => '10:00', 'end' => '12:00']], 'is_active' => true])
+            ->assertOk();
+    }
+
+    public function test_区分の件数に他店舗の区分を数えない(): void
+    {
+        $this->actingAs($this->owner);
+        for ($i = 1; $i < ShiftService::MAX_PATTERNS; $i++) {
+            $this->pattern('区分'.$i, [['start' => '09:00', 'end' => '12:00']]);
+        }
+        $other = Store::factory()->create();
+        for ($i = 1; $i <= 5; $i++) {
+            $this->pattern('他店'.$i, [['start' => '09:00', 'end' => '12:00']], store: $other);
+        }
+
+        $this->postJson('/api/shift-patterns', ['name' => '50', 'segments' => [['start' => '09:00', 'end' => '12:00']], 'is_active' => true])
+            ->assertCreated();
+        $this->assertSame(ShiftService::MAX_PATTERNS, ShiftPattern::query()->where('store_id', $this->store->id)->count());
     }
 
     public function test_予定の追加_変更_削除と操作ログ(): void

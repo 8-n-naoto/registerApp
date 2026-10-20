@@ -10,6 +10,7 @@ use App\Models\ShiftMonth;
 use App\Models\ShiftPattern;
 use App\Models\ShiftRequest;
 use App\Models\User;
+use App\Rules\NoControlCharacters;
 use App\Services\Labor\LaborSummary;
 use App\Services\ShiftService;
 use App\Support\BusinessDate;
@@ -69,7 +70,7 @@ class ShiftController extends Controller
         $validated = $request->validate([
             'month' => ['required', 'string', 'regex:'.LaborSummary::MONTH_PATTERN],
             'request_deadline' => ['present', 'nullable', 'string', 'date_format:Y-m-d'],
-            'memo' => ['present', 'nullable', 'string', 'max:500'],
+            'memo' => ['present', 'nullable', 'string', 'max:500', new NoControlCharacters(allowNewline: true)],
             'published' => ['required', 'boolean'],
         ], attributes: ['month' => '月', 'request_deadline' => '希望の締切', 'memo' => 'メモ', 'published' => '公開']);
         $month = (string) $validated['month'];
@@ -140,7 +141,7 @@ class ShiftController extends Controller
             'requests.*.date' => ['required', 'string', 'date_format:Y-m-d', 'starts_with:'.$prefix, 'distinct'],
             'requests.*.kind' => ['required', 'string', Rule::enum(ShiftRequestKind::class)],
             'requests.*.pattern_id' => ['present', 'nullable', 'integer'],
-            'requests.*.note' => ['present', 'nullable', 'string', 'max:100'],
+            'requests.*.note' => ['present', 'nullable', 'string', 'max:100', new NoControlCharacters],
         ], attributes: [
             'requests.*.date' => '日付', 'requests.*.kind' => '希望', 'requests.*.pattern_id' => '区分', 'requests.*.note' => 'メモ',
         ]);
@@ -214,7 +215,7 @@ class ShiftController extends Controller
                 'end_time' => ['required', 'string', 'regex:'.ShiftTime::PATTERN],
                 'break_minutes' => ['required', 'integer', 'min:0', 'max:600'],
             ]),
-            'note' => ['present', 'nullable', 'string', 'max:100'],
+            'note' => ['present', 'nullable', 'string', 'max:100', new NoControlCharacters],
         ], attributes: [
             'user_id' => '従業員', 'date' => '日付', 'pattern_id' => '区分', 'start_time' => '開始', 'end_time' => '終了',
             'break_minutes' => '休憩', 'note' => 'メモ',

@@ -1,4 +1,5 @@
 import { http } from '@/api/client'
+import { stripControlCharacters } from '@/lib/text'
 import type { Category, DiscountType, PaymentMethod, PriceMode, Product, Rounding, Sale, StoreSettings, TaxType } from '@/types/api'
 
 // 06 §4 レジ（bootstrap・会計の確定・閲覧・取消）
@@ -56,9 +57,17 @@ export interface OfflineSaleInput extends Omit<SaleInput, 'items'> {
   rounding: Rounding
 }
 
-/** #102 新規は 201、同じ client_uuid の再送（通常の会計で作られていた場合も）は 200 */
+/**
+ * #102 新規は 201、同じ client_uuid の再送（通常の会計で作られていた場合も）は 200。
+ * 422 になると端末に送信失敗として残るため、サーバーが拒否する制御文字を送る前に取り除く（F-009。この対応の前に端末へ保存した会計も含む）
+ */
 export async function createOfflineSale(input: OfflineSaleInput): Promise<Sale> {
-  return (await http.post<Sale>('/sales/offline', input)).data
+  const body: OfflineSaleInput = {
+    ...input,
+    memo: input.memo === null ? null : stripControlCharacters(input.memo, true),
+    device_name: input.device_name === null ? null : stripControlCharacters(input.device_name) || null,
+  }
+  return (await http.post<Sale>('/sales/offline', body)).data
 }
 
 /** #103 owner：確認していない問題のあるオフライン会計 */

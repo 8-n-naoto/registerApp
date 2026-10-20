@@ -82,6 +82,9 @@ class MeTest extends TestCase
             ->assertStatus(422)->assertJsonPath('errors.password.0', '新しいパスワードは8文字以上にしてください');
         $put(['password' => str_repeat('a', 73), 'password_confirmation' => str_repeat('a', 73)])
             ->assertStatus(422)->assertJsonValidationErrors('password');
+        // bcrypt は先頭 72 バイトしか使わないため、全角は 24 文字（72 バイト）まで（F-008）
+        $put(['password' => str_repeat('あ', 25), 'password_confirmation' => str_repeat('あ', 25)])
+            ->assertStatus(422)->assertJsonPath('errors.password.0', '新しいパスワードは半角 72 文字までにしてください（全角の文字は 1 文字で半角 3 文字分です）');
         $put(['password' => 'new-password-1', 'password_confirmation' => 'different'])
             ->assertStatus(422)->assertJsonPath('errors.password.0', '新しいパスワードが確認用と一致しません');
         $put(['password' => 'password', 'password_confirmation' => 'password'])

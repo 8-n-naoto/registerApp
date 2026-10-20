@@ -7,12 +7,11 @@ import BigButton from '@/components/BigButton.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { errorBody, errorStatus, fieldErrors, isNetworkError } from '@/lib/apiError'
 import { formatDateTime } from '@/lib/date'
+import { isPasswordLengthValid, PASSWORD_MAX_BYTES } from '@/lib/password'
 import type { User } from '@/types/api'
 import '@/styles/admin.css'
 
 const t = ja.staff
-const PASSWORD_MIN = 8
-const PASSWORD_MAX = 72
 
 const staff = ref<User[]>([])
 const loading = ref(true)
@@ -104,7 +103,7 @@ async function resetPassword(id: number): Promise<void> {
   if (resetting.value) return
   passwordError.value = null
   passwordDone.value = false
-  if (newPassword.value.length < PASSWORD_MIN || newPassword.value.length > PASSWORD_MAX) {
+  if (!isPasswordLengthValid(newPassword.value)) {
     passwordError.value = t.passwordTooShort
     return
   }
@@ -244,7 +243,7 @@ async function resetPassword(id: number): Promise<void> {
               v-model="form.password"
               class="adm-input r-input"
               type="password"
-              maxlength="72"
+              :maxlength="PASSWORD_MAX_BYTES"
               autocomplete="new-password"
               :aria-invalid="errors.password ? 'true' : undefined"
             >
@@ -352,7 +351,7 @@ async function resetPassword(id: number): Promise<void> {
                     v-model="newPassword"
                     class="adm-input r-input"
                     type="password"
-                    maxlength="72"
+                    :maxlength="PASSWORD_MAX_BYTES"
                     autocomplete="new-password"
                     :aria-invalid="passwordError ? 'true' : undefined"
                   >
