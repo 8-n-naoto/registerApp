@@ -4,14 +4,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import KitchenPage from '@/pages/KitchenPage.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useKitchenStore } from '@/stores/kitchen'
 import { apiError, makeMe } from '@/test/helpers'
 import { makeOrder, makeOrderItem } from '@/test/orders'
 import type { KitchenOrders, Order } from '@/types/api'
 
 const ordersApi = vi.hoisted(() => ({ fetchKitchenOrders: vi.fn(), serveAllOrder: vi.fn(), setItemServed: vi.fn() }))
 vi.mock('@/api/orders', () => ordersApi)
-const sound = vi.hoisted(() => ({ loadSoundEnabled: vi.fn(), saveSoundEnabled: vi.fn(), enableSound: vi.fn(), playBeep: vi.fn() }))
-vi.mock('@/lib/kitchenSound', () => sound)
+const sound = vi.hoisted(() => ({
+  loadSoundEnabled: vi.fn(),
+  saveSoundEnabled: vi.fn(),
+  loadSoundType: vi.fn(),
+  saveSoundType: vi.fn(),
+  enableSound: vi.fn(),
+  isSoundReady: vi.fn(),
+  playSound: vi.fn(),
+}))
+vi.mock('@/lib/kitchenSound', () => ({ ...sound, SOUND_TYPES: ['pipi', 'pinpon', 'pipipi', 'pirorin', 'pipo'] }))
 
 const TWO_ITEMS = makeOrder({
   id: 101,
@@ -94,6 +103,12 @@ describe('KitchenPage（S14）', () => {
     document.body.innerHTML = ''
     for (const fn of [...Object.values(ordersApi), ...Object.values(sound)]) fn.mockReset()
     sound.loadSoundEnabled.mockReturnValue(false)
+    sound.loadSoundType.mockReturnValue('pipi')
+    sound.isSoundReady.mockReturnValue(false)
+    sound.enableSound.mockImplementation(() => {
+      sound.isSoundReady.mockReturnValue(true)
+      return Promise.resolve()
+    })
     ordersApi.fetchKitchenOrders.mockImplementation(() => Promise.resolve({ changed: true, etag: '"o-1-1"', data: data() }))
   })
 
@@ -249,8 +264,105 @@ describe('KitchenPage（S14）', () => {
       data: data({ in_progress: [TWO_ITEMS, makeOrder({ id: 103, order_no: 7 })] }),
     })
     await click(el('[data-refresh]'))
-    expect(sound.playBeep).toHaveBeenCalledTimes(1)
+    expect(sound.playSound).toHaveBeenCalledTimes(1)
+    expect(sound.playSound).toHaveBeenCalledWith('pipi')
     expect(el('[data-order="103"]').classList.contains('kcard--new')).toBe(true)
+  })
+
+  it('音の種類は音 ON のときだけ選べる。選ぶと保存して鳴らし、［試聴］と新しい注文でも選んだ音を鳴らす', async () => {
+    await mountPage()
+    expect(document.querySelector('[data-sound-type]')).toBeNull()
+    expect(document.querySelector('[data-sound-preview]')).toBeNull()
+    await click(el('[data-sound]'))
+
+    const select = el('[data-sound-type]') as HTMLSelectElement
+    expect([...select.options].map((o) => o.textContent?.trim())).toEqual([
+      'ピッピッ（標準）',
+      'ピンポン',
+      'ピピピ（高い音）',
+      'ピロリン',
+      'ピポピポ（強め）',
+    ])
+    expect(select.value).toBe('pipi')
+
+    select.value = 'pinpon'
+    select.dispatchEvent(new Event('change'))
+    await flushPromises()
+    expect(sound.saveSoundType).toHaveBeenCalledWith('pinpon')
+    expect(sound.playSound).toHaveBeenCalledTimes(1)
+    expect(sound.playSound).toHaveBeenLastCalledWith('pinpon')
+
+    sound.playSound.mockClear()
+    await click(el('[data-sound-preview]'))
+    expect(sound.playSound).toHaveBeenCalledTimes(1)
+    expect(sound.playSound).toHaveBeenCalledWith('pinpon')
+
+    sound.playSound.mockClear()
+    ordersApi.fetchKitchenOrders.mockResolvedValue({
+      changed: true,
+      etag: null,
+      data: data({ in_progress: [TWO_ITEMS, makeOrder({ id: 103, order_no: 7 })] }),
+    })
+    await click(el('[data-refresh]'))
+    expect(sound.playSound).toHaveBeenCalledTimes(1)
+    expect(sound.playSound).toHaveBeenCalledWith('pinpon')
+  })
+
+  it('保存した音の種類を画面の選択に出す', async () => {
+    sound.loadSoundEnabled.mockReturnValue(true)
+    sound.loadSoundType.mockReturnValue('pipo')
+    await mountPage()
+    expect((el('[data-sound-type]') as HTMLSelectElement).value).toBe('pipo')
+  })
+
+  it('読み直して音 ON のままのときは案内を出し、画面のタップで音を有効にして案内を消す', async () => {
+    sound.loadSoundEnabled.mockReturnValue(true)
+    await mountPage()
+    expect(el('[data-sound-hint]').textContent?.trim()).toBe('通知音を鳴らすには、画面を 1 回タップしてください')
+    expect(sound.enableSound).not.toHaveBeenCalled()
+
+    await click(el('.kitchen'))
+    expect(sound.enableSound).toHaveBeenCalledTimes(1)
+    expect(document.querySelector('[data-sound-hint]')).toBeNull()
+  })
+
+  it('タッチ操作（touchend）でも音を有効にする。画面を離れたら受け取らない', async () => {
+    sound.loadSoundEnabled.mockReturnValue(true)
+    await mountPage()
+    window.dispatchEvent(new Event('touchend'))
+    await flushPromises()
+    expect(sound.enableSound).toHaveBeenCalledTimes(1)
+
+    wrapper?.unmount()
+    wrapper = null
+    sound.isSoundReady.mockReturnValue(false)
+    window.dispatchEvent(new Event('touchend'))
+    await flushPromises()
+    expect(sound.enableSound).toHaveBeenCalledTimes(1)
+  })
+
+  it('端末が音声を止めていたら、新しい注文が届いたときに案内を出す', async () => {
+    sound.loadSoundEnabled.mockReturnValue(true)
+    sound.isSoundReady.mockReturnValue(true)
+    await mountPage()
+    expect(document.querySelector('[data-sound-hint]')).toBeNull()
+
+    sound.isSoundReady.mockReturnValue(false)
+    ordersApi.fetchKitchenOrders.mockResolvedValue({
+      changed: true,
+      etag: null,
+      data: data({ in_progress: [TWO_ITEMS, makeOrder({ id: 103, order_no: 7 })] }),
+    })
+    await useKitchenStore().refreshNow() // 自動更新と同じ経路。タップを挟まない
+    await flushPromises()
+    expect(document.querySelector('[data-sound-hint]')).not.toBeNull()
+  })
+
+  it('音 OFF のあいだは画面をタップしても音を有効にしない', async () => {
+    await mountPage()
+    await click(el('.kitchen'))
+    expect(sound.enableSound).not.toHaveBeenCalled()
+    expect(document.querySelector('[data-sound-hint]')).toBeNull()
   })
 
   it('17 §6.1・§8.1：取消済みの品目は「取消」と出して［提供済］を出さず、未提供の数・最後の品目の確認に数えない', async () => {

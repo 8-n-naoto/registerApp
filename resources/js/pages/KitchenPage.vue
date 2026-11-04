@@ -12,7 +12,17 @@ import KitchenCard from '@/components/orders/KitchenCard.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { errorBody, isNetworkError } from '@/lib/apiError'
 import { formatTokyoClock } from '@/lib/date'
-import { enableSound, loadSoundEnabled, playBeep, saveSoundEnabled } from '@/lib/kitchenSound'
+import {
+  enableSound,
+  isSoundReady,
+  loadSoundEnabled,
+  loadSoundType,
+  playSound,
+  saveSoundEnabled,
+  saveSoundType,
+  SOUND_TYPES,
+  type SoundType,
+} from '@/lib/kitchenSound'
 import { isItemCancelled, liveItems, orderPlace } from '@/lib/orders'
 import { useWakeLock } from '@/lib/wakeLock'
 import { useKitchenStore } from '@/stores/kitchen'
@@ -20,6 +30,8 @@ import type { Order, OrderItem } from '@/types/api'
 import '@/styles/admin.css'
 
 const NOW_TICK_MS = 15_000 // 経過分の表示を進める間隔
+// タッチの開始では音を有効にできないブラウザがあるので、指を離したときと click で受ける
+const SOUND_UNLOCK_EVENTS = ['touchend', 'click'] as const
 
 const t = ja.kitchen
 const kitchen = useKitchenStore()
@@ -28,6 +40,8 @@ useWakeLock()
 
 const tab = ref<'progress' | 'done'>('progress')
 const sound = ref(loadSoundEnabled())
+const soundType = ref<SoundType>(loadSoundType())
+const soundReady = ref(isSoundReady())
 const now = ref(Date.now())
 const actionError = ref<string | null>(null)
 
@@ -37,18 +51,22 @@ const confirming = ref<Confirming | null>(null)
 let nowTimer: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
+  for (const name of SOUND_UNLOCK_EVENTS) window.addEventListener(name, onUserGesture, { capture: true, passive: true })
   now.value = kitchen.serverNow()
   nowTimer = setInterval(() => {
     now.value = kitchen.serverNow()
   }, NOW_TICK_MS)
   kitchen.start({
     onNew: () => {
-      if (sound.value) playBeep()
+      if (!sound.value) return
+      soundReady.value = isSoundReady()
+      playSound(soundType.value)
     },
   })
 })
 
 onUnmounted(() => {
+  for (const name of SOUND_UNLOCK_EVENTS) window.removeEventListener(name, onUserGesture, { capture: true })
   if (nowTimer !== null) clearInterval(nowTimer)
   kitchen.stop()
 })
@@ -67,11 +85,32 @@ const pollingLabel = computed(() => {
 const lastUpdated = computed(() => (kitchen.lastUpdatedAt === null ? '' : formatTokyoClock(kitchen.lastUpdatedAt)))
 const list = computed(() => (tab.value === 'progress' ? kitchen.inProgress : kitchen.done))
 
+/** Safari はタップの中でないと音を出せない。読み直して［音 ON］のままのときも、次のタップで鳴らせるようにする */
+async function unlockSound(): Promise<void> {
+  if (!sound.value || isSoundReady()) return
+  await enableSound()
+  soundReady.value = isSoundReady()
+}
+
+function onUserGesture(): void {
+  void unlockSound()
+}
+
 function toggleSound(): void {
   const next = !sound.value
-  if (next) enableSound() // Safari はタップの中でないと音を出せない
   sound.value = next
   saveSoundEnabled(next)
+  if (next) void unlockSound()
+}
+
+async function previewSound(): Promise<void> {
+  await unlockSound()
+  playSound(soundType.value)
+}
+
+function onSoundTypeChange(): void {
+  saveSoundType(soundType.value)
+  void previewSound()
 }
 
 async function refresh(): Promise<void> {
@@ -197,6 +236,31 @@ function runConfirm(): void {
           />
           <span>{{ sound ? t.soundOn : t.soundOff }}</span>
         </button>
+        <template v-if="sound">
+          <select
+            v-model="soundType"
+            class="adm-select"
+            :aria-label="t.soundTypeLabel"
+            data-sound-type
+            @change="onSoundTypeChange"
+          >
+            <option
+              v-for="type in SOUND_TYPES"
+              :key="type"
+              :value="type"
+            >
+              {{ t.soundTypes[type] }}
+            </option>
+          </select>
+          <button
+            type="button"
+            class="r-btn r-btn--secondary"
+            data-sound-preview
+            @click="previewSound"
+          >
+            {{ t.soundPreview }}
+          </button>
+        </template>
         <button
           type="button"
           class="r-btn r-btn--secondary"
@@ -211,6 +275,15 @@ function runConfirm(): void {
           <span>{{ t.refresh }}</span>
         </button>
       </div>
+
+      <p
+        v-if="sound && !soundReady"
+        class="r-banner r-banner--warn kitchen__sound-hint"
+        role="status"
+        data-sound-hint
+      >
+        {{ t.soundNeedsTap }}
+      </p>
 
       <nav
         class="kitchen__tabs r-seg"
@@ -319,6 +392,7 @@ function runConfirm(): void {
 .kitchen__updated { color: var(--c-text-sub); font-size: 16px; }
 .kitchen__pending { text-decoration: none; }
 .kitchen__spacer { flex: 1 1 auto; }
+.kitchen__sound-hint { margin: 0; font-size: 18px; font-weight: 700; }
 .kitchen__tabs { width: 100%; max-width: 520px; }
 .kitchen__fail { flex-direction: column; align-items: flex-start; }
 .kitchen__grid { padding: 0; }
