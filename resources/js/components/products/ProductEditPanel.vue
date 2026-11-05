@@ -99,6 +99,10 @@ async function save(): Promise<void> {
       : await createProduct({ ...input, stock_qty: tracked ? (stockQty ?? 0) : 0 })
     current.value = saved
     code.value = saved.code
+    // 全角の数字や前後の空白は、保存した値に揃えて見せる
+    name.value = saved.name
+    memo.value = saved.memo ?? ''
+    price.value = String(saved.price)
     trackStock.value = saved.track_stock
     customerVisible.value = saved.customer_visible
     options.value = [...saved.options]
