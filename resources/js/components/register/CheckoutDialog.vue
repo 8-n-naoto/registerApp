@@ -350,7 +350,7 @@ function back(): void {
   width: 100%;
   height: 100%;
   overflow-y: auto;
-  padding: calc(12px + var(--safe-top)) 16px calc(12px + var(--safe-bottom));
+  padding: calc(12px + var(--safe-top)) 16px 0;
   background: var(--c-surface);
   color: var(--c-text);
   outline: none;
@@ -362,7 +362,7 @@ function back(): void {
 
 @media (min-width: 768px) {
   .checkout-backdrop { align-items: center; justify-content: center; padding: 16px; }
-  .checkout { width: min(880px, 100%); height: auto; max-height: calc(100dvh - 32px); padding: 24px; border-radius: var(--radius-sheet); box-shadow: var(--sh-dialog); }
+  .checkout { width: min(880px, 100%); height: auto; max-height: calc(100dvh - 32px); padding: 24px 24px 0; border-radius: var(--radius-sheet); box-shadow: var(--sh-dialog); }
   .checkout__cols { flex-direction: row; gap: 24px; }
   .checkout__main { flex: 1 1 0; }
   .checkout__pad { flex: 0 0 min(400px, 46%); }
@@ -400,7 +400,22 @@ function back(): void {
 .checkout__changed-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .checkout__changed-actions > * { flex: 1 1 160px; }
 
-.checkout__actions { display: flex; gap: 12px; margin-top: auto; }
+/* 画面が低いタブレットでも［確定］が見えるよう、下端に固定する（テンキーはスクロールで届く） */
+.checkout__actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 12px;
+  padding-bottom: calc(12px + var(--safe-bottom));
+  background: var(--c-surface);
+  box-shadow: 0 -1px 0 var(--c-border);
+}
+@media (min-width: 768px) {
+  .checkout__actions { padding-bottom: 24px; }
+}
 .checkout__back { flex: 0 0 auto; min-width: 96px; }
 .checkout__confirm { flex: 1 1 auto; min-width: 0; }
 </style>
