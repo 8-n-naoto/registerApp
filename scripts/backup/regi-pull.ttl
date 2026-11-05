@@ -1,0 +1,264 @@
+; お会計補助アプリのバックアップを PC に取得する Tera Term マクロ。
+;
+; 使い方: サーバーにログインした Tera Term で［コントロール］→［マクロ］からこのファイルを選ぶ。
+; 接続は開いている画面をそのまま使うので、パスワードや鍵はこのファイルに書かない。
+; 手順は docs/11 §4。Tera Term 4.103 以降で動く（文字コードに UTF-8 を使うため）。
+;
+; 受信が途中で切れたファイルをバックアップと取り違えないよう、regi-pull.part に受信し、
+; サーバーが記録したサイズと SHA-256 が一致してから日付の入った名前に変える。
+
+; 保存先。空なら %USERPROFILE%\regi-backups。
+; 束には .env とパスワードのハッシュが入るので、クラウド同期されるフォルダは避ける。
+SAVE_DIR = ''
+
+; サーバーの保存先（ホームからの相対パス）。REGI_BACKUP_DIR を変えたときだけ合わせる
+REMOTE_DIR = 'regi-backups'
+
+MAKE_TIMEOUT_SEC = 1800
+INFO_TRIES = 60
+STALL_LIMIT_SEC = 120
+HASH_TRIES = 5
+EXIT_STALE = 3
+
+TITLE = 'お会計補助アプリ バックアップの取得'
+
+ok = 0
+message = ''
+save_ready = 0
+
+; 試験用。無人で動かすときはダイアログを出さず、結果を regi-pull.log にだけ残す
+ifdefined REGI_UNATTENDED
+unattended = result
+
+; ---- 保存先を用意する ----
+strlen SAVE_DIR
+if result = 0 then
+    getenv 'USERPROFILE' home
+    makepath SAVE_DIR home 'regi-backups'
+endif
+message = '保存先のフォルダを作れません'
+foldersearch SAVE_DIR
+if result = 0 foldercreate SAVE_DIR
+foldersearch SAVE_DIR
+if result = 0 goto finish
+save_ready = 1
+makepath info_tmp SAVE_DIR 'regi-pull.info'
+makepath part_tmp SAVE_DIR 'regi-pull.part'
+makepath hash_tmp SAVE_DIR 'regi-pull.hash'
+makepath log_file SAVE_DIR 'regi-pull.log'
+
+; ---- ログイン済みか確かめる ----
+message = 'サーバーにログインした Tera Term の［コントロール］→［マクロ］から実行してください'
+testlink
+if result <> 2 goto finish
+
+; ---- 最新の状態を画面に出す ----
+sprintf2 tool 'bash ~/%s/bin/regi-backup.sh' REMOTE_DIR
+command = tool
+strconcat command ' status; echo REGI_DONE_$?'
+flushrecv
+sendln command
+timeout = 60
+waitregex 'REGI_DONE_([0-9]+)'
+timeout = 0
+message = 'サーバーが応答しません（プロンプトが出ている状態で実行してください）'
+if result = 0 goto finish
+str2int status_code groupmatchstr1
+if status_code = 0 goto ask_new
+sprintf2 message 'バックアップの状態を確認できません（終了コード %d）。最初に regi-backup.sh setup が必要です' status_code
+if status_code <> EXIT_STALE goto finish
+
+:ask_new
+prompt = '今の状態のバックアップを新しく作ってから取得しますか？'#13#10#13#10'はい: 新しく作る（お店の営業中でも実行できます）'#13#10'いいえ: 夜間に作った最新を取得する'
+if status_code = EXIT_STALE then
+    prompt = '最新のバックアップが古いか、まだありません。Cron が動いていない可能性があります。'#13#10#13#10'今の状態のバックアップを新しく作ってから取得しますか？'
+endif
+if unattended then
+    make_new = REGI_MAKE_NEW
+else
+    yesnobox prompt TITLE
+    make_new = result
+endif
+if make_new = 0 goto fetch_info
+
+; ---- 新しく作る ----
+command = tool
+strconcat command ' manual; echo REGI_DONE_$?'
+flushrecv
+sendln command
+timeout = MAKE_TIMEOUT_SEC
+waitregex 'REGI_DONE_([0-9]+)'
+timeout = 0
+message = 'バックアップの作成が時間内に終わりませんでした。画面の表示を確認してください'
+if result = 0 goto finish
+str2int status_code groupmatchstr1
+sprintf2 message 'バックアップの作成に失敗しました（終了コード %d）。画面の表示を確認してください' status_code
+if status_code <> 0 goto finish
+
+; ---- 取得するファイルの名前・サイズ・SHA-256 を受け取る ----
+:fetch_info
+filesearch info_tmp
+if result filedelete info_tmp
+sprintf2 remote_file '%s/regi-latest.txt' REMOTE_DIR
+scprecv remote_file info_tmp
+info_ok = 0
+tries = 0
+while tries < INFO_TRIES
+    mpause 500
+    tries = tries + 1
+    call read_info
+    if info_ok tries = INFO_TRIES
+endwhile
+filesearch info_tmp
+if result filedelete info_tmp
+message = 'バックアップの情報を受け取れません。サーバーで regi-backup.sh status を確認してください'
+if info_ok = 0 goto finish
+
+makepath dest SAVE_DIR info_name
+message = info_name
+strconcat message ' はすでに取得済みです'
+ok = 1
+filesearch dest
+if result goto finish
+ok = 0
+
+; ---- 本体を受け取る ----
+; scprecv は受信の完了を待たずに戻るので、サイズが揃うまでここで待つ。
+; 同じ名前があると Tera Term が上書きの確認を出して止まるので、前回の残りを消しておく
+filesearch part_tmp
+if result filedelete part_tmp
+sprintf2 remote_file '%s/regi-latest.tar.gz' REMOTE_DIR
+scprecv remote_file part_tmp
+last_size = -1
+stalled = 0
+received = 0
+while stalled < STALL_LIMIT_SEC
+    pause 1
+    size = -1
+    filesearch part_tmp
+    if result filestat part_tmp size
+    sprintf2 progress '受信中 %d / %d MB' size/1048576 info_size_int/1048576
+    statusbox progress TITLE
+    if size = info_size_int then
+        received = 1
+        stalled = STALL_LIMIT_SEC
+    endif
+    if size = last_size stalled = stalled + 1
+    if size <> last_size stalled = 0
+    last_size = size
+    testlink
+    if result <> 2 stalled = STALL_LIMIT_SEC
+endwhile
+closesbox
+sprintf2 message '受信が途中で止まりました（%d / %d バイト）。もう一度実行してください' last_size info_size_int
+if received = 0 goto finish
+
+; ---- 中身を確かめる ----
+; Tera Term のマクロに SHA-256 の命令がないので Windows の certutil を使う。
+; 受信の直後はファイルを閉じ終えていないことがあるので、数回やり直す
+tries = 0
+hash_ok = 0
+while tries < HASH_TRIES
+    tries = tries + 1
+    exec 'cmd /c certutil -hashfile regi-pull.part SHA256 > regi-pull.hash' 'hide' 1 SAVE_DIR
+    call read_hash
+    strcompare actual_hash info_sha256
+    if result = 0 then
+        hash_ok = 1
+        tries = HASH_TRIES
+    else
+        pause 2
+    endif
+endwhile
+filesearch hash_tmp
+if result filedelete hash_tmp
+message = 'SHA-256 が一致しません。受信したファイルは使えません。もう一度実行してください'
+if hash_ok = 0 goto finish
+
+message = '受信したファイルの名前を変えられません'
+filerename part_tmp dest
+if result <> 0 goto finish
+
+ok = 1
+sprintf2 message '取得しました。'#13#10#13#10'%s'#13#10'作成日時: %s'#13#10'サイズ: %d MB'#13#10'SHA-256 は一致しています'#13#10#13#10'保存先: %s' info_name info_created info_size_int/1048576 SAVE_DIR
+
+; ---- 終わり ----
+:finish
+if save_ready then
+    ; 途中までのファイルにも .env の断片が入りうるので残さない
+    if ok = 0 then
+        filesearch part_tmp
+        if result filedelete part_tmp
+    endif
+    gettime now '%Y-%m-%d %H:%M:%S'
+    fileopen log_handle log_file 1
+    if log_handle <> -1 then
+        strdim log_status 2
+        log_status[0] = 'NG'
+        log_status[1] = 'OK'
+        log_message = message
+        strreplace log_message 1 #13#10#13#10 ' '
+        while result
+            strreplace log_message 1 #13#10 ' '
+        endwhile
+        sprintf2 log_line '%s %s %s' now log_status[ok] log_message
+        filewriteln log_handle log_line
+        fileclose log_handle
+    endif
+endif
+if unattended = 0 messagebox message TITLE
+exit
+
+; ---- サブルーチン ----
+:read_info
+info_name = ''
+info_size = ''
+info_sha256 = ''
+info_created = ''
+filesearch info_tmp
+if result = 0 return
+fileopen info_handle info_tmp 0 1
+if info_handle = -1 return
+while 1
+    filereadln info_handle line
+    if result break
+    strsplit line '=' 2
+    key = groupmatchstr1
+    value = groupmatchstr2
+    strcompare key 'name'
+    if result = 0 info_name = value
+    strcompare key 'size'
+    if result = 0 info_size = value
+    strcompare key 'sha256'
+    if result = 0 info_sha256 = value
+    strcompare key 'created_at'
+    if result = 0 info_created = value
+endwhile
+fileclose info_handle
+; サーバーから来た値をファイル名に使うので、決まった形のときだけ受け入れる
+strmatch info_name '^regi-[0-9]{8}-[0-9]{6}-[a-z-]+\.tar\.gz$'
+if result = 0 return
+strmatch info_size '^[0-9]{1,10}$'
+if result = 0 return
+strmatch info_sha256 '^[0-9a-f]{64}$'
+if result = 0 return
+strlen info_created
+if result = 0 return
+str2int info_size_int info_size
+; マクロの整数は 2GB まで。超えるとサイズの比較ができない
+if info_size_int <= 0 return
+info_ok = 1
+return
+
+:read_hash
+; certutil の出力は 3 行で、2 行目が SHA-256。失敗のときは actual_hash が空のままになる
+actual_hash = ''
+filesearch hash_tmp
+if result = 0 return
+fileopen hash_handle hash_tmp 0 1
+if hash_handle = -1 return
+filereadln hash_handle line
+filereadln hash_handle line
+fileclose hash_handle
+tolower actual_hash line
+return
