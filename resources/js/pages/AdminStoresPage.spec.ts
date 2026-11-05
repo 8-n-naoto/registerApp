@@ -1,4 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
+import { AxiosError, type AxiosResponse } from 'axios'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -11,6 +12,7 @@ import { makeMe } from '@/test/helpers'
 const api = vi.hoisted(() => ({
   fetchAdminStores: vi.fn(),
   setStoreActive: vi.fn(),
+  createAdminStore: vi.fn(),
   backupUrl: 'backup-url',
 }))
 vi.mock('@/api/admin', () => api)
@@ -54,6 +56,21 @@ function button(text: string, root: ParentNode = document): HTMLButtonElement {
   const el = [...root.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim() === text)
   if (!el) throw new Error(`button ${text} not found`)
   return el
+}
+
+function input(id: string, value: string): void {
+  const el = document.querySelector<HTMLInputElement>(`#${id}`)
+  if (!el) throw new Error(`input ${id} not found`)
+  el.value = value
+  el.dispatchEvent(new Event('input'))
+}
+
+function fillStoreForm(password = 'test-owner-pass', confirmation = password): void {
+  input('store-new-name', ' 新しい店 ')
+  input('store-new-owner-name', '店長')
+  input('store-new-owner-login', 'new-owner')
+  input('store-new-password', password)
+  input('store-new-password-confirm', confirmation)
 }
 
 function card(i: number): HTMLElement {
@@ -111,6 +128,70 @@ describe('AdminStoresPage（A01）', () => {
     expect(api.setStoreActive).toHaveBeenCalledWith(3, false)
     expect(card(0).textContent).toContain('停止中')
     expect(w.text()).toContain('「駅前店」を停止しました')
+    w.unmount()
+  })
+
+  it('店舗を追加すると、送信後にフォームを閉じて一覧を読み直し、通知を出す', async () => {
+    api.createAdminStore.mockResolvedValue({ id: 5, name: '新しい店', owner_login_id: 'new-owner' })
+    const { w } = await mountPage()
+    expect(api.fetchAdminStores).toHaveBeenCalledTimes(1)
+
+    button('＋店舗を追加').click()
+    await flushPromises()
+    fillStoreForm()
+    button('追加する').click()
+    await flushPromises()
+
+    expect(api.createAdminStore).toHaveBeenCalledWith({
+      name: '新しい店',
+      owner_name: '店長',
+      owner_login_id: 'new-owner',
+      password: 'test-owner-pass',
+      password_confirmation: 'test-owner-pass',
+    })
+    expect(api.fetchAdminStores).toHaveBeenCalledTimes(2)
+    expect(document.querySelector('#store-new-name')).toBeNull()
+    expect(w.text()).toContain('「新しい店」を追加しました（オーナー：new-owner）')
+    w.unmount()
+  })
+
+  it('店舗の追加：画面で分かる誤りは送らずに欄の下へ出す', async () => {
+    const { w } = await mountPage()
+    button('＋店舗を追加').click()
+    await flushPromises()
+
+    button('追加する').click()
+    await flushPromises()
+    expect(api.createAdminStore).not.toHaveBeenCalled()
+    expect(w.text()).toContain('店舗名を入力してください')
+    expect(w.text()).toContain('ログイン ID は半角英数字')
+    expect(w.text()).toContain('パスワードは 8 文字以上')
+
+    fillStoreForm('test-owner-pass', 'different-pass')
+    button('追加する').click()
+    await flushPromises()
+    expect(api.createAdminStore).not.toHaveBeenCalled()
+    expect(w.text()).toContain('初期パスワードが一致しません')
+    w.unmount()
+  })
+
+  it('店舗の追加：サーバーの 422 は欄の下に出し、フォームと入力を残す', async () => {
+    api.createAdminStore.mockRejectedValue(
+      new AxiosError('invalid', undefined, undefined, undefined, {
+        status: 422,
+        data: { message: 'invalid', errors: { owner_login_id: ['このログイン ID はすでに使われています'] } },
+      } as AxiosResponse),
+    )
+    const { w } = await mountPage()
+    button('＋店舗を追加').click()
+    await flushPromises()
+    fillStoreForm()
+    button('追加する').click()
+    await flushPromises()
+
+    expect(w.text()).toContain('このログイン ID はすでに使われています')
+    expect(document.querySelector<HTMLInputElement>('#store-new-owner-login')?.value).toBe('new-owner')
+    expect(api.fetchAdminStores).toHaveBeenCalledTimes(1)
     w.unmount()
   })
 })

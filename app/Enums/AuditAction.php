@@ -35,6 +35,7 @@ enum AuditAction: string
     case StaffCreated = 'staff_created';
     case StaffUpdated = 'staff_updated';
     case StaffPasswordReset = 'staff_password_reset';
+    case StoreCreated = 'store_created';
     case StoreSuspended = 'store_suspended';
     case StoreResumed = 'store_resumed';
     case BackupDownloaded = 'backup_downloaded';
@@ -107,6 +108,7 @@ enum AuditAction: string
             self::StaffCreated => 'スタッフの追加',
             self::StaffUpdated => 'スタッフの変更',
             self::StaffPasswordReset => 'スタッフのパスワード再設定',
+            self::StoreCreated => '店舗の追加',
             self::StoreSuspended => '店舗の停止',
             self::StoreResumed => '店舗の再開',
             self::BackupDownloaded => 'バックアップ取得',

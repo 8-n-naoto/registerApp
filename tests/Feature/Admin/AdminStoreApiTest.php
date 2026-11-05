@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Enums\Role;
 use App\Models\AuditLog;
 use App\Models\PaymentMethod;
 use App\Models\Product;
@@ -11,10 +12,11 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Tests\Feature\Report\SalesDataset;
 use Tests\TestCase;
 
-/** WP 5-4：06 §11.1 GET /admin/stores・§11.2 PATCH /admin/stores/{id}/active */
+/** WP 5-4：06 §11.1 GET /admin/stores・§11.2 PATCH /admin/stores/{id}/active・§11.4 POST /admin/stores */
 class AdminStoreApiTest extends TestCase
 {
     use RefreshDatabase;
@@ -132,15 +134,113 @@ class AdminStoreApiTest extends TestCase
         $this->assertTrue($this->store->refresh()->is_active);
     }
 
+    /**
+     * @param  array<string, string>  $overrides
+     * @return array<string, string>
+     */
+    private function newStore(array $overrides = []): array
+    {
+        return [
+            'name' => '新しい店',
+            'owner_login_id' => 'new-owner',
+            'owner_name' => '店長',
+            'password' => 'test-owner-pass',
+            'password_confirmation' => 'test-owner-pass',
+            ...$overrides,
+        ];
+    }
+
+    public function test_店舗とオーナーを同時に追加する_操作ログにパスワードを残さない(): void
+    {
+        $res = $this->actingAs($this->admin)->postJson('/api/admin/stores', $this->newStore())->assertCreated();
+
+        $store = Store::query()->where('name', '新しい店')->sole();
+        $res->assertExactJson(['id' => $store->id, 'name' => '新しい店', 'owner_login_id' => 'new-owner']);
+        $this->assertTrue($store->is_active);
+
+        $owner = User::query()->where('login_id', 'new-owner')->sole();
+        $this->assertSame(Role::Owner, $owner->role);
+        $this->assertSame($store->id, $owner->store_id);
+        $this->assertSame('店長', $owner->name);
+        $this->assertTrue($owner->is_active);
+        $this->assertTrue($owner->overtime_exempt);
+        $this->assertTrue(Hash::check('test-owner-pass', $owner->password));
+
+        $log = AuditLog::query()->withoutGlobalScopes()->where('action', 'store_created')->sole();
+        $this->assertSame($store->id, $log->store_id);
+        $this->assertSame($this->admin->id, $log->user_id);
+        $this->assertSame(['name' => '新しい店', 'owner_login_id' => 'new-owner', 'owner_name' => '店長'], $log->after);
+        $this->assertStringNotContainsString('test-owner-pass', (string) json_encode($log->getAttributes()));
+
+        // 一覧に出て、オーナーの初回ログインで税区分と支払方法が作られる（D-006）
+        $this->getJson('/api/admin/stores')->assertOk()->assertJsonPath('stores.2.owner_login_ids', ['new-owner']);
+        $this->app['auth']->forgetGuards();
+        $this->fromSpa()->postJson('/api/login', ['login_id' => 'new-owner', 'password' => 'test-owner-pass'])->assertOk();
+        $this->assertSame(2, TaxType::query()->withoutGlobalScopes()->where('store_id', $store->id)->count());
+        $this->assertGreaterThan(0, PaymentMethod::query()->withoutGlobalScopes()->where('store_id', $store->id)->count());
+    }
+
+    public function test_店舗の追加の入力検証で店舗もオーナーも増えない(): void
+    {
+        $this->actingAs($this->admin);
+        $cases = [
+            ['name', ['name' => '']],
+            ['name', ['name' => str_repeat('あ', 101)]],
+            ['name', ['name' => "店\u{0007}舗"]],
+            ['owner_login_id', ['owner_login_id' => 'ab']],
+            ['owner_login_id', ['owner_login_id' => str_repeat('a', 51)]],
+            ['owner_login_id', ['owner_login_id' => '日本語の ID']],
+            ['owner_login_id', ['owner_login_id' => 'owner-a']], // 既存のログイン ID
+            ['owner_name', ['owner_name' => '']],
+            ['owner_name', ['owner_name' => str_repeat('あ', 51)]],
+            ['owner_name', ['owner_name' => "店\u{0007}長"]],
+            ['password', ['password' => 'short', 'password_confirmation' => 'short']],
+            ['password', ['password' => str_repeat('a', 73), 'password_confirmation' => str_repeat('a', 73)]],
+            ['password', ['password_confirmation' => 'different-pass']],
+        ];
+
+        foreach ($cases as [$field, $overrides]) {
+            $this->postJson('/api/admin/stores', $this->newStore($overrides))
+                ->assertUnprocessable()->assertJsonValidationErrors($field);
+        }
+
+        $this->assertSame(2, Store::query()->count());
+        $this->assertFalse(User::query()->where('login_id', 'new-owner')->exists());
+        $this->assertSame(0, AuditLog::query()->withoutGlobalScopes()->where('action', 'store_created')->count());
+    }
+
+    public function test_初期パスワードの前後の空白は削らない(): void
+    {
+        $this->actingAs($this->admin)
+            ->postJson('/api/admin/stores', $this->newStore(['password' => ' test-owner-pass ', 'password_confirmation' => ' test-owner-pass ']))
+            ->assertCreated();
+
+        $owner = User::query()->where('login_id', 'new-owner')->sole();
+        $this->assertTrue(Hash::check(' test-owner-pass ', $owner->password));
+    }
+
+    public function test_本文の役割や店舗の指定は無視する(): void
+    {
+        $this->actingAs($this->admin)
+            ->postJson('/api/admin/stores', $this->newStore(['role' => 'admin', 'store_id' => (string) $this->store->id]))
+            ->assertCreated();
+
+        $owner = User::query()->where('login_id', 'new-owner')->sole();
+        $this->assertSame(Role::Owner, $owner->role);
+        $this->assertNotSame($this->store->id, $owner->store_id);
+    }
+
     public function test_owner_staffは403_未ログインは401(): void
     {
         foreach ([$this->owner, User::factory()->staff($this->store)->create()] as $user) {
             $this->actingAs($user);
             $this->getJson('/api/admin/stores')->assertForbidden();
+            $this->postJson('/api/admin/stores', $this->newStore())->assertForbidden();
             $this->patchJson("/api/admin/stores/{$this->store->id}/active", ['is_active' => false])->assertForbidden();
             $this->getJson('/api/admin/backup')->assertForbidden();
         }
         $this->assertTrue($this->store->refresh()->is_active);
+        $this->assertSame(2, Store::query()->count());
 
         $this->app['auth']->forgetGuards();
         $this->getJson('/api/admin/stores')->assertUnauthorized();

@@ -160,6 +160,7 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
     // admin のみ
     Route::middleware('role:admin')->prefix('admin')->group(function () {
         Route::get('/stores', [Api\Admin\StoreController::class, 'index']);                         // #43
+        Route::post('/stores', [Api\Admin\StoreController::class, 'store']);                        // #107（06 §11.4）
         Route::patch('/stores/{store}/active', [Api\Admin\StoreController::class, 'updateActive'])->whereNumber('store'); // #44
         Route::get('/backup', [Api\Admin\BackupController::class, 'download'])
             ->middleware('throttle:backup');                                                        // #45

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-// A01 店舗一覧（08 §3.4・§5.13）：店舗ごとのカード（状態・本日の売上・オーナー）、閲覧（S04 / S06 / S12）、停止 / 再開、バックアップ
+// A01 店舗一覧（08 §3.4・§5.13）：店舗ごとのカード（状態・本日の売上・オーナー）、店舗の追加、閲覧（S04 / S06 / S12）、停止 / 再開、バックアップ
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { backupUrl, fetchAdminStores, setStoreActive, type AdminStoreRow } from '@/api/admin'
+import { backupUrl, fetchAdminStores, setStoreActive, type AdminStoreCreated, type AdminStoreRow } from '@/api/admin'
 import AccountMenu from '@/components/AccountMenu.vue'
+import AdminStoreForm from '@/components/admin/AdminStoreForm.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import BigButton from '@/components/BigButton.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
@@ -21,6 +22,7 @@ const stores = ref<AdminStoreRow[]>([])
 const loading = ref(true)
 const loadFailed = ref<string | null>(null)
 const notice = ref<string | null>(null)
+const adding = ref(false)
 
 const target = ref<AdminStoreRow | null>(null)
 const toggling = ref(false)
@@ -39,6 +41,17 @@ async function load(): Promise<void> {
 }
 
 onMounted(load)
+
+function startAdd(): void {
+  notice.value = null
+  adding.value = true
+}
+
+function onCreated(store: AdminStoreCreated): void {
+  adding.value = false
+  notice.value = fmt(t.created, { name: store.name, login: store.owner_login_id })
+  void load()
+}
 
 type ViewRoute = 'sales-daily' | 'sales-summary' | 'logs'
 
@@ -82,6 +95,14 @@ async function confirmToggle(): Promise<void> {
 
     <div class="admin-home__body">
       <div class="admin-home__tools">
+        <button
+          v-if="!adding"
+          type="button"
+          class="admin-home__tool r-btn r-btn--primary r-btn--sm"
+          @click="startAdd"
+        >
+          {{ t.add }}
+        </button>
         <a
           class="admin-home__tool r-btn r-btn--secondary r-btn--sm"
           :href="backupUrl"
@@ -110,6 +131,15 @@ async function confirmToggle(): Promise<void> {
             :size="24"
           />
           <span class="r-banner__d">{{ notice }}</span>
+        </div>
+        <div
+          v-if="adding"
+          class="admin-home__card r-card r-card__body"
+        >
+          <AdminStoreForm
+            @created="onCreated"
+            @cancel="adding = false"
+          />
         </div>
         <p
           v-if="loading"

@@ -842,6 +842,25 @@ on('GET', '/admin/stores', (ctx) => {
     }),
   }
 })
+on('POST', '/admin/stores', (ctx) => {
+  const u = requireUser(ctx, ['admin'])
+  const name = str(ctx.body.name).trim() || invalid('name', '店舗名を入力してください')
+  const loginId = str(ctx.body.owner_login_id).trim()
+  if (!/^[A-Za-z0-9_.-]{3,50}$/.test(loginId)) invalid('owner_login_id', 'ログイン ID は半角英数字と _ . - の 3〜50 文字で入力してください')
+  if (db.users.some((x) => x.login_id === loginId)) invalid('owner_login_id', 'このログイン ID はすでに使われています')
+  const ownerName = str(ctx.body.owner_name).trim() || invalid('owner_name', 'オーナーの表示名を入力してください')
+  const password = str(ctx.body.password)
+  if (password.length < 8) invalid('password', 'パスワードは 8 文字以上にしてください')
+  if (password !== str(ctx.body.password_confirmation)) invalid('password', '初期パスワードが一致しません')
+  const id = Math.max(...db.stores.map((s) => s.id)) + 1
+  db.stores.push({
+    id, name, price_mode: 'tax_included', rounding: 'floor', day_cutoff_time: '00:00', stock_enabled: true, is_active: true,
+    order: { customer_order_enabled: false, customer_order_approval: false, customer_session_minutes: 180, polling_mode: 'always', polling_windows: [] },
+  })
+  db.users.push({ id: nextId(db, 'user'), login_id: loginId, name: ownerName, role: 'owner', store_id: id, is_active: true, last_login_at: null, password })
+  audit(u, 'store_created', ['store', id], null, { name, owner_login_id: loginId, owner_name: ownerName })
+  return created({ id, name, owner_login_id: loginId })
+})
 on('PATCH', '/admin/stores/{id}/active', (ctx, [id]) => {
   const u = requireUser(ctx, ['admin'])
   const s = db.stores.find((x) => x.id === Number(id)) ?? notFound()
