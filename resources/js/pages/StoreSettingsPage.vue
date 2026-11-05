@@ -65,7 +65,8 @@ async function load(): Promise<void> {
     taxTypes.value = data.tax_types
     paymentMethods.value = data.payment_methods
   } catch (err) {
-    if (!isNetworkError(err)) loadFailed.value = errorBody(err)?.message ?? ja.error.unexpected
+    // 通信できないときも知らせる。空の入力欄のまま設定を編集させない
+    loadFailed.value = isNetworkError(err) ? ja.error.network : (errorBody(err)?.message ?? ja.error.unexpected)
   } finally {
     loading.value = false
   }
@@ -111,13 +112,22 @@ onMounted(load)
       >
         {{ ja.common.loading }}
       </p>
-      <p
+      <div
         v-else-if="loadFailed"
-        class="adm-error r-err"
-        role="alert"
+        class="adm-panel r-card"
       >
-        {{ loadFailed }}
-      </p>
+        <p
+          class="adm-error r-err"
+          role="alert"
+        >
+          {{ loadFailed }}
+        </p>
+        <div class="adm-actions">
+          <BigButton @click="load">
+            {{ ja.staff.retry }}
+          </BigButton>
+        </div>
+      </div>
       <template v-else>
         <section
           class="adm-panel r-card"

@@ -59,7 +59,8 @@ async function load(): Promise<void> {
     products.value = data.products
     if (typeof tab.value === 'number' && !categories.value.some((c) => c.id === tab.value)) tab.value = 'all'
   } catch (err) {
-    if (!isNetworkError(err)) loadFailed.value = errorBody(err)?.message ?? ja.error.unexpected
+    // 通信できないときも知らせる。空の一覧のままだと「商品がありません」と見えてしまう
+    loadFailed.value = isNetworkError(err) ? ja.error.network : (errorBody(err)?.message ?? ja.error.unexpected)
   } finally {
     loading.value = false
   }
@@ -226,13 +227,22 @@ onMounted(load)
       >
         {{ ja.common.loading }}
       </p>
-      <p
+      <div
         v-else-if="loadFailed"
-        class="adm-error r-err"
-        role="alert"
+        class="adm-panel r-card"
       >
-        {{ loadFailed }}
-      </p>
+        <p
+          class="adm-error r-err"
+          role="alert"
+        >
+          {{ loadFailed }}
+        </p>
+        <div class="adm-actions">
+          <BigButton @click="load">
+            {{ ja.staff.retry }}
+          </BigButton>
+        </div>
+      </div>
 
       <template v-else>
         <nav

@@ -1,8 +1,10 @@
 import { flushPromises, mount } from '@vue/test-utils'
+import { AxiosError } from 'axios'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import type { StoreSettingsBundle } from '@/api/settings'
+import { ja } from '@/i18n/ja'
 import StoreSettingsPage from '@/pages/StoreSettingsPage.vue'
 import { useAuthStore } from '@/stores/auth'
 import { apiError, makeMe } from '@/test/helpers'
@@ -290,5 +292,17 @@ describe('S09 注文の設定（12 §8.8）', () => {
     await mountPage()
     expect(panel().querySelector('[role="alert"]')?.textContent).toContain('x')
     expect(document.querySelector('#store-name')).not.toBeNull()
+  })
+
+  it('店舗設定を読めないときは、空の入力欄を出さず再読み込みで表示する', async () => {
+    api.fetchStoreSettings.mockRejectedValueOnce(new AxiosError('timeout', 'ECONNABORTED'))
+    await mountPage()
+    expect(document.querySelector('.adm-error')?.textContent).toContain(ja.error.network)
+    expect(document.querySelector('#store-name')).toBeNull()
+
+    const retry = [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === ja.staff.retry)
+    retry?.click()
+    await flushPromises()
+    expect(document.querySelector<HTMLInputElement>('#store-name')?.value).toBe('テスト店 A')
   })
 })
