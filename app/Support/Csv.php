@@ -32,6 +32,16 @@ final class Csv
         return $s;
     }
 
+    /** cell が付けた先頭の ' を外す（書き出した CSV を取り込むとき）。危険な文字の前の ' だけを外す */
+    public static function unguard(string $value): string
+    {
+        if (strlen($value) > 1 && $value[0] === "'" && in_array($value[1], self::DANGEROUS, true)) {
+            return substr($value, 1);
+        }
+
+        return $value;
+    }
+
     /** @param  list<string|int|null>  $values */
     public static function line(array $values): string
     {

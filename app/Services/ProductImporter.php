@@ -9,6 +9,7 @@ use App\Exceptions\BusinessException;
 use App\Models\Category;
 use App\Models\Product;
 use App\Rules\NoControlCharacters;
+use App\Support\CsvImportReader;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -29,12 +30,6 @@ final class ProductImporter
     public const COLUMNS = 9;
 
     public const MAX_ROWS = 500;
-
-    private const BOM = "\xEF\xBB\xBF";
-
-    private const TRUE_WORDS = ['1', 'on', 'はい'];
-
-    private const FALSE_WORDS = ['0', 'off', 'いいえ'];
 
     public function __construct(private readonly AuditLogger $audit) {}
 
@@ -81,26 +76,19 @@ final class ProductImporter
             return $result;
         };
 
-        $text = $this->decode($bytes);
+        $text = CsvImportReader::decode($bytes);
         if ($text === null) {
             return $fileError('文字コードを判定できません（UTF-8 か Shift_JIS で保存してください）');
         }
 
-        $records = $this->parse($text);
-        $header = array_map($this->trim(...), $records[1] ?? []);
-        while ($header !== [] && end($header) === '') {
-            array_pop($header);
-        }
+        // 見出し + 上限を超えたことが分かれば残りは読まない
+        $records = CsvImportReader::parse($text, self::MAX_ROWS + 1);
+        $header = CsvImportReader::header($records);
         if ($header !== self::HEADER && $header !== self::LEGACY_HEADER) {
             return $fileError('1 行目の見出しが違います');
         }
 
-        $data = [];
-        foreach ($records as $line => $cells) {
-            if ($line > 1 && ! $this->isBlank($cells)) {
-                $data[$line] = $cells;
-            }
-        }
+        $data = CsvImportReader::dataRows($records);
         if ($data === []) {
             return $fileError('データ行がありません');
         }
@@ -177,7 +165,7 @@ final class ProductImporter
      */
     public function validateRow(array $cells, int $columns = self::COLUMNS): array
     {
-        $cells = array_map($this->trim(...), $cells);
+        $cells = array_map(CsvImportReader::trim(...), $cells);
         $messages = [];
 
         foreach (array_slice($cells, $columns) as $extra) {
@@ -203,17 +191,17 @@ final class ProductImporter
         }
 
         $priceValue = null;
-        $price = str_replace([',', '¥', '￥', '\\'], '', $this->toHalfWidth($price));
+        $price = str_replace([',', '¥', '￥', '\\'], '', CsvImportReader::toHalfWidth($price));
         if ($price === '') {
             $messages[] = '価格：入力してください';
         } else {
-            $priceValue = $this->parseInt($price, 9_999_999);
+            $priceValue = CsvImportReader::parseInt($price, 9_999_999);
             if ($priceValue === null) {
                 $messages[] = '価格：0〜9,999,999 の整数で入力してください';
             }
         }
 
-        $colorValue = $this->parseColor($this->toHalfWidth($color));
+        $colorValue = $this->parseColor(CsvImportReader::toHalfWidth($color));
         if ($colorValue === null) {
             $messages[] = '色：次のいずれかで入力してください（'.implode('・', array_map(
                 fn (ProductColor $c) => $c->label(),
@@ -221,18 +209,18 @@ final class ProductImporter
             )).'、または gray・red などの英字）';
         }
 
-        $trackValue = $this->parseBool($this->toHalfWidth($track), false);
+        $trackValue = CsvImportReader::parseBool(CsvImportReader::toHalfWidth($track), false);
         if ($trackValue === null) {
             $messages[] = '在庫管理：1・ON・はい または 0・OFF・いいえ で入力してください';
         }
 
-        $stock = str_replace(',', '', $this->toHalfWidth($stock));
-        $stockValue = $stock === '' ? 0 : $this->parseInt($stock, StockService::MAX_QTY);
+        $stock = str_replace(',', '', CsvImportReader::toHalfWidth($stock));
+        $stockValue = $stock === '' ? 0 : CsvImportReader::parseInt($stock, StockService::MAX_QTY);
         if ($stockValue === null) {
             $messages[] = '在庫数：0〜999,999 の整数で入力してください';
         }
 
-        $activeValue = $this->parseBool($this->toHalfWidth($active), true);
+        $activeValue = CsvImportReader::parseBool(CsvImportReader::toHalfWidth($active), true);
         if ($activeValue === null) {
             $messages[] = '販売中：1・ON・はい または 0・OFF・いいえ で入力してください';
         }
@@ -326,86 +314,6 @@ final class ProductImporter
         return $name."\0".($memo ?? '');
     }
 
-    /** 先頭の BOM を除き UTF-8 にする。UTF-8 でも CP932 でもなければ null */
-    private function decode(string $bytes): ?string
-    {
-        if (str_starts_with($bytes, self::BOM)) {
-            $bytes = substr($bytes, strlen(self::BOM));
-        }
-        if (mb_check_encoding($bytes, 'UTF-8')) {
-            return $bytes;
-        }
-        if (mb_check_encoding($bytes, 'SJIS-win')) {
-            return mb_convert_encoding($bytes, 'UTF-8', 'SJIS-win');
-        }
-
-        return null;
-    }
-
-    /**
-     * レコード番号（見出し = 1）→ セルの配列。引用符内のカンマ・改行・"" を扱う。
-     * CRLF / CR は LF にそろえる（引用符内の改行も LF になる）
-     *
-     * @return array<int, list<string>>
-     */
-    private function parse(string $text): array
-    {
-        $stream = fopen('php://temp', 'r+');
-        if ($stream === false) {
-            return [];
-        }
-        fwrite($stream, str_replace(["\r\n", "\r"], "\n", $text));
-        rewind($stream);
-
-        $records = [];
-        $line = 0;
-        $filled = 0;
-        while (($cells = fgetcsv($stream, null, ',', '"', '')) !== false) {
-            $cells = array_map(fn (?string $c): string => (string) $c, $cells);
-            $records[++$line] = $cells;
-            if (! $this->isBlank($cells) && ++$filled > self::MAX_ROWS + 1) {
-                break; // 見出し + 上限を超えたことが分かれば残りは読まない
-            }
-        }
-        fclose($stream);
-
-        return $records;
-    }
-
-    /** @param  list<string>  $cells */
-    private function isBlank(array $cells): bool
-    {
-        foreach ($cells as $cell) {
-            if ($this->trim($cell) !== '') {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /** 前後の半角スペース・タブ・改行・全角スペースを除く */
-    private function trim(string $value): string
-    {
-        return (string) preg_replace('/^[\s\x{3000}]+|[\s\x{3000}]+$/u', '', $value);
-    }
-
-    /** 全角英数字・記号・スペースを半角にする（mb_convert_kana 'as'） */
-    private function toHalfWidth(string $value): string
-    {
-        return mb_convert_kana($value, 'as', 'UTF-8');
-    }
-
-    private function parseInt(string $value, int $max): ?int
-    {
-        if (preg_match('/^[0-9]+$/', $value) !== 1 || strlen(ltrim($value, '0')) > 7) {
-            return null;
-        }
-        $int = (int) $value;
-
-        return $int <= $max ? $int : null;
-    }
-
     private function parseColor(string $value): ?string
     {
         if ($value === '') {
@@ -418,19 +326,5 @@ final class ProductImporter
         }
 
         return null;
-    }
-
-    private function parseBool(string $value, bool $default): ?bool
-    {
-        if ($value === '') {
-            return $default;
-        }
-        $lower = strtolower($value);
-
-        return match (true) {
-            in_array($lower, self::TRUE_WORDS, true) => true,
-            in_array($lower, self::FALSE_WORDS, true) => false,
-            default => null,
-        };
     }
 }

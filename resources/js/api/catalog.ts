@@ -1,4 +1,4 @@
-import { http } from '@/api/client'
+import { apiBaseUrl, http } from '@/api/client'
 import type { Category, OptionSelection, Product, ProductColor, ProductOption, ProductOptionGroup } from '@/types/api'
 
 // 06 §7 商品・カテゴリ・オプション（owner のみ）
@@ -85,6 +85,27 @@ export async function changeStock(id: number, mode: StockMode, value: number): P
 export async function reorderProducts(ids: number[]): Promise<void> {
   await http.put('/products/order', { ids })
 }
+
+/** 06 §7.10 オプション CSV の結果。全行の内容は返さない */
+export interface OptionImportResult {
+  dry_run: boolean
+  valid_count: number
+  skipped_count: number
+  product_count: number
+  new_group_count: number
+  errors: ImportLineMessages[]
+  warnings: ImportLineMessages[]
+}
+
+export async function importProductOptions(file: File, dryRun: boolean): Promise<OptionImportResult> {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('dry_run', dryRun ? '1' : '0')
+  return (await http.post<OptionImportResult>('/products/options/import', form)).data
+}
+
+/** 06 §7.11 今の商品の商品コードと商品名が入ったひな形 */
+export const optionTemplateUrl = `${apiBaseUrl}/products/options/import-template`
 
 export async function importProducts(file: File, dryRun: boolean): Promise<ImportResult> {
   const form = new FormData()

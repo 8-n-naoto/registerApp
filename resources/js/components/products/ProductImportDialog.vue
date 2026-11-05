@@ -1,9 +1,16 @@
 <script setup lang="ts">
-// S08 CSV 一括登録ダイアログ（08 §5.9・06 §7.7）。
+// S08 CSV 一括登録ダイアログ（08 §5.9・06 §7.7・§7.10）。商品とオプションを切り替える。
 // ファイルを選ぶと dry_run=true で自動プレビュー → エラーが 0 件のときだけ［N 件を登録する］を押せる
-import { computed, onMounted, ref } from 'vue'
-import { importProducts, type ImportResult } from '@/api/catalog'
+import { computed, onMounted, ref, watch } from 'vue'
+import {
+  importProductOptions,
+  importProducts,
+  optionTemplateUrl,
+  type ImportResult,
+  type OptionImportResult,
+} from '@/api/catalog'
 import BigButton from '@/components/BigButton.vue'
+import SegmentedControl from '@/components/SegmentedControl.vue'
 import { fmt, ja } from '@/i18n/ja'
 import { errorBody, errorStatus, fieldErrors, isNetworkError } from '@/lib/apiError'
 import { IMPORT_TEMPLATE } from '@/lib/productColors'
@@ -12,13 +19,42 @@ const t = ja.importDialog
 
 const emit = defineEmits<{ imported: []; close: [] }>()
 
+type ImportKind = 'products' | 'options'
+type AnyImportResult = ImportResult | OptionImportResult
+
+const kinds: readonly { value: ImportKind; label: string }[] = [
+  { value: 'products', label: t.kindProducts },
+  { value: 'options', label: t.kindOptions },
+]
+const kind = ref<ImportKind>('products')
 const file = ref<File | null>(null)
-const result = ref<ImportResult | null>(null)
+const result = ref<AnyImportResult | null>(null)
 const busy = ref(false)
 const failed = ref<string | null>(null)
 const done = ref<string | null>(null)
 
 const canSubmit = computed(() => result.value !== null && result.value.errors.length === 0 && result.value.valid_count > 0)
+
+/** 件数の下に出す補足の行 */
+const summary = computed<string[]>(() => {
+  const r = result.value
+  if (!r) return []
+  if ('new_categories' in r) {
+    return r.new_categories.length > 0 ? [fmt(t.newCategories, { names: r.new_categories.join('、') })] : []
+  }
+  return [
+    fmt(t.targetProducts, { n: r.product_count }),
+    ...(r.new_group_count > 0 ? [fmt(t.newGroups, { n: r.new_group_count })] : []),
+    ...(r.skipped_count > 0 ? [fmt(t.skipped, { n: r.skipped_count })] : []),
+  ]
+})
+
+watch(kind, () => {
+  file.value = null
+  result.value = null
+  failed.value = null
+  done.value = null
+})
 
 const panel = ref<HTMLElement | null>(null)
 onMounted(() => panel.value?.querySelector<HTMLElement>('[data-first]')?.focus())
@@ -32,7 +68,7 @@ function downloadTemplate(): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-function isImportResult(value: unknown): value is ImportResult {
+function isImportResult(value: unknown): value is AnyImportResult {
   return typeof value === 'object' && value !== null && 'errors' in value && 'valid_count' in value
 }
 
@@ -41,7 +77,8 @@ async function run(dryRun: boolean): Promise<void> {
   busy.value = true
   failed.value = null
   try {
-    result.value = await importProducts(file.value, dryRun)
+    const send = kind.value === 'options' ? importProductOptions : importProducts
+    result.value = await send(file.value, dryRun)
     if (!dryRun) {
       done.value = fmt(t.done, { n: result.value.valid_count })
       emit('imported')
@@ -100,11 +137,25 @@ function onFileChange(e: Event): void {
             {{ ja.common.close }}
           </button>
         </header>
+        <SegmentedControl
+          v-model="kind"
+          :options="kinds"
+          :label="t.kindLabel"
+          :disabled="busy"
+        />
         <p class="adm-help r-help">
-          {{ t.steps }}
+          {{ kind === 'options' ? t.stepsOptions : t.steps }}
         </p>
         <div class="adm-actions">
+          <a
+            v-if="kind === 'options'"
+            class="adm-btn dialog__template"
+            :href="optionTemplateUrl"
+            download
+            data-test="option-template"
+          >{{ t.template }}</a>
           <button
+            v-else
             type="button"
             class="adm-btn"
             data-first
@@ -154,8 +205,11 @@ function onFileChange(e: Event): void {
           <p class="dialog__count">
             {{ fmt(t.validCount, { n: result.valid_count }) }}
           </p>
-          <p v-if="result.new_categories.length > 0">
-            {{ fmt(t.newCategories, { names: result.new_categories.join('、') }) }}
+          <p
+            v-for="note in summary"
+            :key="note"
+          >
+            {{ note }}
           </p>
           <section
             v-if="result.errors.length > 0"
@@ -232,6 +286,7 @@ function onFileChange(e: Event): void {
 .dialog__title { font-size: var(--fs-heading); }
 .dialog__file { font-weight: 700; overflow-wrap: anywhere; }
 .dialog__count { font-size: 20px; font-weight: 700; }
+.dialog__template { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
 
 .file-btn {
   display: inline-flex;

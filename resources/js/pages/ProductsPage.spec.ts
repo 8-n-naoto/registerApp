@@ -2,7 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import type { ImportResult } from '@/api/catalog'
+import type { ImportResult, OptionImportResult } from '@/api/catalog'
 import ProductsPage from '@/pages/ProductsPage.vue'
 import { useAuthStore } from '@/stores/auth'
 import { apiError, makeMe } from '@/test/helpers'
@@ -17,6 +17,7 @@ const api = vi.hoisted(() => ({
   changeStock: vi.fn(),
   reorderProducts: vi.fn(),
   importProducts: vi.fn(),
+  importProductOptions: vi.fn(),
   createCategory: vi.fn(),
   updateCategory: vi.fn(),
   deleteCategory: vi.fn(),
@@ -26,7 +27,7 @@ const api = vi.hoisted(() => ({
   deleteOption: vi.fn(),
   reorderOptions: vi.fn(),
 }))
-vi.mock('@/api/catalog', () => api)
+vi.mock('@/api/catalog', () => ({ ...api, optionTemplateUrl: 'option-template.csv' }))
 
 function product(id: number, name: string, categoryId: number | null, extra: Partial<Product> = {}): Product {
   return {
@@ -296,6 +297,61 @@ describe('S08 商品管理（08 §5.9）', () => {
     expect(text).toContain('新しく作るカテゴリ：スイーツ')
     const submit = [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.includes('件を登録する'))
     expect(submit?.disabled).toBe(true)
+  })
+
+  it('オプションに切り替えると、オプションの API で確認して件数を出す。ひな形はサーバーの CSV へのリンク', async () => {
+    const result: OptionImportResult = {
+      dry_run: true, valid_count: 3, skipped_count: 2, product_count: 1, new_group_count: 1,
+      errors: [{ line: 4, messages: ['商品コード NOPE の商品が見つかりません'] }],
+      warnings: [{ line: 2, messages: ['同じオプションが既にあるため飛ばします'] }],
+    }
+    api.importProductOptions.mockResolvedValue(result)
+    await mountPage('/products?import=1')
+
+    const toggle = [...document.querySelectorAll<HTMLButtonElement>('[role="radio"]')].find((b) => b.textContent?.includes('オプション'))
+    toggle?.click()
+    await flushPromises()
+    expect(toggle?.getAttribute('aria-checked')).toBe('true')
+    const template = document.querySelector<HTMLAnchorElement>('[data-test="option-template"]')
+    expect(template?.getAttribute('href')).toBe('option-template.csv')
+    expect(template?.hasAttribute('download')).toBe(true)
+
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')
+    if (!input) throw new Error('no file input')
+    const file = new File(['x'], 'o.csv', { type: 'text/csv' })
+    Object.defineProperty(input, 'files', { value: [file], configurable: true })
+    input.dispatchEvent(new Event('change'))
+    await flushPromises()
+
+    expect(api.importProductOptions).toHaveBeenCalledWith(file, true)
+    expect(api.importProducts).not.toHaveBeenCalled()
+    const text = document.body.textContent ?? ''
+    expect(text).toContain('対象の商品 1 件')
+    expect(text).toContain('新しく作るグループ 1 件')
+    expect(text).toContain('既にあるため飛ばす 2 件')
+    expect(text).toContain('商品コード NOPE の商品が見つかりません')
+    expect(text).toContain('同じオプションが既にあるため飛ばします')
+    const submit = [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.includes('件を登録する'))
+    expect(submit?.disabled).toBe(true)
+  })
+
+  it('種類を切り替えると、選んだファイルと確認の結果を消す', async () => {
+    const ok: ImportResult = { dry_run: true, valid_count: 2, new_categories: [], errors: [], warnings: [], rows: [] }
+    api.importProducts.mockResolvedValue(ok)
+    await mountPage('/products?import=1')
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')
+    if (!input) throw new Error('no file input')
+    Object.defineProperty(input, 'files', { value: [new File(['x'], 'p.csv')], configurable: true })
+    input.dispatchEvent(new Event('change'))
+    await flushPromises()
+    expect(document.body.textContent).toContain('p.csv')
+
+    const toggle = [...document.querySelectorAll<HTMLButtonElement>('[role="radio"]')].find((b) => b.textContent?.includes('オプション'))
+    toggle?.click()
+    await flushPromises()
+
+    expect(document.body.textContent).not.toContain('p.csv')
+    expect([...document.querySelectorAll('button')].some((b) => b.textContent?.includes('件を登録する'))).toBe(false)
   })
 
   it('エラーが無ければ登録でき、一覧を取り直す。422 の IMPORT_INVALID は details を出す', async () => {

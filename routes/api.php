@@ -84,6 +84,8 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api'])->group(fun
         Route::post('/products', [Api\ProductController::class, 'store']);                          // #15
         Route::put('/products/order', [Api\ProductController::class, 'reorder']);                   // #19
         Route::post('/products/import', [Api\ProductImportController::class, 'store'])->middleware('throttle:import'); // #20
+        Route::post('/products/options/import', [Api\ProductOptionImportController::class, 'store'])->middleware('throttle:import'); // #108
+        Route::get('/products/options/import-template', [Api\ProductOptionImportController::class, 'template']); // #109
         Route::put('/products/{product}', [Api\ProductController::class, 'update'])->whereNumber('product');      // #16
         Route::delete('/products/{product}', [Api\ProductController::class, 'destroy'])->whereNumber('product');  // #17
         Route::patch('/products/{product}/stock', [Api\ProductStockController::class, 'update'])->whereNumber('product'); // #18

@@ -154,6 +154,9 @@ class RoleMatrixTest extends TestCase
         106 => ['POST', '/order-items/{id}/cancel', ['owner', 'staff'], null, 'orderItem'],
         // 店舗の追加（06 §11.4）
         107 => ['POST', '/admin/stores', ['admin'], 'none', null],
+        // オプション CSV 一括登録（docs/18）
+        108 => ['POST', '/products/options/import', ['owner'], null, null],
+        109 => ['GET', '/products/options/import-template', ['owner'], null, null],
     ];
 
     /** 本文以外で必要な検索条件（期間の集計は from / to が先に検証されるため、store_id の検証を確かめられるよう正しい期間を付ける） */

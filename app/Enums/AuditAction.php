@@ -22,6 +22,7 @@ enum AuditAction: string
     case ProductDeleted = 'product_deleted';
     case ProductStockChanged = 'product_stock_changed';
     case ProductsImported = 'products_imported';
+    case ProductOptionsImported = 'product_options_imported';
     case OptionCreated = 'option_created';
     case OptionUpdated = 'option_updated';
     case OptionDeleted = 'option_deleted';
@@ -95,6 +96,7 @@ enum AuditAction: string
             self::ProductDeleted => '商品の削除',
             self::ProductStockChanged => '在庫数の変更',
             self::ProductsImported => '商品の一括登録',
+            self::ProductOptionsImported => 'オプションの一括登録',
             self::OptionCreated => 'オプションの追加',
             self::OptionUpdated => 'オプションの変更',
             self::OptionDeleted => 'オプションの削除',

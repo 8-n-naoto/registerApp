@@ -60,6 +60,27 @@ class CsvTest extends TestCase
         $this->assertSame($expected, Csv::ratePercent($permille));
     }
 
+    /** @return array<string, array{string, string}> */
+    public static function guarded(): array
+    {
+        return [
+            '= の前の \'' => ["'=SUM(A1)", '=SUM(A1)'],
+            '- の前の \'' => ["'-X", '-X'],
+            '+ の前の \'' => ["'+81", '+81'],
+            '@ の前の \'' => ["'@user", '@user'],
+            '危険でない文字の前の \' は残す' => ["'abc", "'abc"],
+            '\' だけ' => ["'", "'"],
+            '\' が無い' => ['abc', 'abc'],
+            '空' => ['', ''],
+        ];
+    }
+
+    #[DataProvider('guarded')]
+    public function test_unguard(string $value, string $expected): void
+    {
+        $this->assertSame($expected, Csv::unguard($value));
+    }
+
     public function test_line_はカンマ区切りで_crlf_で終わる(): void
     {
         $this->assertSame("1,a,,'=x,\"b,c\"\r\n", Csv::line([1, 'a', null, '=x', 'b,c']));

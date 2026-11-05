@@ -530,6 +530,7 @@ on('PUT', '/products/order', (ctx) => {
   return noContent
 })
 on('POST', '/products/import', () => fail(422, 'デモでは CSV の取り込みは使えません', { code: 'IMPORT_INVALID', errors: { file: ['デモでは CSV の取り込みは使えません'] } }))
+on('POST', '/products/options/import', () => fail(422, 'デモでは CSV の取り込みは使えません', { code: 'IMPORT_INVALID', errors: { file: ['デモでは CSV の取り込みは使えません'] } }))
 on('PUT', '/products/{id}', (ctx, [id]) => {
   const u = requireUser(ctx, ['owner'])
   const p = findProduct(Number(id))

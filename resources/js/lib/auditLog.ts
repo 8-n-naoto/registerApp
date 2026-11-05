@@ -69,7 +69,7 @@ export const AUDIT_ACTIONS = [
   'login_succeeded', 'login_failed', 'password_changed', 'store_initialized', 'store_settings_updated',
   'tax_type_created', 'tax_type_updated', 'payment_method_created', 'payment_method_updated',
   'category_created', 'category_updated', 'category_deleted',
-  'product_created', 'product_updated', 'product_deleted', 'product_stock_changed', 'products_imported',
+  'product_created', 'product_updated', 'product_deleted', 'product_stock_changed', 'products_imported', 'product_options_imported',
   'option_created', 'option_updated', 'option_deleted',
   'option_group_created', 'option_group_updated', 'option_group_deleted',
   'sale_cancelled', 'sale_offline_synced', 'sale_offline_reviewed', 'closing_saved', 'staff_created', 'staff_updated', 'staff_password_reset',
