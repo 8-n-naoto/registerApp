@@ -92,6 +92,7 @@ class SummaryReportApiTest extends TestCase
     {
         $this->getJson('/api/reports/summary')->assertStatus(422)->assertJsonValidationErrors(['from', 'to']);
         $this->getJson('/api/reports/summary?from=2026-09-30&to=2026-09-29')->assertStatus(422)->assertJsonValidationErrors('to');
+        $this->getJson('/api/reports/summary?from=2026-09-30&to=2026-09-29')->assertJsonPath('errors.to.0', '終了日は開始日以降の日付にしてください');
         $this->getJson('/api/reports/summary?from=2026-9-1&to=2026-09-29')->assertStatus(422)->assertJsonValidationErrors('from');
         $this->getJson('/api/reports/summary?from=2026-09-01&to=2026-02-30')->assertStatus(422)->assertJsonValidationErrors('to');
         // 両端を含めて 366 日まで（閏年をまたぐ 2027-10-01〜2028-09-30 は 366 日）

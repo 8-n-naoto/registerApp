@@ -429,7 +429,7 @@ class ProductImportApiTest extends TestCase
         $this->post('/api/products/import', [], ['Accept' => 'application/json'])
             ->assertUnprocessable()->assertJsonValidationErrors(['file']);
         $this->import($this->csv([',A,1,,,,']), null, 'products.txt')
-            ->assertUnprocessable()->assertJsonValidationErrors(['file']);
+            ->assertUnprocessable()->assertJsonPath('errors.file.0', 'ファイルはcsv形式のファイルにしてください');
         $this->import($this->csv([',A,1,,,,']), 'maybe')
             ->assertUnprocessable()->assertJsonValidationErrors(['dry_run']);
 

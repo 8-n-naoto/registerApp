@@ -3,6 +3,7 @@
 // 入力エラーの日本語メッセージ（APP_LOCALE=ja）。項目名は各 FormRequest の attributes() で与える
 return [
     'accepted' => ':attributeを承認してください',
+    'after_or_equal' => ':attributeは:date以降の日付にしてください',
     'array' => ':attributeの形式が正しくありません',
     'between' => [
         'numeric' => ':attributeは:min〜:maxにしてください',
@@ -19,6 +20,8 @@ return [
     'digits' => ':attributeは:digits桁の数字にしてください',
     'distinct' => ':attributeが重複しています',
     'exists' => '選択された:attributeは見つかりません',
+    'enum' => '選択された:attributeは正しくありません',
+    'extensions' => ':attributeは:values形式のファイルにしてください',
     'file' => ':attributeはファイルにしてください',
     'filled' => ':attributeを入力してください',
     'gt' => [
@@ -65,6 +68,7 @@ return [
         'array' => ':attributeは:size件にしてください',
         'file' => ':attributeは:size KBにしてください',
     ],
+    'starts_with' => ':attributeの形式が正しくありません',
     'string' => ':attributeは文字列にしてください',
     'unique' => 'その:attributeは既に使われています',
     'uuid' => ':attributeの形式が正しくありません',
