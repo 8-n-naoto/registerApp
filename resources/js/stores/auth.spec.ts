@@ -53,6 +53,34 @@ describe('auth：端末に残す利用者（14 §7.3）', () => {
     expect(auth.offlineSession).toBe(true)
   })
 
+  it('オンラインのまま GET /me だけ打ち切られても、確かめ直して端末の情報で動く状態を抜ける', async () => {
+    localStorage.setItem(ME_CACHE_KEY, JSON.stringify(makeMe('owner')))
+    authApi.fetchMe.mockRejectedValueOnce(new AxiosError('timeout', 'ECONNABORTED'))
+    const auth = useAuthStore()
+    await auth.fetchMe()
+    expect(auth.offlineSession).toBe(true)
+
+    authApi.fetchMe.mockResolvedValueOnce(makeMe('owner'))
+    auth.recheckOfflineSession()
+    await flushPromises()
+    expect(authApi.fetchMe).toHaveBeenCalledTimes(2)
+    expect(auth.offlineSession).toBe(false)
+  })
+
+  it('確かめ直し：端末がオフラインのとき・端末の情報で動いていないときは GET /me を呼ばない', async () => {
+    localStorage.setItem(ME_CACHE_KEY, JSON.stringify(makeMe('owner')))
+    const auth = useAuthStore()
+    auth.recheckOfflineSession()
+    expect(authApi.fetchMe).not.toHaveBeenCalled()
+
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    await auth.fetchMe()
+    expect(auth.offlineSession).toBe(true)
+    auth.recheckOfflineSession()
+    await flushPromises()
+    expect(authApi.fetchMe).not.toHaveBeenCalled()
+  })
+
   it('admin は残さない。401 は残した利用者を使わずログイン画面へ。ログアウトで消す', async () => {
     authApi.fetchMe.mockResolvedValueOnce(makeMe('admin'))
     await useAuthStore().fetchMe()

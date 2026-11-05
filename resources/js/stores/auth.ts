@@ -115,6 +115,15 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /**
+   * 端末に残した利用者で動いているとき、通信できそうなら GET /me で確かめ直す。
+   * 通信が戻ったときのほか、端末はオンラインのまま GET /me だけ打ち切られたとき（online イベントが来ない）のために一定間隔でも呼ぶ
+   */
+  function recheckOfflineSession(): void {
+    if (!offlineSession.value || offlineNow()) return
+    refreshMe().catch(() => undefined)
+  }
+
   /** 初回だけ GET /me を呼ぶ。通信できなかった場合は次の画面遷移でもう一度試す */
   function ensureLoaded(): Promise<void> {
     loading ??= fetchMe().catch(() => {
@@ -168,6 +177,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     me, loaded, offlineSession, role, isAdmin, isOwner, isStaff, working, onBreak, needsClockIn, homeRoute,
-    fetchMe, refreshMe, ensureLoaded, login, logout, clockIn, startBreak, endBreak, switchOperator, clear,
+    fetchMe, refreshMe, recheckOfflineSession, ensureLoaded, login, logout, clockIn, startBreak, endBreak, switchOperator, clear,
   }
 })

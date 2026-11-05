@@ -73,6 +73,8 @@ router.afterEach(() => {
   }, 300)
 })
 
+const OFFLINE_SESSION_RECHECK_MS = 30_000
+
 // 14 §7 オフライン会計：ログイン中の店舗の送信待ちを読み、送れるときに送る。
 // 通信できないまま端末に残した利用者で起動したときは、通信が戻ったら GET /me で確かめる（切れていれば 401 でログイン画面へ）
 const outbox = useOutboxStore()
@@ -84,9 +86,8 @@ watch(
   },
   { immediate: true },
 )
-window.addEventListener('online', () => {
-  if (auth.offlineSession) auth.refreshMe().catch(() => undefined)
-})
+window.addEventListener('online', () => auth.recheckOfflineSession())
+window.setInterval(() => auth.recheckOfflineSession(), OFFLINE_SESSION_RECHECK_MS)
 
 // XSRF-TOKEN Cookie を先に受け取る（08 §8）。失敗しても画面は出し、API 側の 419 の再試行に任せる
 ensureCsrfCookie().catch(() => undefined)
