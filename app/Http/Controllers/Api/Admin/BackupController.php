@@ -37,6 +37,10 @@ class BackupController extends Controller
         $connection->statement('VACUUM INTO ?', [$path]);
         $audit->log(AuditAction::BackupDownloaded, after: ['file' => $name]);
 
-        return response()->download($path, $name, ['Content-Type' => 'application/octet-stream'])->deleteFileAfterSend();
+        $response = response()->download($path, $name, ['Content-Type' => 'application/octet-stream']);
+        // download() は既定で public になる。DB 全体なので、他のダウンロードと同じくキャッシュさせない
+        $response->headers->set('Cache-Control', 'no-store');
+
+        return $response->deleteFileAfterSend();
     }
 }

@@ -52,6 +52,9 @@ class AdminBackupApiTest extends TestCase
 
         $res = $this->actingAs($admin)->get('/api/admin/backup')->assertOk();
         $res->assertHeader('Content-Type', 'application/octet-stream');
+        // DB 全体を返すので、サーバーキャッシュやブラウザに残さない
+        $this->assertTrue($res->baseResponse->headers->hasCacheControlDirective('no-store'));
+        $this->assertFalse($res->baseResponse->headers->hasCacheControlDirective('public'));
         $res->assertDownload('regi-20260929-160509.sqlite');
 
         $base = $res->baseResponse;
